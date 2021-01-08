@@ -8,15 +8,6 @@ config_path = 'make_config'
 gamer_abs_path = '/work1/xuanshan/gamer_test'
 input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
 
-test_cmds = [['sed','-i','s/#SIMU_OPTION += -DMODEL=HYDRO/SIMU_OPTION += -DMODEL=HYDRO/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DGRAVITY/#SIMU_OPTION += -DGRAVITY/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DPARTICLE/#SIMU_OPTION += -DPARTICLE/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DSUPPORT_GRACKLE/#SIMU_OPTION += -DSUPPORT_GRACKLE/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DGPU/#SIMU_OPTION += -DGPU/g','Makefile'],\
-	['sed','-i','s/#SIMU_OPTION += -DSERIAL/SIMU_OPTION += -DSERIAL/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DLOAD_BALANCE=HILBERT/#SIMU_OPTION += -DLOAD_BALANCE=HILBERT/g','Makefile'],\
-	['sed','-i','s/SIMU_OPTION += -DOPENMP/#SIMU_OPTION += -DOPENMP/g','Makefile']]
-
 test_config = {'Enable':['MODEL=HYDRO','SERIAL'],\
 	       'Disable':['GRAVITY','PARTICLE','SUPPORT_GRACKLE','GPU','LOAD_BALANCE=HILBERT','OPENMP']}
 
@@ -65,12 +56,17 @@ def make(config):
 	return 0
 
 def run(file_folder):
+	#cupy input files to work directory
 	run_directory = gamer_abs_path + '/bin'
-	os.chdir(run_directory)
 	test_name = file_folder.split('/')[-1]
-	st.copytree(file_folder,test_name)
-	os.chdir(test_name)
-	st.copy('../gamer','.')
+	try:
+		os.chdir(run_directory)
+		st.copytree(file_folder,test_name)
+		os.chdir(test_name)
+		st.copy('../gamer','.')
+	except:
+		print 'Error on create work directory.'
+	#run gamer
 	try:
 		subprocess.check_call(['./gamer'])
 	except subprocess.CalledProcessErro , err:
