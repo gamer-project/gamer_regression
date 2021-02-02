@@ -25,7 +25,7 @@ def get_config(config_path):
 	return config
 
 #Edit gamer configuration settings
-def make(config):
+def make(config,**kwargs):
 #	get commands to midify Makefile.
 	cmds = []
 #	add enable options
@@ -36,9 +36,10 @@ def make(config):
 		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
 #	Back up and modify Makefile
 	current_path = os.getcwd()
-	os.chdir(gamer_abs_pathi + '/src')
+	os.chdir(gamer_abs_path + '/src')
 	subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
 #	Makefile configuration
+	
 	try:
 		for cmd in cmds:
 			subprocess.check_call(cmd)
@@ -55,8 +56,8 @@ def make(config):
 	subprocess.check_call(['rm', 'Makefile.origin'])
 	return 0
 
-def run(file_folder):
-	#cupy input files to work directory
+def copy_example(file_folder):
+#cupy input files to work directory
 	run_directory = gamer_abs_path + '/bin'
 	test_name = file_folder.split('/')[-1]
 	try:
@@ -66,20 +67,40 @@ def run(file_folder):
 		st.copy('../gamer','.')
 	except:
 		print 'Error on create work directory.'
-	#run gamer
-	try:
-		subprocess.check_call(['./gamer'])
-	except subprocess.CalledProcessErro , err:
-		print 'err', err.cmd
 
-	return 0
+def run(**kwargs):
+#run gamer
+	if len(kwargs) != 0:
+		try:
+			subprocess.check_call(['./gamer'])
+		except subprocess.CalledProcessError, err:
+			print 'err', err.cmd
+			kwargs['logger'].error('run_error')
+	else:
+		subprocess.check_call(['./gamer'])
 
 def analyze():
-
 	return 0
+
+def check_answer(actual, expect, mode='identicle',**kwargs):
+	a = pd.DataFrame(actual)
+	b = pd.DataFrame(expect)
+	if a.shape == b.shape:
+		if mode == 'identicle':
+			return a.equals(b)
+		elif mode == 'almost':
+			err = a - b
+			if err > 6e-10:
+				return False
+			else:
+				return True
+	else:
+		print 'Data frame shapes are different.'
+		kwargs('logger').debug('data shapes are different.')
+
 
 #seirpt self test
 if __name__ == '__main__':
-#	config = get_config(config_path)
-#	make(config)
+	config = get_config(config_path)
+	make(config)
 	run(input_folder)
