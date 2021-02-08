@@ -4,6 +4,8 @@ import subprocess
 import pandas as pd
 import shutil as st
 
+from .log_pipe import LogPipe
+
 config_path = 'make_config'
 gamer_abs_path = '/work1/xuanshan/gamer_test'
 input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
@@ -101,6 +103,7 @@ def check_answer(actual, expect, mode='identicle',**kwargs):
 
 #seirpt self test
 if __name__ == '__main__':
-	config = get_config(config_path)
-	make(config)
-	run(input_folder)
+#	config = get_config(config_path)
+#	make(config)
+#	run()
+	print check_answer([1],[1])

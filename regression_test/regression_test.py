@@ -6,6 +6,9 @@ import logging.config
 from pkgutil import iter_modules
 
 import script.run_gamer as gamer
+
+current_path = os.getcwd()
+
 #over all global variable
 gamer.gamer_abs_path = '/work1/xuanshan/gamer_test'
 
@@ -14,9 +17,17 @@ test_example_path = [gamer.gamer_abs_path + '/example/test_problem/Hydro/', game
 all_tests = []
 for _,pk,tf in iter_modules(test_example_path):
 	all_tests.append(pk)
+testing_tests = ['Riemann',]
 
 #init global logging variable
 file_name = 'test.log'
+#f = False
+#try:
+#	f = open(file_name)
+#if f is not False:
+#	f.close()
+#	os.remove(file_name)
+
 std_formatter = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
 save_formatter = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
 ch = logging.StreamHandler()
@@ -33,7 +44,7 @@ def log_init():
 	file_handler.setFormatter(save_formatter)
 
 def set_up_logger(logger):
-#set up settings to logger object
+	#set up settings to logger object
 	logger.setLevel(logging.DEBUG)
 	logger.propagate = False
 	logger.addHandler(ch)
@@ -42,45 +53,69 @@ def set_up_logger(logger):
 test_logger = logging.getLogger('regression_test')
 set_up_logger(test_logger)
 
-def main():
-#set tests to run.
-	tests = ['Riemann',]
+def main(tests):
+	#set tests to run.
 	for test_name in tests:
+		indi_test_logger = logging.getLogger(test_name)
+		set_up_logger(indi_test_logger)
 		try:
-#set up gamer make configuration
-			config = gamer.get_config('/work1/xuanshan/regression_test/make_config')
-#make gamer
+	#set up gamer make configuration
+			config = gamer.get_config('/work1/xuanshan/regression_test/configs/%s/make_config'%(test_name))
+	#make gamer
 			try:
-				make_logger = logging.getLogger('make_%s'%(test_name))
-				set_up_logger(make_logger)
-				gamer.make(config,logger=make_logger)
+				gamer.make(config,logger=indi_test_logger)
 			except Exception:
-				make_logger.error('Compile error occurred', exc_info=True)
-#run gamer
+				test_logger.error('Compile_error', exc_info=True)
+	#run gamer
 			try:
-#prepare to run gamer
-				run_logger = logging.getLogger('run_%s'%(test_name))
-				set_up_logger(run_logger)
+	#prepare to run gamer
 				test_folder = gamer.gamer_abs_path + '/example/test_problem/Hydro/' + test_name
 				gamer.copy_example(test_folder)
-#run
-				gamer.run(logger=run_logger)
+	#run gamer
+				gamer.run(logger=indi_test_logger)
 			except Exception:
-				run_logger.error('Run error occurred')
+				indi_test_logger.error('Run_error')
+	#analyze
 
+	#compare result and expect
+			try:
+				answer_check_result = gamer.check_answer([1],[1],logger=indi_test_logger)
+				if not answer_check_result:
+					indi_test_logger.error('Answer_wrong')
+			except Exception:
+				test_logger.debug('Check script error')
 
 		except Exception:
 			test_logger.error('Exception occurred', exc_info=True)
 			pass
-#check failure during tests
 	test_logger.info('Test done.')
+
+def test_result():
+	#check failure during tests
+	log_file = open('%s/test.log'%(current_path))
+	log = log_file.readlines()
+	error_count = 0
+	fail_test = {}
+	for line in log:
+		testname = line[9:24]
+		if not testname in fail_test:
+			fail_test[testname] = []
+		if 'ERROR' in log:
+			fail_test[testname].append(log[25:])
+	#summary test results
+	if len(fail_test) > 1:
+		print('%i tests done. %i errors occurred. Test failed.'%(len(testing_tests),len(fail_test)))
+		for ft in fail_test:
+			print('%s : $s'%(ft,fail_test[ft]))
+	else:
+		print('%i tests done. Test passed.'%(len(testing_tests)))
 
 if __name__ == '__main__':
 	log_init()
-
 	try:
 		test_logger.info('Test start.')
-		main()
+		main(testing_tests)
 	except Exception:
 		test_logger.critical('',exc_info=True)
 		raise
+	test_result()
