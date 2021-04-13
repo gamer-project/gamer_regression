@@ -24,7 +24,9 @@ for directory in test_example_path:
 	for direc in listdir(directory):
 		all_tests[direc]=directory+direc
 
-testing_tests = {'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave'}
+testing_tests = {
+	'Riemann'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Riemann',
+	'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave'}
 
 #init global logging variable
 file_name = 'test.log'
@@ -61,7 +63,7 @@ def main(tests):
 		set_up_logger(indi_test_logger)
 		#try:
 	#set up gamer make configuration
-		config, input_settings = gamer.get_config('/work1/xuanshan/regression_test/configs/%s'%(test_name))
+		config, input_settings = gamer.get_config('/work1/xuanshan/gamer/regression_test/configs/%s'%(test_name))
 	#make gamer
 		#try:
 		gamer.make(config,logger=indi_test_logger)
@@ -80,12 +82,12 @@ def main(tests):
 		#except Exception:
 		#	indi_test_logger.error('Run_error')
 	#analyze
-
+		gamer.analyze(test_name)
 	#compare result and expect
 		#try:
-			answer_check_result = gamer.check_answer([1],[1],logger=indi_test_logger)
-			if not answer_check_result:
-				indi_test_logger.error('Answer_wrong')
+		
+		gamer.check_answer(test_name,logger=indi_test_logger)
+		
 		#except Exception:
 		#	test_logger.debug('Check script error')
 

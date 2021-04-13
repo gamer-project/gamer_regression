@@ -4,12 +4,14 @@ import re
 import subprocess
 import pandas as pd
 import shutil as st
+import numpy as np
 
 from log_pipe import LogPipe
-from os.path import isdir
+from os.path import isdir,isfile,walk
 
-config_path = 'configs/Riemann/make_config'
 gamer_abs_path = '/work1/xuanshan/gamer'
+config_path = gamer_abs_path + '/regression_test/configs/Riemann/make_config'
+analyze_path = gamer_abs_path + '/regression_test/analysis'
 input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
 
 test_config = {'Enable':['MODEL=HYDRO','SERIAL'],\
@@ -119,12 +121,17 @@ def run(**kwargs):
 	#out_log.close()
 	#err_log.close()
 
-def analyze():
-	return 0
+def analyze(test_name):
+	analyze_file = gamer_abs_path + '/regression_test/analysis/' + test_name + '/run_analyze.sh'
+	if isfile(analyze_file):
+		try:
+			subprocess.check_call(['sh',analyze_file])
+		except subprocess.CalledProcessError, err:
+			pass
 
-def check_answer(actual, expect, mode='identicle',**kwargs):
-	a = pd.DataFrame(actual)
-	b = pd.DataFrame(expect)
+def data_equal(result_file, expect_file, mode='identicle',**kwargs):
+	a = pd.read_csv(result_file,header=0)
+	b = pd.read_csv(expect_file,header=0)
 	if a.shape == b.shape:
 		if mode == 'identicle':
 			return a.equals(b)
@@ -136,18 +143,95 @@ def check_answer(actual, expect, mode='identicle',**kwargs):
 				return True
 	else:
 		print 'Data frame shapes are different.'
-		kwargs('logger').debug('data shapes are different.')
+		kwargs['logger'].debug('Data compare : data shapes are different.')
 
+def error_comp(result_file, expect_file,**kwargs):
+	a = pd.read_csv(result_file,delimiter=r'\s+',dtype={'Error':np.float64})
+	b = pd.read_csv(expect_file,delimiter=r'\s+',dtype={'Error':np.float64})
+
+	greater = False
+	if a.shape == b.shape:
+		comp = a > b
+		for row in comp:
+			for element in comp[row]:
+				if element:
+					greater = True
+					break
+			if greater:
+				break
+	
+		if greater:
+			kwargs['logger'].warning('Test Error is greater than expect.')
+	else:
+		print 'Data frame shapes are different.'
+		kwargs['logger'].debug('Data compare : data shapes are different.')
+
+def check_answer(test_name,**kwargs):
+	#check the answer of test result
+	log = kwargs['logger']
+	c_file_list = analyze_path + '/' + test_name + '/compare_results'
+	cfl           = open(c_file_list)
+	lines         = cfl.readlines()
+	err_comp_f    = {}
+	ident_comp_f  = {}
+	almost_ident_f= {}
+	for line in lines:
+		if 'Error compare' in line:
+			mode = 'error compare'
+			continue
+		if 'Data identicle' in line:
+			mode = 'identicle'
+			continue
+		l = re.split('\s*',line)
+		if mode == 'error compare':
+			if 'compare file' in line:
+				err_comp_f[l[2]] = {}
+				comp_f = l[2]
+				continue
+			elif 'expect' in line:
+				err_comp_f[comp_f]['expect'] = analyze_path + '/' + l[1]
+				continue
+			elif 'result' in line:
+				err_comp_f[comp_f]['result'] = analyze_path + '/' + l[1]
+				continue
+		if mode == 'identicle':
+			if 'compare file' in line:
+				err_comp_f[l[2]] = {}
+				comp_f = l[2]
+				continue
+			elif 'expect' in line:
+				err_comp_f[comp_f]['expect'] = analyze_path + '/' + l[1]
+				continue
+			elif 'result' in line:
+				err_comp_f[comp_f]['result'] = analyze_path + '/' + l[1]
+				continue
+
+	for err_file in err_comp_f:
+		error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
+	for ident_file in ident_comp_f:
+		data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log)
 
 #seirpt self test
 if __name__ == '__main__':
-	config, input_settings = get_config(config_path)
-	print(input_settings)
-	os.chdir('/work1/xuanshan/gamer/bin/Riemann')
-	for sets in input_settings:
-		set_input(input_settings[sets])
-	make(config)
+	test_logger = logging.getLogger('test')
+	logging.basicConfig(level=0)
+	ch = logging.StreamHandler()
+	std_formatter = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
+	ch.setLevel(logging.DEBUG)
+	ch.setFormatter(std_formatter)
+	test_logger.setLevel(logging.DEBUG)
+	test_logger.propagate = False
+	test_logger.addHandler(ch)
+
+#	config, input_settings = get_config(config_path)
+#	print(input_settings)
+#	os.chdir('/work1/xuanshan/gamer/bin/Riemann')
+#	for sets in input_settings:
+#		set_input(input_settings[sets])
+#	make(config)
 #	copy_example(input_folder)
 #	run()
 #	print check_answer([1],[1])
+#	analyze('AcousticWave')
+	check_answer('AcousticWave',logger=test_logger)
 	print('end')

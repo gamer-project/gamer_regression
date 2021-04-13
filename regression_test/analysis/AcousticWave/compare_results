@@ -1,0 +1,6 @@
+Error compare
+compare file:	L1_Err
+expect:		AcousticWave/convergence_compare
+result:		AcousticWave/table__convergence
+
+
