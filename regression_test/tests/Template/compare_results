@@ -1,0 +1,9 @@
+Error compare
+compare file:	L1_Err
+expect:		regression_test/tests/AcousticWave/convergence_compare
+result:		regression_test/tests/AcousticWave/table__convergence
+
+Data identicle
+compare file:	Data_000000
+expect:		
+result:		

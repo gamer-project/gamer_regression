@@ -1,0 +1,4 @@
+Data identicle
+compare file:	Data_000010
+expect:		regression_test/tests/Riemann/Data_000010
+result:		bin/Riemann_input1/Data_000010

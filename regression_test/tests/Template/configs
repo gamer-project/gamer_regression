@@ -4,4 +4,13 @@ Disable	GRAVITY,PARTICLE,COMOVING
 
 INPUT_SETTINGS:
 input1:
+Input__Parameter:
 MAX_LEVEL	2
+
+Input__Flag_Lohner:
+
+Input__TestProb:
+
+ERROR_SETTINGS:
+level0		1e-23
+level1		1e-8

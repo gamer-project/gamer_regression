@@ -4,4 +4,9 @@ Disable	GRAVITY,PARTICLE
 
 INPUT_SETTINGS:
 input1:
+Input__Parameter
 MAX_LEVEL	2
+
+ERROR_SETTINGS:
+level0		1e-23
+level1		1e-8
