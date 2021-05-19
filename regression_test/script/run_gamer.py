@@ -14,9 +14,6 @@ config_path = gamer_abs_path + '/regression_test/test/Riemann/configs'
 analyze_path = gamer_abs_path + '/regression_test/tests'
 input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
 
-test_config = {'Enable':['MODEL=HYDRO','SERIAL'],\
-	       'Disable':['GRAVITY','PARTICLE','SUPPORT_GRACKLE','GPU','LOAD_BALANCE=HILBERT','OPENMP']}
-
 def get_config(config_path):
 	config_file= open(config_path)
 	config_text = config_file.readlines()
@@ -166,9 +163,9 @@ def data_equal(result_file, expect_file, level=0, data_type='binary',**kwargs):
 	if data_type == 'binary':
 		compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
 		compare_result = gamer_abs_path + '/regression_test/compare_result'
-		if   level == 0:
+		if   level == 'level0':
 			subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed['level0']])
-		elif level == 1:
+		elif level == 'level1':
 			subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed['level1']])
 		compare_file = open(compare_result)
 		lines = compare_file.readlines()

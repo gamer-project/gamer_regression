@@ -32,6 +32,8 @@ testing_tests = {
 		}
 #init global logging variable
 file_name = 'test.log'
+if isfile(file_name):
+	os.remove(file_name)
 
 std_formatter = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
 save_formatter = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
@@ -41,7 +43,7 @@ file_handler = logging.FileHandler(file_name)
 ####################################################################
 ##                         get arguments                          ##
 ####################################################################
-args = {'error_level': 0}
+args = {'error_level': 'level0'}
 if len(sys.argv) > 1:
 	for ind_arg in range(len(sys.argv)):
 		if   '-error-level' in sys.argv[ind_arg]:
@@ -49,7 +51,8 @@ if len(sys.argv) > 1:
 		elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
 			gamer.abs_path = sys.argv[ind_arg+1]
 		elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
-			print('usage: python regression_test.py -error-level (0 ro 1, 0 by default)')
+			print('usage: python regression_test.py -error-level (level0 ro level1, level0 by default)')
+			quit()
 ####################################################################
 
 def log_init():
