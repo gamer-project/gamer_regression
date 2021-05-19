@@ -28,9 +28,6 @@ def get_config(config_path):
 		elif 'INPUT_SETTINGS:' in line:
 			mode = 'INPUT'
 			continue
-		elif 'ERROR_SETTINGS:' in line:
-			mode = 'ERROR'
-			continue
 
 		if mode == 'MAKE':
 			settings = line.rstrip().split('\t')
@@ -41,9 +38,6 @@ def get_config(config_path):
 		elif mode == 'INPUT':
 			settings = line
 			setting.append(settings)
-		elif mode == 'ERROR':
-			settings = re.split('\s*',line)
-			error[settings[0]] = settings[1]
 			
 	#Grep settings for input setting
 	input_settings = {}
@@ -67,7 +61,7 @@ def get_config(config_path):
 		ss = re.split('\s*',s)
 		input_settings[set_name][Input_file].append(ss)
 
-	return config, input_settings, error
+	return config, input_settings
  
 #Edit gamer configuration settings
 def make(config,**kwargs):
@@ -158,15 +152,14 @@ def analyze(test_name):
 		except subprocess.CalledProcessError, err:
 			pass
 
-def data_equal(result_file, expect_file, level=0, data_type='binary',**kwargs):
+def data_equal(result_file, expect_file, level='level0', data_type='binary',**kwargs):
 	error_allowed = kwargs['error_allowed']
+	print error_allowed
 	if data_type == 'binary':
 		compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
 		compare_result = gamer_abs_path + '/regression_test/compare_result'
-		if   level == 'level0':
-			subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed['level0']])
-		elif level == 'level1':
-			subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed['level1']])
+
+		subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed])
 		compare_file = open(compare_result)
 		lines = compare_file.readlines()
 		
@@ -212,53 +205,67 @@ def error_comp(result_file, expect_file,**kwargs):
 		print 'Data frame shapes are different.'
 		kwargs['logger'].debug('Data compare : data shapes are different.')
 
-def check_answer(test_name,**kwargs):
-	#check the answer of test result
-	log = kwargs['logger']
-	c_file_list = analyze_path + '/' + test_name + '/compare_results'
-	cfl           = open(c_file_list)
-	lines         = cfl.readlines()
-	err_comp_f    = {}
-	ident_comp_f  = {}
-	almost_ident_f= {}
-	#Get the list of files need to be compare
+def read_compare_list(test_name):
+	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
+	list_file	  = open(compare_list_file)
+	lines		  = list_file.readlines()
+	L1_err_compare	  = {}
+	ident_data_comp	  = {}
+
 	for line in lines:
-		if len(line)==1:
+		if len(line) == 1:
 			continue
 		if 'Error compare' in line:
 			mode = 'compare'
 			continue
-		if 'Data identicle' in line:
+		elif 'Data identicle' in line:
 			mode = 'identicle'
 			continue
 		l = re.split('\s*',line)
+
 		if mode == 'compare':
 			if 'compare file' in line:
-				err_comp_f[l[2]] = {}
 				comp_f = l[2]
+				L1_err_compare[comp_f] = {}
 				continue
-			elif 'expect' in line:
-				err_comp_f[comp_f]['expect'] = gamer_abs_path + '/' + l[1]
+			if 'expect' in line:
+				L1_err_compare[comp_f]['expect'] = gamer_abs_path + '/' + l[1]
 				continue
 			elif 'result' in line:
-				err_comp_f[comp_f]['result'] = gamer_abs_path + '/' + l[1]
+				L1_err_compare[comp_f]['result'] = gamer_abs_path + '/' + l[1]
 				continue
-		if mode == 'identicle':
+		elif mode == 'identicle':
 			if 'compare file' in line:
 				comp_f = l[2]
-				ident_comp_f[comp_f] = {}
+				ident_data_comp[comp_f] = {}
 				continue
-			elif 'expect' in line:
-				ident_comp_f[comp_f]['expect'] = gamer_abs_path + '/' + l[1]
+			if 'expect' in line:
+				ident_data_comp[comp_f]['expect'] = gamer_abs_path + '/' + l[1]
 				continue
 			elif 'result' in line:
-				ident_comp_f[comp_f]['result'] = gamer_abs_path + '/' + l[1]
+				ident_data_comp[comp_f]['result'] = gamer_abs_path + '/' + l[1]
 				continue
+			elif 'error_level0' in line:
+				ident_data_comp[comp_f]['level0'] = l[1]
+				continue
+			elif 'error_level1' in line:
+				ident_data_comp[comp_f]['level1'] = l[1]
+				continue
+	return L1_err_compare, ident_data_comp
+
+def check_answer(test_name,**kwargs):
+	#check the answer of test result
+	log = kwargs['logger']
+	level = kwargs['error_level']
+
+	#Get the list of files need to be compare
+	err_comp_f, ident_comp_f = read_compare_list(test_name)
+
 	#Start compare data files
 	for err_file in err_comp_f:
 		error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
 	for ident_file in ident_comp_f:
-		data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,level=kwargs['error_level'],error_allowed=kwargs['error_setting'])
+		data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,error_allowed=ident_comp_f[ident_file][level])
 
 #seirpt self test
 if __name__ == '__main__':

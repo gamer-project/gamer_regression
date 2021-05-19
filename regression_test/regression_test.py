@@ -83,7 +83,7 @@ def main(tests):
 		indi_test_logger.info('Test %s start' %(test_name))
 		#try:
 	#set up gamer make configuration
-		config, input_settings, error_settings = gamer.get_config('/work1/xuanshan/gamer/regression_test/tests/%s/configs'%(test_name))
+		config, input_settings = gamer.get_config('/work1/xuanshan/gamer/regression_test/tests/%s/configs'%(test_name))
 	#make gamer
 		#try:
 		Fail = gamer.make(config,logger=indi_test_logger)
@@ -110,7 +110,7 @@ def main(tests):
 	#compare result and expect
 		#try:
 		
-		gamer.check_answer(test_name,logger=indi_test_logger,error_level=args['error_level'],error_setting=error_settings)
+		gamer.check_answer(test_name,logger=indi_test_logger,error_level=args['error_level'])
 		
 		#except Exception:
 		#	test_logger.debug('Check script error')
