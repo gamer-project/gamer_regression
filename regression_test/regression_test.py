@@ -86,6 +86,7 @@ def main(tests):
 		config, input_settings = gamer.get_config('/work1/xuanshan/gamer/regression_test/tests/%s/configs'%(test_name))
 	#make gamer
 		#try:
+		indi_test_logger.info('Start compiling gamer')
 		Fail = gamer.make(config,logger=indi_test_logger)
 		if Fail == 1:
 			continue
@@ -94,23 +95,27 @@ def main(tests):
 	#run gamer
 		#try:
 	#prepare to run gamer
+		Fails = []
 		test_folder = tests[test_name]
-	#run gamer in different Input__Parameter
+	#run gamer in different Input__Paramete	
+		indi_test_logger.info('Start running test')
 		for input_setting in input_settings:
 			gamer.copy_example(test_folder,test_name +'_'+ input_setting)
 			gamer.set_input(input_settings[input_setting])
 	#run gamer
 			Fail = gamer.run(logger=indi_test_logger,input_name=input_setting)
 			if Fail == 1:
-				continue
+				Fails.append(input_setting)
 		#except Exception:
 		#	indi_test_logger.error('Run_error')
 	#analyze
-		gamer.analyze(test_name)
+		indi_test_logger.info('Start data analyze')
+		gamer.analyze(test_name,Fails)
 	#compare result and expect
 		#try:
-		
-		gamer.check_answer(test_name,logger=indi_test_logger,error_level=args['error_level'])
+		gamer.make_compare_tool(test_folder,config)
+		indi_test_logger.info('Start Data_compare data consistency')
+		gamer.check_answer(test_name,Fails,logger=indi_test_logger,error_level=args['error_level'])
 		
 		#except Exception:
 		#	test_logger.debug('Check script error')
@@ -126,23 +131,36 @@ def test_result(all_tests):
 	log_file = open('%s/test.log'%(current_path))
 	log = log_file.readlines()
 	error_count = 0
+	test_debug = {}
+	for t in all_tests:
+		test_debug[t] = {}
 	fail_test = {}
 	for line in log:
 		if 'INFO' in line:
+			if 'Start' in line:
+				array = re.split('\s*',line)
+				name = array[1]
+				stage = array[3]
+				test_debug[name][stage]=[]
+			continue
+		elif 'DEBUG' in line:
+			test_debug[name][stage].append(line[25:])
 			continue
 		elif 'ERROR' in line:
 			if not 'regression_test' in line:
-				testname = re.split('\s*',line)[1]
+				array = re.split('\s*',line)
+				testname = array[1]
 				if not testname in fail_test:
 					fail_test[testname] = []
-				fail_test[testname].append(line[25:])
+				fail_test[testname].append(array[2])
 		elif 'WARNING' in line:
 			if not 'regression_test' in line:
-				testname = re.split('\s*',line)[1]
+				array = re.split('\s*',line)
+				testname = array[1]
 				if not testname in fail_test:
 					fail_test[testname] = []
 			#if 'ERROR' in line:
-				fail_test[testname].append(line[25:])
+				fail_test[testname].append(array[2])
 	#summary test results
 	print('\nTest Result')
 	if len(fail_test) > 0:
@@ -155,6 +173,9 @@ def test_result(all_tests):
 			print('\tFail stage:')
 			for fail_stage in fail_test[test]:
 				print('\t\t%s'%fail_stage)
+				print('\tError message:')
+				for errorline in test_debug[test][fail_stage]:
+					print('\t\t%s'%errorline)
 		else:
 			print('%s : Passed'%(test))
 

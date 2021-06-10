@@ -21,6 +21,7 @@ def get_config(config_path):
 	config	= {'Enable':[],'Disable':[]}
 	setting	= []
 	error	= {}
+	set_volume = False
 	for line in config_text:
 		if 'MAKE_CONFIG:' in line:
 			mode = 'MAKE'
@@ -28,13 +29,21 @@ def get_config(config_path):
 		elif 'INPUT_SETTINGS:' in line:
 			mode = 'INPUT'
 			continue
-
+		
 		if mode == 'MAKE':
 			settings = line.rstrip().split('\t')
 			if settings[0] == 'Enable':
 				config['Enable'] = settings[1].split(',')
 			elif settings[0] == 'Disable':
 				config['Disable'] = settings[1].split(',')
+			elif settings[0] == 'Specific_volume:':
+				set_volume = True
+				config['Specific_volume'] = []
+				continue
+			if set_volume == True:
+				if len(settings)>1:
+					config['Specific_volume'].append(settings)
+
 		elif mode == 'INPUT':
 			settings = line
 			setting.append(settings)
@@ -60,13 +69,14 @@ def get_config(config_path):
 			continue
 		ss = re.split('\s*',s)
 		input_settings[set_name][Input_file].append(ss)
-
+	
 	return config, input_settings
  
 #Edit gamer configuration settings
 def make(config,**kwargs):
 #	get commands to midify Makefile.
 	cmds = []
+	out_log = LogPipe(kwargs['logger'],logging.DEBUG)
 #	add enable options
 	for enable_option in config['Enable']:
 		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_option,enable_option),'Makefile'])
@@ -76,6 +86,8 @@ def make(config,**kwargs):
 #	add disable options
 	for disable_option in config['Disable']:
 		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
+	for var in config['Specific_volume']:
+		cmds.append(['sed','-i','s/%s/%s\t%s \#/g'%(var[0],var[0],var[1])])
 #	Back up and modify Makefile
 	current_path = os.getcwd()
 	os.chdir(gamer_abs_path + '/src')
@@ -89,16 +101,51 @@ def make(config,**kwargs):
 		print 'err', err.cmd
 #	Make
 	try:
-		subprocess.check_call(['make','clean'])
-		subprocess.check_call(['make','-j'])
+		subprocess.check_call(['make','clean'],stderr=out_log)
+		subprocess.check_call(['make','-j'],stderr=out_log)
 	except subprocess.CalledProcessError , err:
 		kwargs['logger'].error('Compile error')
 		print 'err', err.cmd
+		return 1
+	finally:
+		out_log.close()
 #	Repair Makefile
 		subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
 		subprocess.check_call(['rm', 'Makefile.origin'])
-		return 1
-#	Repair Makefile
+
+	return 0
+
+def make_compare_tool(test_path,make_config):
+#	Make compare data program
+	compare_tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data/'
+	os.chdir(compare_tool_path)
+	cmds = []
+#	Back up makefile
+	subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
+#	Chekc if setting in hydro
+	if 'Hydro' in test_path:
+		cmds.append(['sed','-i','s/DMODEL=ELBDM/DMODEL=HYDRO/g','Makefile'])
+	elif 'ELBDM' in test_path:
+		cmds.append(['sed','-i','s/DMODEL=HYDRO/DMODEL=ELBDM/g','Makefile'])
+#	Check settings in configs
+	for enable_config in make_config['Enable']:
+		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_config,enable_config),'Makefile'])
+			
+	for disable_config in make_config['Disable']:
+		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_config,disable_config),'Makefile'])
+		
+	try:
+		for cmd in cmds:
+			subprocess.check_call(cmd)
+	except:
+		pass
+
+	try:
+		subprocess.check_call(['make','clean'])
+		subprocess.check_call(['make'])
+	except:
+		pass
+		
 	subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
 	subprocess.check_call(['rm', 'Makefile.origin'])
 	return 0
@@ -128,23 +175,26 @@ def set_input(input_settings):
 		subprocess.check_call(cmd)
 
 def run(**kwargs):
+	out_log = LogPipe(kwargs['logger'],logging.DEBUG)
 #run gamer
 	if len(kwargs) != 0:
 		try:
-			subprocess.check_call(['./gamer'])
-		except subprocess.CalledProcessError, err:		
-			kwargs['logger'].error('run_error in %s'%(kwargs['input_name']))
+			subprocess.check_call(['./gamer'],stderr=out_log)
+		except subprocess.CalledProcessError as err:		
+			kwargs['logger'].error('running error in %s'%(kwargs['input_name']))
+			out_log.close()
 			return 1
+		#finally:
 	else:
 		try:
 			subprocess.check_call(['./gamer'])
 		except:
 			pass
-	#out_log.close()
 	#err_log.close()
+	out_log.close()
 	return 0
 
-def analyze(test_name):
+def analyze(test_name,fails):
 	analyze_file = gamer_abs_path + '/regression_test/test/' + test_name + '/run_analyze.sh'
 	if isfile(analyze_file):
 		try:
@@ -154,7 +204,7 @@ def analyze(test_name):
 
 def data_equal(result_file, expect_file, level='level0', data_type='binary',**kwargs):
 	error_allowed = kwargs['error_allowed']
-	print error_allowed
+	
 	if data_type == 'binary':
 		compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
 		compare_result = gamer_abs_path + '/regression_test/compare_result'
@@ -164,7 +214,8 @@ def data_equal(result_file, expect_file, level='level0', data_type='binary',**kw
 		lines = compare_file.readlines()
 		
 		if len(lines) > 1:
-			kwargs['logger'].warning('Test Error is greater than expect.')
+			kwargs['logger'].warning('Data_compare')
+			kwargs['logger'].debug('Error is greater than expect')
 		else:
 			return True
 
@@ -205,12 +256,14 @@ def error_comp(result_file, expect_file,**kwargs):
 		print 'Data frame shapes are different.'
 		kwargs['logger'].debug('Data compare : data shapes are different.')
 
-def read_compare_list(test_name):
+def read_compare_list(test_name,fails):
 	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
 	list_file	  = open(compare_list_file)
 	lines		  = list_file.readlines()
 	L1_err_compare	  = {}
 	ident_data_comp	  = {}
+	cfs = []
+	ifs = []
 
 	for line in lines:
 		if len(line) == 1:
@@ -222,10 +275,10 @@ def read_compare_list(test_name):
 			mode = 'identicle'
 			continue
 		l = re.split('\s*',line)
-
 		if mode == 'compare':
 			if 'compare file' in line:
 				comp_f = l[2]
+				cfs.append(comp_f)
 				L1_err_compare[comp_f] = {}
 				continue
 			if 'expect' in line:
@@ -237,6 +290,7 @@ def read_compare_list(test_name):
 		elif mode == 'identicle':
 			if 'compare file' in line:
 				comp_f = l[2]
+				ifs.append(comp_f)
 				ident_data_comp[comp_f] = {}
 				continue
 			if 'expect' in line:
@@ -250,16 +304,25 @@ def read_compare_list(test_name):
 				continue
 			elif 'error_level1' in line:
 				ident_data_comp[comp_f]['level1'] = l[1]
-				continue
+				continue	
+	# Remove the compare results pair due to the fial case 	
+	for f in fails:
+		for case in cfs:
+			if f in L1_err_compare[case]['result']:
+				del L1_err_compare[case]
+		for case in ifs:
+			if f in ident_data_comp[case]['result']:
+				del ident_data_comp[case]
+	
 	return L1_err_compare, ident_data_comp
 
-def check_answer(test_name,**kwargs):
+def check_answer(test_name,fails,**kwargs):
 	#check the answer of test result
 	log = kwargs['logger']
 	level = kwargs['error_level']
 
 	#Get the list of files need to be compare
-	err_comp_f, ident_comp_f = read_compare_list(test_name)
+	err_comp_f, ident_comp_f = read_compare_list(test_name,fails)
 
 	#Start compare data files
 	for err_file in err_comp_f:

@@ -1,16 +1,23 @@
 MAKE_CONFIG:
-Enable	MODEL=HYDRO,FLOAT8
-Disable	GRAVITY,PARTICLE,COMOVING
+Enable	MODEL=HYDRO
+Disable	GRAVITY,PARTICLE
+Specific_volume:
+NCOMP_PASSIVE_USER	0
 
 INPUT_SETTINGS:
 input1:
-Input__Parameter:
+Input__Parameter
 MAX_LEVEL	2
 
-Input__Flag_Lohner:
+Input__Flag_Lohner
 
-Input__TestProb:
+Input__TestProb
 
-ERROR_SETTINGS:
-level0		1e-23
-level1		1e-8
+input2:
+Input__Parameter
+MAX_LEVEL	2
+
+Input__Flag_Lohner
+
+Input__TestProb
+

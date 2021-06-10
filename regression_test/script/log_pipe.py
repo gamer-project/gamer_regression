@@ -5,7 +5,7 @@ import os
 class LogPipe(threading.Thread):
 	def __init__(self,logger,level):
 		super(LogPipe,self).__init__()
-		self.logger = logging.getLogger(logger)
+		self.logger = logger
 		self.daemon = False
 		self.level = level
 		self.fdRead, self.fdWrite = os.pipe()
