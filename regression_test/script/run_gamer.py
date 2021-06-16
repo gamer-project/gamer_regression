@@ -36,13 +36,13 @@ def get_config(config_path):
 				config['Enable'] = settings[1].split(',')
 			elif settings[0] == 'Disable':
 				config['Disable'] = settings[1].split(',')
-			elif settings[0] == 'Specific_volume:':
+			elif settings[0] == 'Variables:':
 				set_volume = True
-				config['Specific_volume'] = []
+				config['Variables'] = []
 				continue
 			if set_volume == True:
 				if len(settings)>1:
-					config['Specific_volume'].append(settings)
+					config['Variables'].append(settings)
 
 		elif mode == 'INPUT':
 			settings = line
@@ -86,8 +86,9 @@ def make(config,**kwargs):
 #	add disable options
 	for disable_option in config['Disable']:
 		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
-	for var in config['Specific_volume']:
-		cmds.append(['sed','-i','s/%s/%s\t%s \#/g'%(var[0],var[0],var[1])])
+	if 'Vairables' in config:
+		for var in config['Variables']:
+			cmds.append(['sed','-i','s/%s/%s\t%s \#/g'%(var[0],var[0],var[1])])
 #	Back up and modify Makefile
 	current_path = os.getcwd()
 	os.chdir(gamer_abs_path + '/src')
@@ -104,7 +105,7 @@ def make(config,**kwargs):
 		subprocess.check_call(['make','clean'],stderr=out_log)
 		subprocess.check_call(['make','-j'],stderr=out_log)
 	except subprocess.CalledProcessError , err:
-		kwargs['logger'].error('Compile error')
+		kwargs['logger'].error('compiling error')
 		print 'err', err.cmd
 		return 1
 	finally:

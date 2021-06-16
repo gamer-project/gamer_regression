@@ -10,8 +10,6 @@ from os.path import isfile, isdir, join
 
 import script.run_gamer as gamer
 
-
-
 current_path = os.getcwd()
 
 #over all global variable
@@ -25,11 +23,19 @@ for directory in test_example_path:
 	for direc in listdir(directory):
 		all_tests[direc]=directory+direc
 
-testing_tests = {
+#Cover all_tests for the testing usage
+#Needs to be remove after release
+all_tests = {
 	'Riemann'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Riemann',
-#	'BlastWave'   :'/work1/xuanshan/gamer/example/test_problem/Hydro/BlastWave',
-#	'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave',
+	'BlastWave'   :'/work1/xuanshan/gamer/example/test_problem/Hydro/BlastWave',
+	'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave',
 		}
+
+#set up index of tests
+test_index = []
+for t in all_tests:
+	test_index.append(t)
+		
 #init global logging variable
 file_name = 'test.log'
 if isfile(file_name):
@@ -44,15 +50,30 @@ file_handler = logging.FileHandler(file_name)
 ##                         get arguments                          ##
 ####################################################################
 args = {'error_level': 'level0'}
+testing_tests = {}
 if len(sys.argv) > 1:
 	for ind_arg in range(len(sys.argv)):
 		if   '-error-level' in sys.argv[ind_arg]:
 			args['error_level'] = sys.argv[ind_arg+1]
 		elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
 			gamer.abs_path = sys.argv[ind_arg+1]
+		elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
+			its = re.split(',',sys.argv[ind_arg+1])
+			for ind in its:
+				testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
 		elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
-			print('usage: python regression_test.py -error-level (level0 ro level1, level0 by default)')
+			print('usage: python regression_test.py')
+			print('Options:')
+			print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
+			print('\t-p --path\tSet the path of gamer path.')
+			print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
+			print('\t-h --help\tUsage and option list')
+			print('Test index:')
+			for i in range(len(test_index)):
+				print("\t%i\t%s"%(i,test_index[i]))
 			quit()
+if len(testing_tests) == 0:
+	testing_tests = all_tests
 ####################################################################
 
 def log_init():

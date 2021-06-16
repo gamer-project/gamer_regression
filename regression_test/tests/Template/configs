@@ -1,7 +1,7 @@
 MAKE_CONFIG:
 Enable	MODEL=HYDRO
 Disable	GRAVITY,PARTICLE
-Specific_volume:
+Variables:
 NCOMP_PASSIVE_USER	0
 
 INPUT_SETTINGS:
