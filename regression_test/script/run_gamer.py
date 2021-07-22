@@ -6,6 +6,7 @@ import pandas as pd
 import shutil as st
 import numpy as np
 
+from hdf5_file_config import hdf_info_read
 from log_pipe import LogPipe
 from os.path import isdir,isfile,walk
 
@@ -168,7 +169,7 @@ def copy_example(file_folder,test_folder):
 def set_input(input_settings):
 	cmds = []
 	for input_file in input_settings:
-		cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i \#/g'%(2),input_file])
+		cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i \#/g'%(1),input_file])
 		for i in input_settings[input_file]:
 			cmds.append(['sed','-i','s/%-29s/%-29s%-4s \#/g'%(i[0],i[0],i[1]),input_file])
 	
@@ -203,20 +204,40 @@ def analyze(test_name,fails):
 		except subprocess.CalledProcessError, err:
 			pass
 
-def data_equal(result_file, expect_file, level='level0', data_type='binary',**kwargs):
+def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwargs):
 	error_allowed = kwargs['error_allowed']
 	
-	if data_type == 'binary':
+	if data_type == 'HDF5':
 		compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
 		compare_result = gamer_abs_path + '/regression_test/compare_result'
+		
+		result_info = hdf_info_read(result_file)
+		expect_info = hdf_info_read(expect_file)
+
+		kwargs['logger'].info('Expect result is run from the version below.')
+		kwargs['logger'].info('File name : %s' %expect_file)
+		kwargs['logger'].info('Git Branch: %s' %expect_info.gitBranch)
+		kwargs['logger'].info('Git Commit: %s' %expect_info.gitCommit)
+		kwargs['logger'].info('Unique ID : %s' %expect_info.DataID)
+		
 
 		subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed])
 		compare_file = open(compare_result)
 		lines = compare_file.readlines()
 		
-		if len(lines) > 1:
+		if len(lines) > 14:
 			kwargs['logger'].warning('Data_compare')
 			kwargs['logger'].debug('Error is greater than expect')
+			kwargs['logger'].debug('Exgect result info:')
+			kwargs['logger'].debug('File name : %s' %expect_file)
+			kwargs['logger'].debug('Git Branch: %s' %expect_info.gitBranch)
+			kwargs['logger'].debug('Git Commit: %s' %expect_info.gitCommit)
+			kwargs['logger'].debug('Unique ID : %s' %expect_info.DataID)
+			kwargs['logger'].debug('Test result info:')
+			kwargs['logger'].debug('File name : %s' %expect_file)
+			kwargs['logger'].debug('Git Branch: %s' %result_info.gitBranch)
+			kwargs['logger'].debug('Git Commit: %s' %result_info.gitCommit)
+			kwargs['logger'].debug('Unique ID : %s' %result_info.DataID)
 		else:
 			return True
 
