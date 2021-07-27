@@ -8,6 +8,7 @@ import logging.config
 from os import listdir
 from os.path import isfile, isdir, join
 
+import script.girder_handler as gh
 import script.run_gamer as gamer
 
 current_path = os.getcwd()
@@ -29,6 +30,7 @@ all_tests = {
 	'Riemann'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Riemann',
 	'BlastWave'   :'/work1/xuanshan/gamer/example/test_problem/Hydro/BlastWave',
 	'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave',
+	'Plummer'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Plummer'
 		}
 
 #set up index of tests
@@ -104,7 +106,8 @@ def main(tests):
 		indi_test_logger.info('Test %s start' %(test_name))
 		#try:
 	#set up gamer make configuration
-		config, input_settings = gamer.get_config('/work1/xuanshan/gamer/regression_test/tests/%s/configs'%(test_name))
+		config_folder = '/work1/xuanshan/gamer/regression_teset/tests/%s' %(test_name)
+		config, input_settings = gamer.get_config(config_folder + '/configs')
 	#make gamer
 		#try:
 		indi_test_logger.info('Start compiling gamer')
@@ -134,6 +137,9 @@ def main(tests):
 		gamer.analyze(test_name,Fails)
 	#compare result and expect
 		#try:
+		#download compare file
+		gh.download_test_compare_data(test_name,config_folder)
+		#compare file
 		gamer.make_compare_tool(test_folder,config)
 		indi_test_logger.info('Start Data_compare data consistency')
 		gamer.check_answer(test_name,Fails,logger=indi_test_logger,error_level=args['error_level'])
