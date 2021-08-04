@@ -6,9 +6,9 @@ import pandas as pd
 import shutil as st
 import numpy as np
 
-from hdf5_file_config import hdf_info_read
-from log_pipe import LogPipe
-from os.path import isdir,isfile,walk
+from .hdf5_file_config import hdf_info_read
+from .log_pipe import LogPipe
+from os.path import isdir,isfile
 
 gamer_abs_path = '/work1/xuanshan/gamer'
 config_path = gamer_abs_path + '/regression_test/test/Riemann/configs'
@@ -73,41 +73,46 @@ def get_config(config_path):
 	
 	return config, input_settings
  
+def generate_modify_command(config):
 #Edit gamer configuration settings
-def make(config,**kwargs):
-#	get commands to midify Makefile.
 	cmds = []
-	out_log = LogPipe(kwargs['logger'],logging.DEBUG)
-#	add enable options
+	#Generate enable and disable config command
+	#Enable
 	for enable_option in config['Enable']:
 		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_option,enable_option),'Makefile'])
-		#if 'OPENMP' in enable_option:
-			#cmds.append(['sed','-i','s/CXX         = g++/#CXX         = g++/g','Makefile'])
-			#cmds.append(['sed','-i','s/#CXX         = $(MPI_PATH)/CXX         = $(MPI_PATH)/g','Makefile'])
-#	add disable options
+	#Disable
 	for disable_option in config['Disable']:
-		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
-	if 'Vairables' in config:
-		for var in config['Variables']:
-			cmds.append(['sed','-i','s/%s/%s\t%s \#/g'%(var[0],var[0],var[1])])
+		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
+
+	#Generate variable midify command
+	if 'Variable' in config:
+		for var in config['Variable']:
+			cmds.append(['sed','-i','s/%s/%s\t \#/g'%(var[0],var[0],var[1])])
+
+	return cmds
+
+def make(config,**kwargs):
+	out_log = LogPipe(kwargs['logger'],logging.DEBUG)
+
 #	Back up and modify Makefile
-	current_path = os.getcwd()
-	os.chdir(gamer_abs_path + '/src')
 	subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
+
 #	Makefile configuration
+#	get commands to midify Makefile.
+	cmds = generate_modify_command(config)
 	
 	try:
 		for cmd in cmds:
 			subprocess.check_call(cmd)
-	except subprocess.CalledProcessError , err:
-		print 'err', err.cmd
+	except subprocess.CalledProcessError:
+		print('Error in editing Makefile')
 #	Make
 	try:
 		subprocess.check_call(['make','clean'],stderr=out_log)
 		subprocess.check_call(['make','-j'],stderr=out_log)
-	except subprocess.CalledProcessError , err:
+	except subprocess.CalledProcessError:
 		kwargs['logger'].error('compiling error')
-		print 'err', err.cmd
+		print('Error in compile')
 		return 1
 	finally:
 		out_log.close()
@@ -119,8 +124,6 @@ def make(config,**kwargs):
 
 def make_compare_tool(test_path,make_config):
 #	Make compare data program
-	compare_tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data/'
-	os.chdir(compare_tool_path)
 	cmds = []
 #	Back up makefile
 	subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
@@ -153,7 +156,7 @@ def make_compare_tool(test_path,make_config):
 	return 0
 
 def copy_example(file_folder,test_folder):
-#cupy input files to work directory
+	#cupy input files to work directory
 	run_directory = gamer_abs_path + '/bin'
 	try:
 		if isdir(run_directory+'/'+test_folder):
@@ -178,7 +181,7 @@ def set_input(input_settings):
 
 def run(**kwargs):
 	out_log = LogPipe(kwargs['logger'],logging.DEBUG)
-#run gamer
+	#run gamer
 	if len(kwargs) != 0:
 		try:
 			subprocess.check_call(['./gamer'],stderr=out_log)
@@ -201,7 +204,7 @@ def analyze(test_name,fails):
 	if isfile(analyze_file):
 		try:
 			subprocess.check_call(['sh',analyze_file])
-		except subprocess.CalledProcessError, err:
+		except subprocess.CalledProcessError:
 			pass
 
 def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwargs):
@@ -254,7 +257,7 @@ def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwar
 				else:
 					return True
 		else:
-			print 'Data frame shapes are different.'
+			print('Data frame shapes are different.')
 			kwargs['logger'].debug('Data compare : data shapes are different.')
 
 def error_comp(result_file, expect_file,**kwargs):
@@ -275,7 +278,7 @@ def error_comp(result_file, expect_file,**kwargs):
 		if greater:
 			kwargs['logger'].warning('Test Error is greater than expect.')
 	else:
-		print 'Data frame shapes are different.'
+		print('Data frame shapes are different.')
 		kwargs['logger'].debug('Data compare : data shapes are different.')
 
 def read_compare_list(test_name,fails):

@@ -14,7 +14,7 @@ import script.run_gamer as gamer
 current_path = os.getcwd()
 
 #over all global variable
-gamer.gamer_abs_path = '/work1/xuanshan/gamer'
+gamer.gamer_abs_path = os.path.dirname(os.getcwd())
 
 #grep all tests we have
 test_example_path = [gamer.gamer_abs_path + '/example/test_problem/Hydro/', gamer.gamer_abs_path + '/example/test_problem/ELBDM/']
@@ -63,12 +63,15 @@ if len(sys.argv) > 1:
 			its = re.split(',',sys.argv[ind_arg+1])
 			for ind in its:
 				testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
+		elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
+			file_name = sys.argv[ind_arg+1]
 		elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
 			print('usage: python regression_test.py')
 			print('Options:')
 			print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
 			print('\t-p --path\tSet the path of gamer path.')
 			print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
+			print('\t-o --output\tSet the file name of test log.')
 			print('\t-h --help\tUsage and option list')
 			print('Test index:')
 			for i in range(len(test_index)):
@@ -106,11 +109,12 @@ def main(tests):
 		indi_test_logger.info('Test %s start' %(test_name))
 		#try:
 	#set up gamer make configuration
-		config_folder = '/work1/xuanshan/gamer/regression_teset/tests/%s' %(test_name)
+		config_folder = gamer.gamer_abs_path + '/regression_test/tests/%s' %(test_name)
 		config, input_settings = gamer.get_config(config_folder + '/configs')
 	#make gamer
 		#try:
 		indi_test_logger.info('Start compiling gamer')
+		os.chdir(gamer.gamer_abs_path+'/src')
 		Fail = gamer.make(config,logger=indi_test_logger)
 		if Fail == 1:
 			continue
@@ -131,7 +135,7 @@ def main(tests):
 			if Fail == 1:
 				Fails.append(input_setting)
 		#except Exception:
-		#	indi_test_logger.error('Run_error')
+		#e	indi_test_logger.error('Run_error')
 	#analyze
 		indi_test_logger.info('Start data analyze')
 		gamer.analyze(test_name,Fails)
@@ -139,7 +143,9 @@ def main(tests):
 		#try:
 		#download compare file
 		gh.download_test_compare_data(test_name,config_folder)
+		
 		#compare file
+		os.chdir(gamer.gamer_abs_path+'/tool/analysis/gamer_compare_data/')
 		gamer.make_compare_tool(test_folder,config)
 		indi_test_logger.info('Start Data_compare data consistency')
 		gamer.check_answer(test_name,Fails,logger=indi_test_logger,error_level=args['error_level'])
