@@ -1,6 +1,8 @@
+from __future__ import print_function
 import logging
 import os
 import re
+import yaml
 import subprocess
 import pandas as pd
 import shutil as st
@@ -11,67 +13,20 @@ from .log_pipe import LogPipe
 from os.path import isdir,isfile
 
 gamer_abs_path = '/work1/xuanshan/gamer'
-config_path = gamer_abs_path + '/regression_test/test/Riemann/configs'
+config_path = gamer_abs_path + '/regression_test/tests/Riemann/configs'
 analyze_path = gamer_abs_path + '/regression_test/tests'
 input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
 
 def get_config(config_path):
-	config_file= open(config_path)
-	config_text = config_file.readlines()
-	#Grep settings in config file
-	config	= {'Enable':[],'Disable':[]}
-	setting	= []
-	error	= {}
-	set_volume = False
-	for line in config_text:
-		if 'MAKE_CONFIG:' in line:
-			mode = 'MAKE'
-			continue
-		elif 'INPUT_SETTINGS:' in line:
-			mode = 'INPUT'
-			continue
-		
-		if mode == 'MAKE':
-			settings = line.rstrip().split('\t')
-			if settings[0] == 'Enable':
-				config['Enable'] = settings[1].split(',')
-			elif settings[0] == 'Disable':
-				config['Disable'] = settings[1].split(',')
-			elif settings[0] == 'Variables:':
-				set_volume = True
-				config['Variables'] = []
-				continue
-			if set_volume == True:
-				if len(settings)>1:
-					config['Variables'].append(settings)
+	with open(config_path) as stream:
+		data = yaml.load(stream)
 
-		elif mode == 'INPUT':
-			settings = line
-			setting.append(settings)
-			
-	#Grep settings for input setting
-	input_settings = {}
-	for s in setting:
-		if 'input' in s:
-			set_name=s.replace(':\n','')
-			input_settings[set_name] = {}
-			continue
-		if 'Input__Parameter' in s:
-			Input_file = 'Input__Parameter'
-			input_settings[set_name][Input_file] = []
-			continue
-		elif 'Input__Flag_Lohner' in s:
-			Input_file = 'Input__Flag_Lohner'
-			input_settings[set_name][Input_file] = []
-			continue
-		elif 'Input_TestProb' in s:
-			Input_file = 'Input_TestProb'
-			input_settings[set_name][Input_file] = []
-			continue
-		ss = re.split('\s*',s)
-		input_settings[set_name][Input_file].append(ss)
-	
-	return config, input_settings
+	return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
+
+def read_test_group():
+	with open('group') as stream:
+		data = yaml.load(stream)
+	return data
  
 def generate_modify_command(config):
 #Edit gamer configuration settings
@@ -82,13 +37,12 @@ def generate_modify_command(config):
 		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_option,enable_option),'Makefile'])
 	#Disable
 	for disable_option in config['Disable']:
-		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
+		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
 
 	#Generate variable midify command
 	if 'Variable' in config:
 		for var in config['Variable']:
-			cmds.append(['sed','-i','s/%s/%s\t \#/g'%(var[0],var[0],var[1])])
-
+			cmds.append(['sed','-i','s/%s/%s\t \#/g'%(var,var,config['Variable'][var])])
 	return cmds
 
 def make(config,**kwargs):
@@ -172,10 +126,11 @@ def copy_example(file_folder,test_folder):
 def set_input(input_settings):
 	cmds = []
 	for input_file in input_settings:
-		cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i \#/g'%(1),input_file])
-		for i in input_settings[input_file]:
-			cmds.append(['sed','-i','s/%-29s/%-29s%-4s \#/g'%(i[0],i[0],i[1]),input_file])
-	
+		#Set gamer dump file as hdf5 file
+		cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i #/g'%(1),input_file])
+		#Set other input parameter
+		for item in input_settings[input_file]:
+			cmds.append(['sed','-i','s/%-29s/%-29s%-4s #/g'%(item,item,input_settings[input_file][item]),input_file])
 	for cmd in cmds:
 		subprocess.check_call(cmd)
 
@@ -282,6 +237,35 @@ def error_comp(result_file, expect_file,**kwargs):
 		kwargs['logger'].debug('Data compare : data shapes are different.')
 
 def read_compare_list(test_name,fails):
+	L1_err_compare  = {}
+	ident_data_comp = {}
+	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
+	with open(compare_list_file) as stream:
+		compare_list = yaml.load(stream)
+	if 'compare' in compare_list:
+		L1_err_compare = compare_list['compare']
+	if 'identicle' in compare_list:
+		ident_data_comp = compare_list['identicle']
+
+	for item in L1_err_compare:
+		L1_err_compare[item]['expect'] = gamer_abs_path + '/' + compare_list['compare'][item]['expect']
+		L1_err_compare[item]['result'] = gamer_abs_path + '/' + compare_list['compare'][item]['result']
+	for item in ident_data_comp:
+		ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identicle'][item]['expect']
+		ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
+
+	# Remove the compare results pair due to the fial case 	
+	for f in fails:
+		for case in L1_err_compare:
+			if f in L1_err_compare[case]['result']:
+				del L1_err_compare[case]
+		for case in ident_data_comp:
+			if f in ident_data_comp[case]['result']:
+				del ident_data_comp[case]
+	
+	return L1_err_compare, ident_data_comp
+
+def read_compare_list_old(test_name,fails):
 	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
 	list_file	  = open(compare_list_file)
 	lines		  = list_file.readlines()
@@ -344,12 +328,13 @@ def read_compare_list(test_name,fails):
 def check_answer(test_name,fails,**kwargs):
 	#check the answer of test result
 	log = kwargs['logger']
-	level = kwargs['error_level']
+	if 'error_level' in kwargs:
+		level = kwargs['error_level']
 
 	#Get the list of files need to be compare
 	err_comp_f, ident_comp_f = read_compare_list(test_name,fails)
-
 	#Start compare data files
+
 	for err_file in err_comp_f:
 		error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
 	for ident_file in ident_comp_f:
@@ -368,8 +353,12 @@ if __name__ == '__main__':
 	test_logger.propagate = False
 	test_logger.addHandler(ch)
 
-	config, input_settings = get_config(config_path)
-	print(input_settings)
+	#config, input_settings = get_config(config_path)
+	#print(config)
+	#print(input_settings)
+	#read_compare_list('Riemann',{})
+	check_answer('Riemann',[],logger=test_logger,error_level='level0')
+	quit()
 	os.chdir('/work1/xuanshan/gamer/bin/Riemann')
 	for sets in input_settings:
 		set_input(input_settings[sets])

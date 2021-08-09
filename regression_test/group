@@ -1,0 +1,5 @@
+test_group:
+ - Riemann
+ - BlastWave
+ - AcousticWave
+ - Plummer

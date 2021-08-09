@@ -1,18 +1,21 @@
 MAKE_CONFIG:
-Enable	MODEL=HYDRO,GPU,GPU_ARCH=TURING
-Disable	GRAVITY,PARTICLE
-
+ Enable: 
+  - MODEL=HYDRO
+  - GPU
+  - GPU_ARCH=TURING
+ Disable:
+  - GRAVITY
+  - PARTICLE
 
 INPUT_SETTINGS:
-input1:
-Input__Parameter:
-OMP_NTHREAD	10
+ input1:
+  Input__Parameter:
+   - OMP_NTHREAD: 10
 
 Input__Flag_Lohner:
 
 Input__TestProb:
 
-
 ERROR_SETTINGS:
-level0		1e-23
-level1		1e-8
+ - level0: 1e-23
+ - level1: 1e-8

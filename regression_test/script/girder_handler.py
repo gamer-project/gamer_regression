@@ -1,19 +1,12 @@
 import subprocess
 import os
 
-test_folder_ID = '60dea1b268085e00010e9502'
-test_folder_Path = '/user/xuanweishan/Riemann'
-test_item_ID = '60dea1b568085e00010e9504'
-target_folder = './Riemann'
-
 apiUrl='https://girder.hub.yt/api/v1'
 apiKey='REMOVED_API_KEY'
-
-def check_test_files(test_name):
-	return 0
+parent_folder = '/user/xuanweishan/'
 
 def download_test_compare_data(test_name,local_folder, version='latest',**kwargs):
-	target_folder = test_folder_Path
+	target_folder = parent_folder + test_name
 
 	command = ['girder-cli','--api-url',apiUrl,'--api-key',apiKey,'download','--parent-type','folder',target_folder,local_folder]
 	try:
@@ -34,5 +27,5 @@ def upload_test_compare_data(target_folder,file_path,**kwargs):
 
 
 if __name__ == '__main__':
-	download_test_compare_data('Riemann')
+	download_test_compare_data('Riemann','./')
 	print('test pass')

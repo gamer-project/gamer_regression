@@ -60,6 +60,10 @@ if len(sys.argv) > 1:
 		elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
 			gamer.abs_path = sys.argv[ind_arg+1]
 		elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
+			#if sys.argv[ind_arg+1] in test_groups:
+			#	for test_name in test_groups[sys.argv[ind_arg+1]]:
+			#		testing_tests[test_name] = all_tests[test_name]
+			#	continue
 			its = re.split(',',sys.argv[ind_arg+1])
 			for ind in its:
 				testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]

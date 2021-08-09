@@ -1,6 +1,66 @@
-Data identicle
-compare file:	Data_000010
-expect:		regression_test/tests/Riemann/Data_000010
-result:		bin/Riemann_input1/Data_000010
-error_level0	1e-23
-error_level1	2.01
+identicle:
+ Data_000010:
+  expect: regression_test/tests/Riemann/Data_000010
+  result: bin/Riemann_input1/Data_000010
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000009:
+  expect: regression_test/tests/Riemann/Data_000009
+  result: bin/Riemann_input1/Data_000009
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000008:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000007:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000006:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000005:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000004:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000003:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000002:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000001:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ Data_000000:
+  expect: regression_test/tests/Riemann/Data_000008
+  result: bin/Riemann_input1/Data_000008
+  level0: 1e-23
+  level1: 2.01
