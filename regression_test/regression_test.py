@@ -52,37 +52,45 @@ file_handler = logging.FileHandler(file_name)
 ##                         get arguments                          ##
 ####################################################################
 args = {'error_level': 'level0'}
-testing_tests = {}
-if len(sys.argv) > 1:
-	for ind_arg in range(len(sys.argv)):
-		if   '-error-level' in sys.argv[ind_arg]:
-			args['error_level'] = sys.argv[ind_arg+1]
-		elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
-			gamer.abs_path = sys.argv[ind_arg+1]
-		elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
-			#if sys.argv[ind_arg+1] in test_groups:
-			#	for test_name in test_groups[sys.argv[ind_arg+1]]:
-			#		testing_tests[test_name] = all_tests[test_name]
-			#	continue
-			its = re.split(',',sys.argv[ind_arg+1])
-			for ind in its:
-				testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
-		elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
-			file_name = sys.argv[ind_arg+1]
-		elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
-			print('usage: python regression_test.py')
-			print('Options:')
-			print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
-			print('\t-p --path\tSet the path of gamer path.')
-			print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
-			print('\t-o --output\tSet the file name of test log.')
-			print('\t-h --help\tUsage and option list')
-			print('Test index:')
-			for i in range(len(test_index)):
-				print("\t%i\t%s"%(i,test_index[i]))
-			quit()
-if len(testing_tests) == 0:
-	testing_tests = all_tests
+def argument_handler():
+	testing_tests = {}
+	test_groups = gamer.read_test_group()
+	if len(sys.argv) > 1:
+		for ind_arg in range(len(sys.argv)):
+			if   '-error-level' in sys.argv[ind_arg]:
+				args['error_level'] = sys.argv[ind_arg+1]
+			elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
+				gamer.abs_path = sys.argv[ind_arg+1]
+			elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
+				if sys.argv[ind_arg+1] in test_groups:
+					for test_name in test_groups[sys.argv[ind_arg+1]]:
+						testing_tests[test_name] = all_tests[test_name]
+					continue
+				its = re.split(',',sys.argv[ind_arg+1])
+				for ind in its:
+					testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
+			elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
+				file_name = sys.argv[ind_arg+1]
+			elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
+				print('usage: python regression_test.py')
+				print('Options:')
+				print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
+				print('\t-p --path\tSet the path of gamer path.')
+				print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
+				print('\t-o --output\tSet the file name of test log.')
+				print('\t-h --help\tUsage and option list')
+				print('Test index:')
+				for i in range(len(test_index)):
+					print("\t%i\t%s"%(i,test_index[i]))
+				print('Test groups:')
+				for g in test_groups:
+					print('\t%s'%g)
+					for t in test_groups[g]:
+						print('\t\t%s'%t)
+				quit()
+	if len(testing_tests) == 0:
+		testing_tests = all_tests
+	return testing_tesets
 ####################################################################
 
 def log_init():
@@ -218,6 +226,7 @@ def test_result(all_tests):
 
 if __name__ == '__main__':
 	log_init()
+	testing_tests = argument_handler()
 	try:
 		test_logger.info('Test start.')
 		main(testing_tests)
