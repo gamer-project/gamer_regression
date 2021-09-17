@@ -1,1 +1,6 @@
-
+identicle:
+ input1_Data_000000:
+  expect: regression_test/tests/BlastWave/BlastWave_input1/Data_000000
+  result: bin/BlastWave_input1/Data_000000
+  level0: 1e-9
+  level1: 2

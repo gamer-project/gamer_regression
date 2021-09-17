@@ -10,7 +10,7 @@ MAKE_CONFIG:
 INPUT_SETTINGS:
  input1:
   Input__Parameter:
-   - OMP_NTHREAD: 10
+   OMP_NTHREAD: 10
 
 Input__Flag_Lohner:
 

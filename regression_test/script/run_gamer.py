@@ -8,18 +8,19 @@ import pandas as pd
 import shutil as st
 import numpy as np
 
-from .hdf5_file_config import hdf_info_read
-from .log_pipe import LogPipe
+from hdf5_file_config import hdf_info_read
+from log_pipe import LogPipe
 from os.path import isdir,isfile
 
 gamer_abs_path = '/work1/xuanshan/gamer'
-config_path = gamer_abs_path + '/regression_test/tests/Riemann/configs'
+config_path = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
 analyze_path = gamer_abs_path + '/regression_test/tests'
-input_folder = gamer_abs_path + '/example/test_problem/Hydro/Riemann'
+input_folder = gamer_abs_path + '/example/test_problem/Hydro/'
 
 def get_config(config_path):
 	with open(config_path) as stream:
 		data = yaml.load(stream)
+
 
 	return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
 
@@ -60,6 +61,7 @@ def make(config,**kwargs):
 			subprocess.check_call(cmd)
 	except subprocess.CalledProcessError:
 		print('Error in editing Makefile')
+	mf = open('Makefile')
 #	Make
 	try:
 		subprocess.check_call(['make','clean'],stderr=out_log)
@@ -73,6 +75,11 @@ def make(config,**kwargs):
 #	Repair Makefile
 		subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
 		subprocess.check_call(['rm', 'Makefile.origin'])
+		#check if compile successful
+		if not isfile('./gamer'):
+			kwargs['logger'].error('compiling error')
+			print('Error in compile')
+			return 1
 
 	return 0
 
@@ -126,6 +133,8 @@ def copy_example(file_folder,test_folder):
 def set_input(input_settings):
 	cmds = []
 	for input_file in input_settings:
+		if input_settings[input_file] == None:
+			continue
 		#Set gamer dump file as hdf5 file
 		cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i #/g'%(1),input_file])
 		#Set other input parameter
@@ -149,7 +158,8 @@ def run(**kwargs):
 		try:
 			subprocess.check_call(['./gamer'])
 		except:
-			pass
+			out_log.close()
+			return 1
 	#err_log.close()
 	out_log.close()
 	return 0
@@ -208,7 +218,8 @@ def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwar
 			elif level == 1:
 				err = a - b
 				if err > 6e-10:
-					kwargs['logger'].warning('Test Error is greater than expect.')
+					kwargs['logger'].warning('Data_compare')
+					kwargs['logger'].debug('Error is greater than expect')
 				else:
 					return True
 		else:
@@ -231,7 +242,8 @@ def error_comp(result_file, expect_file,**kwargs):
 				break
 	
 		if greater:
-			kwargs['logger'].warning('Test Error is greater than expect.')
+			kwargs['logger'].warning('Data_compare')
+			kwargs['logger'].debug('Test Error is greater than expect.')
 	else:
 		print('Data frame shapes are different.')
 		kwargs['logger'].debug('Data compare : data shapes are different.')
@@ -242,17 +254,23 @@ def read_compare_list(test_name,fails):
 	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
 	with open(compare_list_file) as stream:
 		compare_list = yaml.load(stream)
+
+	if compare_list == None:
+		return L1_err_compare, ident_data_comp
+
 	if 'compare' in compare_list:
 		L1_err_compare = compare_list['compare']
 	if 'identicle' in compare_list:
 		ident_data_comp = compare_list['identicle']
-
-	for item in L1_err_compare:
-		L1_err_compare[item]['expect'] = gamer_abs_path + '/' + compare_list['compare'][item]['expect']
-		L1_err_compare[item]['result'] = gamer_abs_path + '/' + compare_list['compare'][item]['result']
-	for item in ident_data_comp:
-		ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identicle'][item]['expect']
-		ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
+	
+	if not L1_err_compare == None:
+		for item in L1_err_compare:
+			L1_err_compare[item]['expect'] = gamer_abs_path + '/' + compare_list['compare'][item]['expect']
+			L1_err_compare[item]['result'] = gamer_abs_path + '/' + compare_list['compare'][item]['result']
+	if not ident_data_comp == None:
+		for item in ident_data_comp:
+			ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identicle'][item]['expect']
+			ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
 
 	# Remove the compare results pair due to the fial case 	
 	for f in fails:
@@ -334,11 +352,35 @@ def check_answer(test_name,fails,**kwargs):
 	#Get the list of files need to be compare
 	err_comp_f, ident_comp_f = read_compare_list(test_name,fails)
 	#Start compare data files
+	
+	if len(err_comp_f) > 0:
+		for err_file in err_comp_f:
+			if fails:
+				break
+			if not isfile(err_comp_f[err_file]['result']):
+				kwargs['logger'].error('No such error result file in the path.')
+				break
+			elif not isfile(err_comp_f[err_file]['expect']):
+				kwargs['logger'].error('No such error expect file in the path')
+				break
+			error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
+	if len(ident_comp_f) > 0:
+		for ident_file in ident_comp_f:
+			f = False
+			for fail in fails:
+				if fail in ident_comp_f[ident_file]['result']:
+					f = True
+					break
+			if f:
+				continue
 
-	for err_file in err_comp_f:
-		error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
-	for ident_file in ident_comp_f:
-		data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,error_allowed=ident_comp_f[ident_file][level])
+			if not isfile(ident_comp_f[ident_file]['result']):
+				kwargs['logger'].error('No such result file in the path.')
+				break
+			elif not isfile(ident_comp_f[ident_file]['expect']):
+				kwargs['logger'].error('No such expect file in the path')
+				break
+			data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,error_allowed=ident_comp_f[ident_file][level])
 
 #seirpt self test
 if __name__ == '__main__':
@@ -353,15 +395,16 @@ if __name__ == '__main__':
 	test_logger.propagate = False
 	test_logger.addHandler(ch)
 
-	#config, input_settings = get_config(config_path)
+	config, input_settings = get_config(config_path)
+	os.chdir('../src')
+	Fail = make(config,logger=test_logger)
+	print(Fail)
 	#print(config)
 	#print(input_settings)
 	#read_compare_list('Riemann',{})
-	check_answer('Riemann',[],logger=test_logger,error_level='level0')
-	quit()
-	os.chdir('/work1/xuanshan/gamer/bin/Riemann')
-	for sets in input_settings:
-		set_input(input_settings[sets])
+	#os.chdir('/work1/xuanshan/gamer/bin/Riemann')
+	#for sets in input_settings:
+	#	set_input(input_settings[sets])
 #	make(config)
 #	copy_example(input_folder)
 #	run()

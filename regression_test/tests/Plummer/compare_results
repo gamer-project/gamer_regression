@@ -3,7 +3,3 @@ compare:
   expect: regression_test/tests/AcousticWave/convergence_compare
   result: regression_test/tests/AcousticWave/table__convergence
 
-identicle:
- Data_000000:
-  expect:		
-  result:		

@@ -1,15 +1,14 @@
 MAKE_CONFIG:
- Enable: 
+ Enable:
   - MODEL=HYDRO
   - GRAVITY
-  - PARTICLE
  Disable:
-  - COMOVING
+  - GPU
 
 INPUT_SETTINGS:
  input1:
   Input__Parameter:
-
+   MAX_LEVEL: 7
   Input__Flag_Lohner:
 
   Input__TestProb:

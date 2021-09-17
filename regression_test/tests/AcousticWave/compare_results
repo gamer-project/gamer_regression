@@ -1,6 +1,29 @@
-Error compare:
+compare:
  L1_Err:
   expect: regression_test/tests/AcousticWave/convergence_compare
   result: regression_test/tests/AcousticWave/table__convergence
+  level0: 1e-8
+  level1: 1
 
+identicle:
+ input1_Data_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
+  result: bin/AcousticWave_input1/Data_000000
+  level0: 1e-8
+  level1: 2.01
 
+ input2_Data_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
+  result: bin/AcousticWave_input1/Data_000000
+  level0: 1e-8
+  level1: 2.01
+ input3_Data_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
+  result: bin/AcousticWave_input1/Data_000000
+  level0: 1e-8
+  level1: 2.01
+ input4_Data_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
+  result: bin/AcousticWave_input1/Data_000000
+  level0: 1e-8
+  level1: 2.01

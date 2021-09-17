@@ -17,21 +17,13 @@ current_path = os.getcwd()
 gamer.gamer_abs_path = os.path.dirname(os.getcwd())
 
 #grep all tests we have
-test_example_path = [gamer.gamer_abs_path + '/example/test_problem/Hydro/', gamer.gamer_abs_path + '/example/test_problem/ELBDM/']
+#test_example_path = [gamer.gamer_abs_path + '/example/test_problem/Hydro/', gamer.gamer_abs_path + '/example/test_problem/ELBDM/']
 
+test_example_path = gamer.gamer_abs_path + '/regression_test/tests'
 all_tests = {}
-for directory in test_example_path:
-	for direc in listdir(directory):
-		all_tests[direc]=directory+direc
-
-#Cover all_tests for the testing usage
-#Needs to be remove after release
-all_tests = {
-	'Riemann'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Riemann',
-	'BlastWave'   :'/work1/xuanshan/gamer/example/test_problem/Hydro/BlastWave',
-	'AcousticWave':'/work1/xuanshan/gamer/example/test_problem/Hydro/AcousticWave',
-	'Plummer'     :'/work1/xuanshan/gamer/example/test_problem/Hydro/Plummer'
-		}
+for direc in listdir(test_example_path):
+	if not direc == 'Template':
+		all_tests[direc]=test_example_path + '/' + direc + '/Inputs'
 
 #set up index of tests
 test_index = []
@@ -88,9 +80,10 @@ def argument_handler():
 					for t in test_groups[g]:
 						print('\t\t%s'%t)
 				quit()
+	
 	if len(testing_tests) == 0:
 		testing_tests = all_tests
-	return testing_tesets
+	return testing_tests
 ####################################################################
 
 def log_init():
@@ -114,26 +107,26 @@ test_logger = logging.getLogger('regression_test')
 set_up_logger(test_logger)
 
 def main(tests):
+	#download compare list for tests
+	gh_logger = logging.getLogger('girder')
+	set_up_logger(gh_logger)
+	gh.download_compare_version_list(logger=gh_logger)
 	#set tests to run.
 	for test_name in tests:
 		indi_test_logger = logging.getLogger(test_name)
 		set_up_logger(indi_test_logger)
 		indi_test_logger.info('Test %s start' %(test_name))
-		#try:
 	#set up gamer make configuration
 		config_folder = gamer.gamer_abs_path + '/regression_test/tests/%s' %(test_name)
 		config, input_settings = gamer.get_config(config_folder + '/configs')
 	#make gamer
-		#try:
 		indi_test_logger.info('Start compiling gamer')
 		os.chdir(gamer.gamer_abs_path+'/src')
 		Fail = gamer.make(config,logger=indi_test_logger)
 		if Fail == 1:
 			continue
-		#except Exception:
-		#	test_logger.error('Compile_error', exc_info=True)
+	
 	#run gamer
-		#try:
 	#prepare to run gamer
 		Fails = []
 		test_folder = tests[test_name]
@@ -146,22 +139,18 @@ def main(tests):
 			Fail = gamer.run(logger=indi_test_logger,input_name=input_setting)
 			if Fail == 1:
 				Fails.append(input_setting)
-		#except Exception:
-		#e	indi_test_logger.error('Run_error')
 	#analyze
 		indi_test_logger.info('Start data analyze')
 		gamer.analyze(test_name,Fails)
 	#compare result and expect
-		#try:
 		#download compare file
-		gh.download_test_compare_data(test_name,config_folder)
+		gh.download_test_compare_data(test_name,config_folder,logger=gh_logger)
 		
 		#compare file
 		os.chdir(gamer.gamer_abs_path+'/tool/analysis/gamer_compare_data/')
 		gamer.make_compare_tool(test_folder,config)
 		indi_test_logger.info('Start Data_compare data consistency')
 		gamer.check_answer(test_name,Fails,logger=indi_test_logger,error_level=args['error_level'])
-		
 		#except Exception:
 		#	test_logger.debug('Check script error')
 
@@ -223,6 +212,11 @@ def test_result(all_tests):
 					print('\t\t%s'%errorline)
 		else:
 			print('%s : Passed'%(test))
+
+def ask_for_compare_file_update():
+	#1. ask for the test to update
+	#2. update those tests and version list file
+	return 0
 
 if __name__ == '__main__':
 	log_init()

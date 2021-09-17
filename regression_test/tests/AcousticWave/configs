@@ -10,27 +10,27 @@ MAKE_CONFIG:
 INPUT_SETTINGS:
  input1:
   Input__Parameter:
-   - NX0_TOT_X: 32
-   - NX0_TOT_Y: 32
-   - NX0_TOT_Z: 32
+   NX0_TOT_X: 32
+   NX0_TOT_Y: 32
+   NX0_TOT_Z: 32
 
-input2:
- Input__Parameter:
-  - NX0_TOT_X: 64
-  - NX0_TOT_Y: 64
-  - NX0_TOT_Z: 64
+ input2:
+  Input__Parameter:
+   NX0_TOT_X: 64
+   NX0_TOT_Y: 64
+   NX0_TOT_Z: 64
 
-input3:
- Input__Parameter:
-  - NX0_TOT_X: 128
-  - NX0_TOT_Y: 128
-  - NX0_TOT_Z: 128
+ input3:
+  Input__Parameter:
+   NX0_TOT_X: 128
+   NX0_TOT_Y: 128
+   NX0_TOT_Z: 128
 
-input4:
- Input__Parameter:
-  - NX0_TOT_X: 256
-  - NX0_TOT_Y: 256
-  - NX0_TOT_Z: 256
+ input4:
+  Input__Parameter:
+   NX0_TOT_X: 256
+   NX0_TOT_Y: 256
+   NX0_TOT_Z: 256
 
 ERROR_SETTINGS:
  - level0: 1e-23
