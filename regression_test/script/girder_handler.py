@@ -13,6 +13,8 @@ apiUrl='https://girder.hub.yt/api/v1'
 apiKey='REMOVED_API_KEY'
 parent_folder = '/user/xuanweishan/gamer_regression_test'
 
+girder_path = '/usr/bin/girder-cli'
+
 def load_latest_list():
 	#list all version files
 	list_list_folder = gamer.gamer_abs_path + '/regression_test/compare_version_list'
@@ -38,7 +40,7 @@ def download_folder(hub_yt_folder_name,local_folder,**kwargs):
 	#download all files in a hub.yt folder to local folder with girder-cli command.
 	target_folder = parent_folder + hub_yt_folder_name
 
-	command = ['girder-cli','--api-url',apiUrl,'--api-key',apiKey,'download','--parent-type','folder',target_folder,local_folder]
+	command = [girder_path,'--api-url',apiUrl,'--api-key',apiKey,'download','--parent-type','folder',target_folder,local_folder]
 	try:
 		subprocess.check_call(command)
 	except subprocess.CalledProcessError as err:
@@ -83,7 +85,7 @@ def download_test_compare_data(test_name,local_folder,version='latest',**kwargs)
 
 def upload_folder(target_folder,local_folder,**kwargs):
 	#target_folder = test_folder_Path
-	command = ['girder-cli','--api-url',apiUrl,'--api-key',apiKey,'upload','--parent-type','folder',target_folder,local_folder]
+	command = [girder_path,'--api-url',apiUrl,'--api-key',apiKey,'upload','--parent-type','folder',target_folder,local_folder]
 	
 	try:
 		subprocess.check_call(command)
