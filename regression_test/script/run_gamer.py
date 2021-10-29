@@ -149,17 +149,23 @@ def run(**kwargs):
 	if len(kwargs) != 0:
 		try:
 			subprocess.check_call(['./gamer'],stderr=out_log)
+			if not isfile('./Record__Note'):
+				kwargs['logger'].error('running error in %s'%(kwargs['input_name']))
+				out_log.close()
+				return 1
+
 		except subprocess.CalledProcessError as err:		
 			kwargs['logger'].error('running error in %s'%(kwargs['input_name']))
 			out_log.close()
 			return 1
-		#finally:
 	else:
 		try:
 			subprocess.check_call(['./gamer'])
 		except:
 			out_log.close()
 			return 1
+
+	
 	#err_log.close()
 	out_log.close()
 	return 0
@@ -273,13 +279,13 @@ def read_compare_list(test_name,fails):
 			ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
 
 	# Remove the compare results pair due to the fial case 	
-	for f in fails:
-		for case in L1_err_compare:
-			if f in L1_err_compare[case]['result']:
-				del L1_err_compare[case]
-		for case in ident_data_comp:
-			if f in ident_data_comp[case]['result']:
-				del ident_data_comp[case]
+	#for f in fails:
+	#	for case in L1_err_compare:
+	#		if f in L1_err_compare[case]['result']:
+	#			del L1_err_compare[case]
+	#	for case in ident_data_comp:
+	#		if f in ident_data_comp[case]['result']:
+	#			del ident_data_comp[case]
 	
 	return L1_err_compare, ident_data_comp
 
