@@ -1,0 +1,14 @@
+MAKE_CONFIG:
+ Enable:
+  - MODEL=HYDRO
+  - MHD
+ Disable:
+  - GRAVITY
+  - PARTICLE
+ Variables:
+  - NCOMP_PASSIVE_USER: 0
+
+INPUT_SETTINGS:
+ input1:
+  Input__Parameter:
+   MAX_LEVEL: 2

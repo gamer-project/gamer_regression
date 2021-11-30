@@ -180,7 +180,7 @@ def analyze(test_name,fails):
 
 def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwargs):
 	error_allowed = kwargs['error_allowed']
-	
+	#load result informations and expect informations
 	if data_type == 'HDF5':
 		compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
 		compare_result = gamer_abs_path + '/regression_test/compare_result'
@@ -194,12 +194,17 @@ def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwar
 		kwargs['logger'].info('Git Commit: %s' %expect_info.gitCommit)
 		kwargs['logger'].info('Unique ID : %s' %expect_info.DataID)
 		
-
+	#run data compare program
 		subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed])
+	#check if result equal to expect
 		compare_file = open(compare_result)
 		lines = compare_file.readlines()
-		
-		if len(lines) > 14:
+		result_lines = []
+		for line in lines:
+			if line[0] != '#':
+				result_lines.append(line)
+		print(result_lines)
+		if len(result_lines) > 4:
 			kwargs['logger'].warning('Data_compare')
 			kwargs['logger'].debug('Error is greater than expect')
 			kwargs['logger'].debug('Exgect result info:')

@@ -1,0 +1,6 @@
+identicle:
+ Data_000000:
+  expect: bin/MHD_ABC_input1/Data_000000
+  result: bin/MHD_ABC_input1/Data_000000
+  level0: 1e-23
+  level1: 2.01

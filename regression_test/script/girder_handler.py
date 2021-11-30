@@ -13,7 +13,7 @@ apiUrl='https://girder.hub.yt/api/v1'
 apiKey='REMOVED_API_KEY'
 parent_folder = '/user/xuanweishan/gamer_regression_test'
 
-girder_path = '/usr/bin/girder-cli'
+girder_path = '/usr/local/bin/girder-cli'
 
 def load_latest_list():
 	#list all version files
@@ -74,7 +74,8 @@ def download_test_compare_data(test_name,local_folder,version='latest',**kwargs)
 		latest_yt_path = '/%s_%s-%i'%(test_name,Ninput,latest_ver['time'])
 	#3. create local folders for each input settings
 		local_folder_name = local_folder + '/%s_%s' %(test_name,Ninput)
-		os.mkdir(local_folder_name)
+		if not isdir(local_folder_name):
+			os.mkdir(local_folder_name)
 		#4. download compare datas
 		download_folder(latest_yt_path,local_folder_name,logger=kwargs['logger'])
 	return latest_ver['time']
@@ -171,10 +172,10 @@ if __name__ == '__main__':
 	test_logger.addHandler(ch)
 
 	folders_to_upload = [
-		'/work1/xuanshan/gamer/bin/BlastWave_input1'
+		'/work1/xuanshan/gamer/bin/Plummer_input1'
 		]
 	print('test start')
-	upload_test_compare_data('BlastWave',folders_to_upload,logger=test_logger)
+	upload_test_compare_data('Plummer',folders_to_upload,logger=test_logger)
 
 	#download_test_compare_data('Riemann','.',logger=test_logger)
 	#download_compare_version_list(logger=test_logger)
