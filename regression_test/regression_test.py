@@ -210,8 +210,11 @@ def test_result(all_tests):
 				print('\tError message:')
 				for errorline in test_debug[test][fail_stage]:
 					print('\t\t%s'%errorline)
+
 		else:
 			print('%s : Passed'%(test))
+	if len(fail_test) > 0:
+		exit(1)
 
 def ask_for_compare_file_update():
 	#1. ask for the test to update
