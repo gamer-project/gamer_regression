@@ -204,8 +204,8 @@ def test_result(all_tests):
 	for test in all_tests:
 		if test in fail_test:
 			print('%s : Failed'%(test))
-			print('\tFail stage:')
 			for fail_stage in fail_test[test]:
+				print('\tFail stage:')
 				print('\t\t%s'%fail_stage)
 				print('\tError message:')
 				for errorline in test_debug[test][fail_stage]:

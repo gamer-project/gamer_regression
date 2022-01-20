@@ -205,20 +205,7 @@ def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwar
 				result_lines.append(line)
 		print(result_lines)
 		if len(result_lines) > 4:
-			kwargs['logger'].warning('Data_compare')
-			kwargs['logger'].debug('Error is greater than expect')
-			kwargs['logger'].debug('Exgect result info:')
-			kwargs['logger'].debug('File name : %s' %expect_file)
-			kwargs['logger'].debug('Git Branch: %s' %expect_info.gitBranch)
-			kwargs['logger'].debug('Git Commit: %s' %expect_info.gitCommit)
-			kwargs['logger'].debug('Unique ID : %s' %expect_info.DataID)
-			kwargs['logger'].debug('Test result info:')
-			kwargs['logger'].debug('File name : %s' %expect_file)
-			kwargs['logger'].debug('Git Branch: %s' %result_info.gitBranch)
-			kwargs['logger'].debug('Git Commit: %s' %result_info.gitCommit)
-			kwargs['logger'].debug('Unique ID : %s' %result_info.DataID)
-		else:
-			return True
+			return True, result_file, expect_file
 
 	elif data_type == 'text':
 		a = pd.read_csv(result_file,header=0)
@@ -231,11 +218,11 @@ def data_equal(result_file, expect_file, level='level0', data_type='HDF5',**kwar
 				if err > 6e-10:
 					kwargs['logger'].warning('Data_compare')
 					kwargs['logger'].debug('Error is greater than expect')
-				else:
-					return True
 		else:
 			print('Data frame shapes are different.')
 			kwargs['logger'].debug('Data compare : data shapes are different.')
+
+	return False, result_file, expect_file
 
 def error_comp(result_file, expect_file,**kwargs):
 	a = pd.read_csv(result_file,delimiter=r'\s+',dtype={'Error':np.float64})
@@ -253,11 +240,14 @@ def error_comp(result_file, expect_file,**kwargs):
 				break
 	
 		if greater:
+			return True, result_file, expect_file
 			kwargs['logger'].warning('Data_compare')
 			kwargs['logger'].debug('Test Error is greater than expect.')
 	else:
 		print('Data frame shapes are different.')
 		kwargs['logger'].debug('Data compare : data shapes are different.')
+		return True, result_file, expect_file
+	return False, result_file, expect_file
 
 def read_compare_list(test_name,fails):
 	L1_err_compare  = {}
@@ -363,7 +353,7 @@ def check_answer(test_name,fails,**kwargs):
 	#Get the list of files need to be compare
 	err_comp_f, ident_comp_f = read_compare_list(test_name,fails)
 	#Start compare data files
-	
+	compare_fails = []
 	if len(err_comp_f) > 0:
 		for err_file in err_comp_f:
 			if fails:
@@ -374,7 +364,10 @@ def check_answer(test_name,fails,**kwargs):
 			elif not isfile(err_comp_f[err_file]['expect']):
 				kwargs['logger'].error('No such error expect file in the path')
 				break
-			error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
+			fail_or_not, result_file, expect_file = error_comp(err_comp_f[err_file]['result'],err_comp_f[err_file]['expect'],logger=log)
+			if fail_or_not:
+				compare_fails.append([result_file,expect_file])
+	identical_fails = []
 	if len(ident_comp_f) > 0:
 		for ident_file in ident_comp_f:
 			f = False
@@ -391,7 +384,30 @@ def check_answer(test_name,fails,**kwargs):
 			elif not isfile(ident_comp_f[ident_file]['expect']):
 				kwargs['logger'].error('No such expect file in the path')
 				break
-			data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,error_allowed=ident_comp_f[ident_file][level])
+			fail_or_not, result_file, expect_file = data_equal(ident_comp_f[ident_file]['result'],ident_comp_f[ident_file]['expect'],logger=log,error_allowed=ident_comp_f[ident_file][level])
+			if fail_or_not:
+				identical_fails.append([result_file,expect_file])
+	#report the compare result in log 
+	if len(identical_fails) > 0 or len(compare_fails) > 0:
+		kwargs['logger'].warning('Data_compare')
+	if len(identical_fails) > 0:
+		kwargs['logger'].debug('Result data is not equal to expect data')
+		for fail_files in identical_fails:
+			result_info = hdf_info_read(fail_files[0])
+			expect_info = hdf_info_read(fail_files[1])
+			kwargs['logger'].debug('Expect result info:')
+			kwargs['logger'].debug('File name : %s' %fail_files[1])
+			kwargs['logger'].debug('Git Branch: %s' %expect_info.gitBranch)
+			kwargs['logger'].debug('Git Commit: %s' %expect_info.gitCommit)
+			kwargs['logger'].debug('Unique ID : %s' %expect_info.DataID)
+			kwargs['logger'].debug('Test result info:')
+			kwargs['logger'].debug('File name : %s' %fail_files[0])
+			kwargs['logger'].debug('Git Branch: %s' %result_info.gitBranch)
+			kwargs['logger'].debug('Git Commit: %s' %result_info.gitCommit)
+			kwargs['logger'].debug('Unique ID : %s\n' %result_info.DataID)
+	if len(compare_fails) > 0:
+		kwargs['logger'].debug('Error compare result is greater than expect')
+
 
 #seirpt self test
 if __name__ == '__main__':
