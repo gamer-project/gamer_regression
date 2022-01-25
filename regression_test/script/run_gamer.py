@@ -33,10 +33,12 @@ def generate_modify_command(config):
 #Edit gamer configuration settings
 	cmds = []
 	#Generate enable and disable config command
-	#Enable
+	#Enable HDF5 in all test
+	cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%('SUPPORT_HDF5','SUPPROT_HDF5'),'Makefile'])
+	#Enable options
 	for enable_option in config['Enable']:
 		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_option,enable_option),'Makefile'])
-	#Disable
+	#Disable options
 	for disable_option in config['Disable']:
 		cmds.append(['sed','-i','s/SIMU_OPTION += -D%s/#SIMU_OPTION += -D%s/g'%(disable_option,disable_option),'Makefile'])
 
