@@ -17,7 +17,7 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
+    # Choose the eureka as host runner
     runs-on: [self-hosted,linux,gpu]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -28,6 +28,7 @@ jobs:
       # download gamer to test.
       - name: Set up gamer and the library path on eureka the in the Makefile
         run: |
+          #Download gamer and set up the regresstion test script in the gamer
           git clone https://github.com/gamer-project/gamer
           mkdir gamer/regression_test
           cp regression_test.py gamer/regression_test
@@ -35,7 +36,8 @@ jobs:
           cp -r tests gamer/regression_test
           cp group gamer/regression_test
           sed -i 's/SIMU_OPTION += -DGPU_ARCH/SIMU_OPTION += -DGPU_ARCH=TURING #/g' gamer/src/Makefile
-          
+
+          #Set up the library path on the eureka
           sed -i 's/#CUDA_PATH\s*:= \/software/CUDA_PATH    := \/software/g' gamer/src/Makefile
           sed -i 's/#FFTW_PATH\s*:= \/software/FFTW_PATH    := \/software/g' gamer/src/Makefile
           sed -i 's/#HDF5_PATH\s*:= \/software/HDF5_PATH    := \/software/g' gamer/src/Makefile
@@ -46,6 +48,4 @@ jobs:
       - name: Run the test
         run: |
           cd gamer/regression_test
-          python regression_test.py -t 4
-          
-          
+          python regression_test.py -t test_group
