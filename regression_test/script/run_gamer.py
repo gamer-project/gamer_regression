@@ -34,7 +34,7 @@ def generate_modify_command(config):
 	cmds = []
 	#Generate enable and disable config command
 	#Enable HDF5 in all test
-	cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%('SUPPORT_HDF5','SUPPROT_HDF5'),'Makefile'])
+	cmds.append(['sed','-i','s/#SIMU_OPTION += -DSUPPORT_HDF5/SIMU_OPTION += -DSUPPORT_HDF5/g','Makefile'])
 	#Enable options
 	for enable_option in config['Enable']:
 		cmds.append(['sed','-i','s/#SIMU_OPTION += -D%s/SIMU_OPTION += -D%s/g'%(enable_option,enable_option),'Makefile'])
