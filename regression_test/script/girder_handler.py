@@ -2,10 +2,11 @@ import subprocess
 import os
 import sys
 import datetime
+import six
 import yaml
 import logging
 
-import run_gamer as gamer
+import script.run_gamer as gamer
 
 from os.path import isfile, isdir
 
@@ -29,7 +30,7 @@ def load_latest_list():
 	#load latest version file
 	latest_list_path = gamer.gamer_abs_path + '/regression_test/compare_version_list/' + latest
 	with open(latest_list_path,'r') as stream:
-		version_list = yaml.load(stream)
+		version_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 	return version_list, latest_list_path
 
 ########################
@@ -96,7 +97,7 @@ def upload_folder(target_folder,local_folder,**kwargs):
 
 def create_upload_version_file(compare_list_file_name,test_name,new_folder_names,**kwargs):
 	with open(compare_list_file_name) as stream:
-		old_compare_list = yaml.load(stream)
+		old_compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 	#find the name of current latest version name
 	latest_ver = 'version_0'
 	if test_name in old_compare_list:
@@ -130,7 +131,7 @@ def upload_test_compare_data(test_name,source_folders,**kwargs):
 	#1. Load compare list
 	result_compare_list = gamer.gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
 	with open(result_compare_list,'r') as stream:
-		compare_list = yaml.load(stream)
+		compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 	
 	#2. Create folder with name connect to date and test name
 	up_date_folders = []

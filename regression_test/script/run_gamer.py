@@ -3,13 +3,14 @@ import logging
 import os
 import re
 import yaml
+import six
 import subprocess
 import pandas as pd
 import shutil as st
 import numpy as np
 
-from hdf5_file_config import hdf_info_read
-from log_pipe import LogPipe
+from script.hdf5_file_config import hdf_info_read
+from script.log_pipe import LogPipe
 from os.path import isdir,isfile
 
 gamer_abs_path = '/work1/xuanshan/gamer'
@@ -19,14 +20,14 @@ input_folder = gamer_abs_path + '/example/test_problem/Hydro/'
 
 def get_config(config_path):
 	with open(config_path) as stream:
-		data = yaml.load(stream)
+		data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
 
 	return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
 
 def read_test_group():
 	with open('group') as stream:
-		data = yaml.load(stream)
+		data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 	return data
  
 def generate_modify_command(config):
@@ -256,7 +257,7 @@ def read_compare_list(test_name,fails):
 	ident_data_comp = {}
 	compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
 	with open(compare_list_file) as stream:
-		compare_list = yaml.load(stream)
+		compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
 	if compare_list == None:
 		return L1_err_compare, ident_data_comp
