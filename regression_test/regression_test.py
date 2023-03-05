@@ -22,29 +22,23 @@ gamer.gamer_abs_path = os.path.dirname(os.getcwd())
 test_example_path = gamer.gamer_abs_path + '/regression_test/tests'
 all_tests = {}
 for direc in listdir(test_example_path):
-    if not direc == 'Template':
-        all_tests[direc]=test_example_path + '/' + direc + '/Inputs'
+    if direc == 'Template':   continue
+    all_tests[direc]=test_example_path + '/' + direc + '/Inputs'
 
 #set up index of tests
-test_index = []
-for t in all_tests:
-    test_index.append(t)
+test_index = [ t for t in all_tests ]
         
 #init global logging variable
-file_name = 'test.log'
-if isfile(file_name):
-    os.remove(file_name)
+FILE_NAME = 'test.log'    # The default name is 'test.log'
 
 std_formatter = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
 save_formatter = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
-ch = logging.StreamHandler()
-file_handler = logging.FileHandler(file_name)
-
 ####################################################################
 ##                         get arguments                          ##
 ####################################################################
 args = {'error_level': 'level0'}
 def argument_handler():
+    global FILE_NAME 
     testing_tests = {}
     test_groups = gamer.read_test_group()
     if len(sys.argv) > 1:
@@ -62,7 +56,7 @@ def argument_handler():
                 for ind in its:
                     testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
             elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
-                file_name = sys.argv[ind_arg+1]
+                FILE_NAME = sys.argv[ind_arg+1]
             elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
                 print('usage: python regression_test.py')
                 print('Options:')
@@ -92,6 +86,10 @@ def argument_handler():
 def log_init():
     #set up log  config
     logging.basicConfig(level=0)
+    
+    ch           = logging.StreamHandler()
+    file_handler = logging.FileHandler(FILE_NAME)
+
     #add log config into std output
     ch.setLevel(logging.DEBUG)    
     ch.setFormatter(std_formatter)
@@ -99,25 +97,25 @@ def log_init():
     file_handler.setLevel(0)
     file_handler.setFormatter(save_formatter)
 
-def set_up_logger(logger):
+    return ch, file_handler
+
+def set_up_logger( logger, ch, file_handler ):
     #set up settings to logger object
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
     logger.addHandler(ch)
     logger.addHandler(file_handler)
 
-test_logger = logging.getLogger('regression_test')
-set_up_logger(test_logger)
 
-def main(tests):
+def main( tests, ch , file_handler ):
     #download compare list for tests
     gh_logger = logging.getLogger('girder')
-    set_up_logger(gh_logger)
+    set_up_logger( gh_logger, ch, file_handler )
     gh.download_compare_version_list(logger=gh_logger)
     #set tests to run.
     for test_name in tests:
         indi_test_logger = logging.getLogger(test_name)
-        set_up_logger(indi_test_logger)
+        set_up_logger( indi_test_logger, ch, file_handler )
         indi_test_logger.info('Test %s start' %(test_name))
     #set up gamer make configuration
         config_folder = gamer.gamer_abs_path + '/regression_test/tests/%s' %(test_name)
@@ -161,11 +159,10 @@ def main(tests):
         #    test_logger.error('Exception occurred', exc_info=True)
         #    pass
         indi_test_logger.info('Test %s end' %(test_name))
-    test_logger.info('Test done.')
 
 def test_result(all_tests):
     #check failure during tests
-    log_file = open('%s/test.log'%(current_path))
+    log_file = open('%s/%s'%(current_path, FILE_NAME))
     log = log_file.readlines()
     error_count = 0
     test_debug = {}
@@ -225,11 +222,23 @@ def ask_for_compare_file_update():
     return 0
 
 if __name__ == '__main__':
-    log_init()
     testing_tests = argument_handler()
+    
+    # Remove the existing log file
+    if isfile(FILE_NAME):
+        print('%s is already exist. The original log file will be removed.'%(FILE_NAME))
+        os.remove(FILE_NAME)
+
+    ch, file_handler = log_init()
+
+    test_logger = logging.getLogger('regression_test')
+    set_up_logger( test_logger, ch, file_handler )
+    
+
     try:
         test_logger.info('Test start.')
-        main(testing_tests)
+        main( testing_tests, ch, file_handler )
+        test_logger.info('Test done.')
     except Exception:
         test_logger.critical('',exc_info=True)
         raise
