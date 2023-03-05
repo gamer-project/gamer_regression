@@ -6,6 +6,10 @@ import six
 import yaml
 import logging
 
+# Prevent generation of .pyc files
+# This should be set before importing any user modules
+sys.dont_write_bytecode = True
+
 import script.run_gamer as gamer
 
 from os.path import isfile, isdir

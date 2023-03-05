@@ -2,12 +2,17 @@ from __future__ import print_function
 import logging
 import os
 import re
+import sys
 import yaml
 import six
 import subprocess
 import pandas as pd
 import shutil as st
 import numpy as np
+
+# Prevent generation of .pyc files
+# This should be set before importing any user modules
+sys.dont_write_bytecode = True
 
 from script.hdf5_file_config import hdf_info_read
 from script.log_pipe import LogPipe

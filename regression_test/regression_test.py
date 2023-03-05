@@ -8,6 +8,10 @@ import logging.config
 from os import listdir
 from os.path import isfile, isdir, join
 
+# Prevent generation of .pyc files
+# This should be set before importing any user modules
+sys.dont_write_bytecode = True
+
 import script.girder_handler as gh
 import script.run_gamer as gamer
 
