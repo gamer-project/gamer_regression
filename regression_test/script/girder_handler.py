@@ -1,5 +1,6 @@
 import subprocess
 import os
+from os.path import isfile, isdir
 import sys
 import datetime
 import six
@@ -12,15 +13,31 @@ sys.dont_write_bytecode = True
 
 import script.run_gamer as gamer
 
-from os.path import isfile, isdir
 
+
+####################################################################################################
+# Global variables
+####################################################################################################
 apiUrl='https://girder.hub.yt/api/v1'
 apiKey='REMOVED_API_KEY'
 parent_folder = '/user/xuanweishan/gamer_regression_test'
 
-girder_path = '/usr/local/bin/girder-cli'
+girder_path = '/usr/local/bin/girder-cli'  # This should be modified by user.
 
+
+
+####################################################################################################
+# Functions
+####################################################################################################
 def load_latest_list():
+    """
+
+    Returns
+    -------
+    
+    version_list     :
+    latest_list_path :
+    """
     #list all version files
     list_list_folder = gamer.gamer_abs_path + '/regression_test/compare_version_list'
     for root, dirs, files in os.walk(list_list_folder):
@@ -37,77 +54,252 @@ def load_latest_list():
         version_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
     return version_list, latest_list_path
 
-########################
-## Download functions ##
-########################
 
-def download_folder(hub_yt_folder_name,local_folder,**kwargs):
-    #download all files in a hub.yt folder to local folder with girder-cli command.
+
+####################################################################################################
+# Download functions
+####################################################################################################
+def download_folder( hub_yt_folder_name, local_folder, **kwargs ):
+    """
+    Download all files in a hub.yt folder to local folder with girder-cli command.
+
+    Parameters
+    ----------
+
+    hub_yt_folder_name : string
+       Download target folder.
+    local_folder       : string 
+       Download local folder.
+    kwargs             : 
+       logger : class logger.Logger
+          The logger of grider.
+
+    Returns
+    -------
+    
+    status             : int(0/1)
+       The status of the function.(0: success)
+
+    """
+    status = 0
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(download_folder.__name__) )
+
     target_folder = parent_folder + hub_yt_folder_name
 
-    command = [girder_path,'--api-url',apiUrl,'--api-key',apiKey,'download','--parent-type','folder',target_folder,local_folder]
+    command = [ girder_path, '--api-url', apiUrl, '--api-key', apiKey, \
+                'download', '--parent-type', 'folder', target_folder, local_folder]
+
+    logger.info('Downloading the folder: %s ---> %s' %(target_folder, local_folder))
     try:
         subprocess.check_call(command)
+        logger.info('Download completed.')
     except subprocess.CalledProcessError as err:
-        kwargs['logger'].error('download_file error while downloading folder %s' %(hub_yt_folder_name))
-        return 0
+        logger.error('Download error while downloading folder %s' %(hub_yt_folder_name))
+        status = 1
+    
+    return status
 
-def download_compare_version_list(**kwargs):
-    #download the version manage files to local
+
+
+def download_compare_version_list( **kwargs ):
+    """
+    Download the version manage files to local.
+
+    Parameters
+    ----------
+
+    kwargs: 
+       logger : class logger.Logger
+          The logger of grider.
+    
+    Returns
+    -------
+    
+    status             : int(0/1)
+       The status of the function.(0: success)
+
+    """
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(download_compare_version_list.__name__) )
+    
     yt_folder_name = '/compare_version_list'
-    local_folder = gamer.gamer_abs_path + '/regression_test/compare_version_list'
-    download_folder(yt_folder_name,local_folder,logger=kwargs['logger'])
-    return 0
+    local_folder   = gamer.gamer_abs_path + '/regression_test/compare_version_list'
+    
+    status = download_folder( yt_folder_name, local_folder, logger=logger )
 
-def get_latest_expect_version(test_name,version_list):
+    return status 
+
+
+
+def get_latest_expect_version( test_name, version_list ):
+    """
+    Get the latest version of the reference data.
+
+    Parameters
+    ----------
+
+    test_name    : string
+       The name of the test problem.
+    version_list : dict  
+       All the available verison.
+
+    Returns
+    -------
+
+    ver          : dict
+       The latest version.
+    """
     ver = {'time':0,'inputs':[]}
     for version in version_list[test_name]:
-        if int(version_list[test_name][version]['time']) > ver['time']:
-            ver['time'] = int(version_list[test_name][version]['time'])
-            ver['inputs'] = version_list[test_name][version]['members']
+        if int(version_list[test_name][version]['time']) <= ver['time']:    continue
+        ver['time'] = int(version_list[test_name][version]['time'])
+        ver['inputs'] = version_list[test_name][version]['members']
+    
     return ver
 
-def download_test_compare_data(test_name,local_folder,version='latest',**kwargs):
-    #1. load data_list
+
+
+def download_test_compare_data( test_name, local_folder, version='latest', **kwargs ):
+    """
+    Download the reference data of the test.
+
+    Parameters
+    ----------
+
+    test_name    : string
+       Name of the test.
+    local_folder : string
+       The directory of the config folder.
+    version      : string
+       The version to be compared.
+    kwargs       :
+       logger : class logger.Logger
+          The logger of grider.
+
+    Returns
+    -------
+    
+    all_status   : int(0/1)
+       The status of the function.(0: success)
+
+    """
+    all_status = 0
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(download_folder.__name__) )
+    
+    #1. Load data_list
     version_list, version_list_name = load_latest_list()
     if not test_name in version_list:
-        kwargs['logger'].debug('No data stored in hub.yt')
+        logger.debug('No data stored in hub.yt')
         return 1
-    #2. get data folder path in hub.yt of the version we need from data_list
-    latest_ver = get_latest_expect_version(test_name,version_list)
+
+    #2. Get data folder path in hub.yt of the version we need from data_list
+    latest_ver = get_latest_expect_version( test_name, version_list )
     for Ninput in latest_ver['inputs']:
         latest_yt_path = '/%s_%s-%i'%(test_name,Ninput,latest_ver['time'])
-    #3. create local folders for each input settings
+        
+        #3. Create local folders for each input settings
         local_folder_name = local_folder + '/%s_%s' %(test_name,Ninput)
         if not isdir(local_folder_name):
             os.mkdir(local_folder_name)
-        #4. download compare datas
-        download_folder(latest_yt_path,local_folder_name,logger=kwargs['logger'])
-    return latest_ver['time']
-
-########################
-##  upload functions  ##
-########################
-
-def upload_folder(target_folder,local_folder,**kwargs):
-    #target_folder = test_folder_Path
-    command = [girder_path,'--api-url',apiUrl,'--api-key',apiKey,'upload','--parent-type','folder',target_folder,local_folder]
+        
+        #4. Download compare datas
+        status = download_folder( latest_yt_path, local_folder_name, logger=logger )
+        if status != 0:    all_status = status
     
+    return all_status
+
+
+
+####################################################################################################
+# Upload functions
+####################################################################################################
+def upload_folder( target_folder, local_folder, **kwargs ):
+    """
+    Upload the folder.
+
+    Parameters
+    ----------
+    
+    target_folder : string
+       Upload location.
+    local_folder  : string
+       Folder to be uploaded.
+    kwargs        :
+       logger : class logger.Logger
+          The logger of grider.
+    
+    Returns
+    -------
+    
+    status             : int(0/1)
+       The status of the function.(0: success)
+    """
+    status = 0
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(upload_folder.__name__) )
+    
+    #target_folder = test_folder_Path
+    command = [ girder_path, '--api-url', apiUrl, '--api-key', apiKey, \
+                'upload', '--parent-type', 'folder', target_folder, local_folder ]
+    
+    kwargs['logger'].info( 'Uploading:  %s ---> %s'%(local_folder, target_folder) )
     try:
         subprocess.check_call(command)
     except subprocess.CalledProcessError as err:
         kwargs['logger'].error('upload_file error in %s' %(local_folder))
-        return 0
+        status = 1
+    
+    return status
 
-def create_upload_version_file(compare_list_file_name,test_name,new_folder_names,**kwargs):
+
+
+def create_upload_version_file( compare_list_file_name, test_name, new_folder_names, **kwargs ):
+    """
+
+    Parameters
+    ----------
+    
+    compare_list_file_name : string
+
+    tset_name              : string
+
+    new_folder_names       : string
+
+    kwargs                 :
+       must include logger
+
+    Returns
+    -------
+    
+    status             : int(0/1)
+       The status of the function.(0: success)
+
+    """
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(create_upload_version_file.__name__) )
+    
     with open(compare_list_file_name) as stream:
         old_compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
+    
     #find the name of current latest version name
     latest_ver = 'version_0'
     if test_name in old_compare_list:
         for ver in old_compare_list[test_name]:
             if int(ver.split('_')[-1]) > int(latest_ver.split('_')[-1]):
                 latest_ver = ver
+    
     #Create latest version informations
     #version name
     new_version_name = '%s_%i'%(latest_ver.split('_')[0],int(latest_ver.split('_')[-1])+1)
@@ -127,11 +319,38 @@ def create_upload_version_file(compare_list_file_name,test_name,new_folder_names
     with open(new_version_file_name,'w') as stream:
         yaml.dump(old_compare_list,stream,default_flow_style=False)
 
-    upload_folder(parent_folder+'/compare_version_list',new_version_file_name,logger=kwargs['logger'])
+    status = upload_folder(parent_folder+'/compare_version_list',new_version_file_name,logger=kwargs['logger'])
 
-    return 0
+    return status
 
-def upload_test_compare_data(test_name,source_folders,**kwargs):
+
+
+def upload_test_compare_data( test_name, source_folders, **kwargs ):
+    """
+    
+    Parameters
+    ----------
+
+    test_name: string
+       The name of the test.
+    source_folders: string
+       The upload target folders.
+    kwargs:
+       logger : class logger.Logger
+          The logger of grider.
+    
+    Returns
+    -------
+    
+    all_status    : int(0/1)
+       The status of the function.(0: success)
+    """
+    all_status = 0
+    try:
+        logger = kwargs['logger']
+    except:
+        exit("logger is not passed into %s."%(upload_test_compare_data.__name__) )
+    
     #1. Load compare list
     result_compare_list = gamer.gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
     with open(result_compare_list,'r') as stream:
@@ -160,10 +379,20 @@ def upload_test_compare_data(test_name,source_folders,**kwargs):
             kwargs['logger'].error('Error on copy result file.')
             return 1
         #upload the whole folder to hub.yt
-        upload_folder(parent_folder,folder_name,logger=kwargs['logger'])
-    latest_list, latest_list_name = load_latest_list()
-    create_upload_version_file(latest_list_name,test_name,up_date_folders,logger=kwargs['logger'])
+        status = upload_folder(parent_folder,folder_name,logger=kwargs['logger'])
+        if status != 0: all_status = status
 
+    latest_list, latest_list_name = load_latest_list()
+    status = create_upload_version_file(latest_list_name,test_name,up_date_folders,logger=kwargs['logger'])
+    if status != 0: all_status = status
+
+    return all_status
+
+
+
+####################################################################################################
+# Main execution
+####################################################################################################
 if __name__ == '__main__':
     #setting logger for test
     test_logger = logging.getLogger('test')

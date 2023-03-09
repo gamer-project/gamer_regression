@@ -47,61 +47,71 @@ args           = {'error_level': 'level0'}
 def argument_handler():
     """
     Get the input arguements.
+
+    Returns
+    -------
+
+    testing_test : list
+       A list contains strings of test name which to be tested.
     """
     global FILE_NAME 
+    
+    if len(sys.argv) <= 1:    return all_tests  # Default to run all tests.
+    
     testing_tests = {}
     test_groups = gamer.read_test_group()
-    if len(sys.argv) > 1:
-        for ind_arg in range(1,len(sys.argv)):
-            if   '-error-level' in sys.argv[ind_arg]:
-                args['error_level'] = sys.argv[ind_arg+1]
-            elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
-                gamer.abs_path = sys.argv[ind_arg+1]
-            elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
-                if sys.argv[ind_arg+1] in test_groups:
-                    for test_name in test_groups[sys.argv[ind_arg+1]]:
-                        testing_tests[test_name] = all_tests[test_name]
-                    continue
-                its = re.split(',',sys.argv[ind_arg+1])
-                for ind in its:
-                    testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
-            elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
-                FILE_NAME = sys.argv[ind_arg+1] + ".log"
-            elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
-                print('usage: python regression_test.py')
-                print('Options:')
-                print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
-                print('\t-p --path\tSet the path of gamer path.')
-                print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
-                print('\t-o --output\tSet the file name of test log.')
-                print('\t-h --help\tUsage and option list')
-                print('Test index:')
-                for i in range(len(test_index)):
-                    print("\t%i\t%s"%(i,test_index[i]))
-                print('Test groups:')
-                for g in test_groups:
-                    print('\t%s'%g)
-                    for t in test_groups[g]:
-                        print('\t\t%s'%t)
-                quit()
-#            else:
-#                print('Unknow argument: %s' %sys.argv[ind_arg])
-#                quit()
+
+    for ind_arg in range(1,len(sys.argv)):
+        if   '-error-level' in sys.argv[ind_arg]:
+            args['error_level'] = sys.argv[ind_arg+1]
+        elif '-p' in sys.argv[ind_arg] or '--path' in sys.argv[ind_arg]:
+            gamer.abs_path = sys.argv[ind_arg+1]
+        elif '-t' in sys.argv[ind_arg] or '--test' in sys.argv[ind_arg]:
+            if sys.argv[ind_arg+1] in test_groups:
+                for test_name in test_groups[sys.argv[ind_arg+1]]:
+                    testing_tests[test_name] = all_tests[test_name]
+                continue
+            its = re.split(',',sys.argv[ind_arg+1])
+            for ind in its:
+                testing_tests[test_index[int(ind)]]=all_tests[test_index[int(ind)]]
+        elif '-o' in sys.argv[ind_arg] or '--output' in sys.argv[ind_arg]:
+            FILE_NAME = sys.argv[ind_arg+1] + ".log"
+        elif '-h' in sys.argv[ind_arg] or '--help' in sys.argv[ind_arg]:
+            print('usage: python regression_test.py')
+            print('Options:')
+            print('\t-error_level\tError allows in this test."level0" or "level1". Default: "level0"')
+            print('\t-p --path\tSet the path of gamer path.')
+            print('\t-t --test\tSpecify tests to run. Tests should be saperated by "," Default: all tests')
+            print('\t-o --output\tSet the file name of test log.')
+            print('\t-h --help\tUsage and option list')
+            print('Test index:')
+            for i in range(len(test_index)):
+                print("\t%i\t%s"%(i,test_index[i]))
+            print('Test groups:')
+            for g in test_groups:
+                print('\t%s'%g)
+                for t in test_groups[g]:
+                    print('\t\t%s'%t)
+            quit()
+        else:
+            print( 'Unknow argument: %s' %sys.argv[ind_arg] )
+            #exit()
     
-    if len(testing_tests) == 0:
-        testing_tests = all_tests
     return testing_tests
 
 
 
 def log_init():
     """
-    Initialize the logger
+    Initialize the logger.
 
-    return
-    ------
-    ch           : stream handler
-    file_handler : file handler
+    Returns
+    -------
+
+    ch           : class logging.StreamHandler
+       Saving the screen output format to the logger.
+    file_handler : class logging.FileHandler
+       Saving the file output format to the logger.
     """
     #1. Set up log config
     logging.basicConfig(level=0)
@@ -125,11 +135,15 @@ def set_up_logger( logger, ch, file_handler ):
     """
     Set up settings to logger object
 
-    Input
-    -----
-    logger       : logger class
-    ch           : stream handler
-    file_handler : file handler
+    Parameters
+    ----------
+
+    logger       : class logger.Logger
+       The logger to be added the file handler and the stream handler.
+    ch           : class logging.StreamHandler
+       Saving the screen output format to the logger.
+    file_handler : class logging.FileHandler
+       Saving the file output format to the logger.
     """
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
@@ -142,32 +156,37 @@ def main( tests, ch , file_handler ):
     """
     Main regression test. 
 
-    Input
-    -----
-    tests        : The problems need to be tested.
-    ch           : stream handler
-    file_handler : file handler
+    Parameters
+    ----------
+
+    tests        : dict
+       A dictionary of a sequence of the test paths with a key access of the test names.
+    ch           : class logging.StreamHandler
+       Saving the screen output format to the logger.
+    file_handler : class logging.FileHandler
+       Saving the file output format to the logger.
     """
     # Download compare list for tests
     gh_logger = logging.getLogger('girder')
     set_up_logger( gh_logger, ch, file_handler )
-    gh.download_compare_version_list( logger=gh_logger )
+    Fail = gh.download_compare_version_list( logger=gh_logger )
+    #TODO: stop the program if download is fail
     
     # Loop over all tests
     for test_name in tests:
         #1. Set up individual test logger
         indi_test_logger = logging.getLogger( test_name )
         set_up_logger( indi_test_logger, ch, file_handler )
-        indi_test_logger.info( 'Test %s start' %(test_name) )
+        indi_test_logger.info( 'Test %s start.' %(test_name) )
 
         #2. Set up gamer make configuration
-        config_folder = gamer.gamer_abs_path + '/regression_test/tests/%s' %(test_name)
+        config_folder = gamer.gamer_abs_path + '/regression_test/tests/' + test_name
         config, input_settings = gamer.get_config(config_folder + '/configs')
 
         #3. Compile gamer
         indi_test_logger.info('Start compiling gamer')
         os.chdir(gamer.gamer_abs_path+'/src')
-        Fail = gamer.make(config,logger=indi_test_logger)
+        Fail = gamer.make( config, logger=indi_test_logger )
         
         if Fail == 1:    continue       # Run next test if compilation failed.
     
@@ -175,26 +194,36 @@ def main( tests, ch , file_handler ):
         Fails = []
         test_folder = tests[test_name]
         #run gamer in different Input__Parameter    
-        indi_test_logger.info('Start running test')
+        indi_test_logger.info('Start running test.')
         for input_setting in input_settings:
-            gamer.copy_example( test_folder, test_name +'_'+ input_setting )
-            gamer.set_input( input_settings[input_setting] )
-            Fail = gamer.run(logger=indi_test_logger,input_name=input_setting)
+            Fail = gamer.copy_example( test_folder, test_name +'_'+ input_setting, logger=indi_test_logger )
+            #TODO: stop the test if file copy fail
+
+            Fail = gamer.set_input( input_settings[input_setting], logger=indi_test_logger )
+            #TODO: stop the test if file setting fail
+
+            Fail = gamer.run( logger=indi_test_logger, input_name=input_setting )
+            #TODO: stop the test if execution fail
 
             if Fail == 1:    Fails.append(input_setting)
 
         #5. Analyze the result
-        indi_test_logger.info('Start data analyze')
-        gamer.analyze( test_name, Fails )
+        indi_test_logger.info('Start data analyze.')
+        Fail = gamer.analyze( test_name, logger=indi_test_logger ) #TODO: the analysis script has a lot of problem
+        #TODO: stop the test if execution fail
+
         #compare result and expect
         #download compare file
-        gh.download_test_compare_data(test_name,config_folder,logger=gh_logger)
+        Fail = gh.download_test_compare_data( test_name, config_folder, logger=gh_logger )
+        #TODO: stop the program if download fail
         
         #compare file
         os.chdir( gamer.gamer_abs_path+'/tool/analysis/gamer_compare_data/' )
-        gamer.make_compare_tool( test_folder, config )
+        indi_test_logger.info('Start compiling compare tool.')
+        Fail = gamer.make_compare_tool( test_folder, config, logger=indi_test_logger )
+        #TODO: stop the test if compilation fail.
 
-        indi_test_logger.info('Start Data_compare data consistency')
+        indi_test_logger.info('Start Data_compare data consistency.')
         gamer.check_answer( test_name, Fails, logger=indi_test_logger, error_level=args['error_level'] )
         #except Exception:
         #    test_logger.debug('Check script error')
@@ -202,45 +231,47 @@ def main( tests, ch , file_handler ):
         #except Exception:
         #    test_logger.error('Exception occurred', exc_info=True)
         #    pass
-        indi_test_logger.info('Test %s end' %(test_name))
+        indi_test_logger.info('Test %s end.' %(test_name))
 
 
 
 def test_result( all_tests ):
     """
-    Check failure during tests
+    Check failure during tests.
     
-    Input
-    -----
-    all_tests: the test names have been done.
+    Parameters
+    ----------
+
+    all_tests: dict 
+       A dictionary of a sequence of the test paths with a key access of the test names.
     """
     log_file = open('%s/%s'%(current_path, FILE_NAME))
     log = log_file.readlines()
     error_count = 0
-    test_debug = { t:{} for t in all_tests }
+    test_debug   = { t:{} for t in all_tests }  # storing the DEBUG message
+    test_warning = { t:{} for t in all_tests }  # storing the WARNING message 
     fail_test = {}
     
     for line in log:
         log_msg   = line.split()
         log_type  = log_msg[0]
-        log_start = log_msg[2]
 
         if   log_type == 'INFO':
+            log_start = log_msg[2]
             if log_start != 'Start':    continue
             current_test  = log_msg[1]
             current_work  = log_msg[3]
             test_debug[current_test][current_work]=[]
+            test_warning[current_test][current_work]=[]
         elif log_type == 'DEBUG':
             test_debug[current_test][current_work].append(line[25:])
+        elif log_type == 'WARNING':
+            test_warning[current_test][current_work].append(line[25:])
         elif log_type == 'ERROR':
             if current_test == 'regression_test': continue
             if not current_test in fail_test:
                 fail_test[current_test] = []
-            fail_test[current_test].append(log_start)
-        elif log_type == 'WARNING':
-            if current_test == 'regression_test': continue
-            if not current_test in fail_test:
-                fail_test[current_test] = []
+            log_start = log_msg[2]
             fail_test[current_test].append(log_start)
         else:
             print('Unrecognized log type. log_type = %s'%(log_type))
@@ -284,19 +315,23 @@ if __name__ == '__main__':
     
     # Remove the existing log file
     if isfile(FILE_NAME):
-        print('%s is already exist. The original log file will be removed.'%(FILE_NAME))
+        print('WARNING!!! %s is already exist. The original log file will be removed.'%(FILE_NAME))
         os.remove(FILE_NAME)
 
+    # Initialize logger 
     ch, file_handler = log_init()
 
     test_logger = logging.getLogger('regression_test')
     set_up_logger( test_logger, ch, file_handler )
-
+ 
+    # Regression test
     try:
-        test_logger.info('Test start.')
+        test_logger.info('Regression test start.')
         main( testing_tests, ch, file_handler )
-        test_logger.info('Test done.')
+        test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical('',exc_info=True)
         raise
+    
+    # print the test result
     test_result(testing_tests)
