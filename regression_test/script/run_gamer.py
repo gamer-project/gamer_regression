@@ -74,7 +74,7 @@ def read_test_group():
  
 
 
-def generate_modify_command( config ):
+def generate_modify_command( config, **kwargs ):
     """
     Edit gamer configuration settings.
 
@@ -87,10 +87,22 @@ def generate_modify_command( config ):
     Returns
     -------
 
-    cmd :
+    cmd    :
         command
     """
     cmds = []
+
+    #0. Enable OPENMP, MPI, GPU
+    #if kwargs['OPENMP']:
+    #    cmds.append(['sed', '-i', 's/#SIMU_OPTION += -DOPENMP/SIMU_OPTION += -DOPENMP/g', 'Makefile'])
+    #else:
+    #    cmds.append(['sed', '-i', 's/SIMU_OPTION += -DOPENMP/#SIMU_OPTION += -DOPENMP/g', 'Makefile'])
+    if kwargs['GPU']:
+        cmds.append(['sed', '-i', 's/#SIMU_OPTION += -DGPU/SIMU_OPTION += -DGPU/g', 'Makefile'])
+        # TODO: override the nvcc path
+        # TODO: override the gpu arch
+    else:
+        cmds.append(['sed', '-i', 's/SIMU_OPTION += -DGPU/#SIMU_OPTION += -DGPU/g', 'Makefile'])
     
     #1. Enable HDF5 in all test
     cmds.append(['sed','-i','s/#SIMU_OPTION += -DSUPPORT_HDF5/SIMU_OPTION += -DSUPPORT_HDF5/g','Makefile'])
@@ -133,7 +145,8 @@ def make( config, **kwargs ):
 
     """
     try:
-        out_log = LogPipe(kwargs['logger'],logging.DEBUG)
+        logger  = kwargs['logger']
+        out_log = LogPipe(logger, logging.DEBUG)
     except:
         exit("logger is not passed into %s."%(make.__name__) )
 
@@ -141,22 +154,27 @@ def make( config, **kwargs ):
     subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
 
     #2. get commands to modify Makefile.
-    cmds = generate_modify_command(config)
+    cmds = generate_modify_command( config, **kwargs )
     
     try:
         for cmd in cmds:
             subprocess.check_call(cmd)
     except subprocess.CalledProcessError:
-        print('Error in editing Makefile')
+        logger.error('Error in editing Makefile')
+        #TODO: should terminated
+    
     mf = open('Makefile')
 
     #3. Compile GAMER
     try:
-        subprocess.check_call(['make','clean'],stderr=out_log)
-        subprocess.check_call(['make','-j'],stderr=out_log)
-        #subprocess.check_call(['make -j > make.log'], stderr=out_log, shell=True)
+        subprocess.check_call( ['make','clean'],stderr=out_log )
+        if kwargs["HIDE_MAKE"]:
+            subprocess.check_call( ['make -j > make.log'], stderr=out_log, shell=True )
+            subprocess.check_call( ['rm', 'make.log'] )
+        else:
+            subprocess.check_call( ['make','-j'], stderr=out_log )
     except subprocess.CalledProcessError:
-        kwargs['logger'].error('Compiling error')
+        logger.error('Compiling error')
         return 1
     finally:
         out_log.close()
@@ -167,7 +185,7 @@ def make( config, **kwargs ):
         
         #3.b Check if compile successful
         if not isfile('./gamer'):
-            kwargs['logger'].error('Compiling error')
+            logger.error('Compiling error')
             return 1
 
     return 0
@@ -199,6 +217,7 @@ def make_compare_tool( test_path, make_config, **kwargs ):
     status = 0
     try:
         logger = kwargs['logger']
+        out_log = LogPipe(logger, logging.DEBUG)
     except:
         exit( "logger is not passed into %s."%(make_compare_tool.__name__) )
     
@@ -226,8 +245,12 @@ def make_compare_tool( test_path, make_config, **kwargs ):
     #4. Compile 
     logger.info('Compiling the compare tool.')
     try:
-        subprocess.check_call(['make','clean'])
-        subprocess.check_call(['make'])
+        subprocess.check_call( ['make','clean'], stderr=out_log )
+        if kwargs["HIDE_MAKE"]:
+            subprocess.check_call( ['make > make.log'], stderr=out_log, shell=True )
+            subprocess.check_call( ['rm', 'make.log'], stderr=out_log )
+        else:
+            subprocess.check_call( ['make'], stderr=out_log )
         logger.info('Compilation complete.')
     except:
         logger.error('Error while compiling the compare tool.')
@@ -236,6 +259,8 @@ def make_compare_tool( test_path, make_config, **kwargs ):
     #5. Repair makefile
     subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
     subprocess.check_call(['rm', 'Makefile.origin'])
+
+    out_log.close()
 
     return status
 
@@ -457,8 +482,7 @@ def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kw
         logger  = kwargs['logger']
         
         # TODO: related to the step 2 in this function
-        #out_log = LogPipe( logger, logging.DEBUG )
-        #out_log.close()
+        out_log = LogPipe( logger, logging.DEBUG )
     except:
         exit("logger is not passed into %s."%(data_equal.__name__) )
     
@@ -484,12 +508,16 @@ def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kw
         logger.info('Unique ID : %s' %expect_info.DataID)
         
         #2. Run data compare program
-        subprocess.check_call([compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed])
+        try:
+            with open('compare.log', 'a') as out_file:
+                subprocess.check_call( [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed], 
+                                       stderr=out_log, stdout=out_file)
+            subprocess.check_call( ['rm', 'compare.log'] )
+        except:
+            logger.error("Error while compiling files.")
         
-        # TODO: The following command still have bug to be solved.
-        # compare_cmd = [ '%s -i %s -j %s -o %s -e %.5e > compare.log'%(compare_program, result_file, expect_file, \
-        #                                                               compare_result, error_allowed) ]
-        # subprocess.check_call( compare_cmd, stderr=out_log, shell=True )
+        out_log.close()
+        # TODO: if compare fail, we should stop the program
         
         #3. Check if result equal to expect
         compare_file = open(compare_result)
@@ -519,7 +547,7 @@ def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kw
             if err > 6e-10:  # TODO: Replace to the wanted error
                 fail_or_not = True
                 logger.warning('Data_compare')
-                logger.debug('Error is greater than expect')
+                logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(6.e-10, err))
         else:
             fail_or_not = True
             logger.error('Not suported error level: %s.'%(level))
