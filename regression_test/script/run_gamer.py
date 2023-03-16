@@ -23,9 +23,6 @@ from script.log_pipe import LogPipe
 # Global variables
 ####################################################################################################
 gamer_abs_path = '/work1/xuanshan/gamer'
-config_path    = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
-analyze_path   = gamer_abs_path + '/regression_test/tests'
-input_folder   = gamer_abs_path + '/example/test_problem/Hydro/'
 
 
 
@@ -631,7 +628,7 @@ def read_compare_list( test_name ):
         Storing the data paths need to compare as identical. 
     """
     L1_err_compare, ident_data_comp = {}, {}
-    compare_list_file = analyze_path + '/' + test_name + '/' + 'compare_results'
+    compare_list_file = gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
 
     with open(compare_list_file) as stream:
         compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
@@ -702,7 +699,9 @@ def check_answer( test_name, fails, **kwargs ):
                 logger.error('No such error expect file in the path.')
                 break
 
+            logger.info('Comparing error: %s <-> %s'%(result_file, expect_file))
             fail_or_not = error_comp( result_file, expect_file, logger=logger )
+            logger.info('Comparing error complete.')
             if fail_or_not:
                 compare_fails.append([result_file,expect_file])
     
@@ -727,7 +726,9 @@ def check_answer( test_name, fails, **kwargs ):
                 logger.error('No such expect file in the path.')
                 break
             
+            logger.info('Comparing equal: %s <-> %s'%(result_file, expect_file))
             fail_or_not = data_equal( result_file, expect_file, logger=logger, level=level, error_allowed=ident_comp_f[ident_file][level] )
+            logger.info('Comparing equal complete.')
             if fail_or_not:
                 identical_fails.append([result_file,expect_file])
 
@@ -771,6 +772,7 @@ if __name__ == '__main__':
     test_logger.propagate = False
     test_logger.addHandler(ch)
 
+    config_path    = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
     config, input_settings = get_config(config_path)
     os.chdir('../src')
     Fail = make(config,logger=test_logger)
@@ -782,6 +784,7 @@ if __name__ == '__main__':
     #for sets in input_settings:
     #    set_input(input_settings[sets])
 #    make(config)
+    input_folder   = gamer_abs_path + '/example/test_problem/Hydro/'
 #    copy_example(input_folder)
 #    run()
 #    print check_answer([1],[1])

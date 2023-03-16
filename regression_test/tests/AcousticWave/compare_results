@@ -7,23 +7,23 @@ compare:
 
 identicle:
  input1_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
-  result: bin/AcousticWave_input1/Data_000000
+  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000008
+  result: bin/AcousticWave_input1/Data_000008
   level0: 1e-8
   level1: 2.01
 
  input2_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
-  result: bin/AcousticWave_input1/Data_000000
+  expect: regression_test/tests/AcousticWave/AcousticWave_input2/Data_000015
+  result: bin/AcousticWave_input2/Data_000015
   level0: 1e-8
   level1: 2.01
  input3_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
-  result: bin/AcousticWave_input1/Data_000000
+  expect: regression_test/tests/AcousticWave/AcousticWave_input3/Data_000030
+  result: bin/AcousticWave_input3/Data_000030
   level0: 1e-8
   level1: 2.01
  input4_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000000
-  result: bin/AcousticWave_input1/Data_000000
+  expect: regression_test/tests/AcousticWave/AcousticWave_input4/Data_000060
+  result: bin/AcousticWave_input4/Data_000060
   level0: 1e-8
   level1: 2.01
