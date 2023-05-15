@@ -1,5 +1,121 @@
-compare:
- L1_Err:
-  expect: regression_test/tests/AcousticWave/convergence_compare
-  result: regression_test/tests/AcousticWave/table__convergence
+identicle:
+ input1_Data_000019:
+  expect: regression_test/tests/Plummer/Plummer/Data_000019
+  result: bin/Plummer/Data_000019
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000018:
+  expect: regression_test/tests/Plummer/Plummer/Data_000018
+  result: bin/Plummer/Data_000018
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000017:
+  expect: regression_test/tests/Plummer/Plummer/Data_000017
+  result: bin/Plummer/Data_000017
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000016:
+  expect: regression_test/tests/Plummer/Plummer/Data_000016
+  result: bin/Plummer/Data_000016
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000015:
+  expect: regression_test/tests/Plummer/Plummer/Data_000015
+  result: bin/Plummer/Data_000015
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000014:
+  expect: regression_test/tests/Plummer/Plummer/Data_000014
+  result: bin/Plummer/Data_000014
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000013:
+  expect: regression_test/tests/Plummer/Plummer/Data_000013
+  result: bin/Plummer/Data_000013
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000012:
+  expect: regression_test/tests/Plummer/Plummer/Data_000012
+  result: bin/Plummer/Data_000012
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000011:
+  expect: regression_test/tests/Plummer/Plummer/Data_000011
+  result: bin/Plummer/Data_000011
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000010:
+  expect: regression_test/tests/Plummer/Plummer/Data_000010
+  result: bin/Plummer/Data_000010
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000009:
+  expect: regression_test/tests/Plummer/Plummer/Data_000009
+  result: bin/Plummer/Data_000009
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000008:
+  expect: regression_test/tests/Plummer/Plummer/Data_000008
+  result: bin/Plummer/Data_000008
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000007:
+  expect: regression_test/tests/Plummer/Plummer/Data_000007
+  result: bin/Plummer/Data_000007
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000006:
+  expect: regression_test/tests/Plummer/Plummer/Data_000006
+  result: bin/Plummer/Data_000006
+  level0: 1e-23
+  level1: 2.01
+ 
+ input1_Data_000005:
+  expect: regression_test/tests/Plummer/Plummer/Data_000005
+  result: bin/Plummer/Data_000005
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000004:
+  expect: regression_test/tests/Plummer/Plummer/Data_000004
+  result: bin/Plummer/Data_000004
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000003:
+  expect: regression_test/tests/Plummer/Plummer/Data_000003
+  result: bin/Plummer/Data_000003
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000002:
+  expect: regression_test/tests/Plummer/Plummer/Data_000002
+  result: bin/Plummer/Data_000002
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000001:
+  expect: regression_test/tests/Plummer/Plummer/Data_000001
+  result: bin/Plummer/Data_000001
+  level0: 1e-23
+  level1: 2.01
+
+ input1_Data_000000:
+  expect: regression_test/tests/Plummer/Plummer/Data_000000
+  result: bin/Plummer/Data_000000
+  level0: 1e-23
+  level1: 2.01
 

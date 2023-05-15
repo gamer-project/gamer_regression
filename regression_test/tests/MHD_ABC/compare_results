@@ -1,4 +1,10 @@
 identicle:
+ Data_000010:
+  expect: bin/MHD_ABC_input1/Data_000010
+  result: bin/MHD_ABC_input1/Data_000010
+  level0: 1e-23
+  level1: 2.01
+
  Data_000000:
   expect: bin/MHD_ABC_input1/Data_000000
   result: bin/MHD_ABC_input1/Data_000000

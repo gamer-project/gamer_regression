@@ -1,6 +1,67 @@
 identicle:
- input1_Data_000000:
-  expect: regression_test/tests/BlastWave/BlastWave_input1/Data_000000
-  result: bin/BlastWave_input1/Data_000000
+ input1_Data_000010:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000010
+  result: bin/BlastWave/Data_000010
   level0: 1e-9
   level1: 2
+
+ input1_Data_000009:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000009
+  result: bin/BlastWave/Data_000009
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000008:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000008
+  result: bin/BlastWave/Data_000008
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000007:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000007
+  result: bin/BlastWave/Data_000007
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000006:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000006
+  result: bin/BlastWave/Data_000006
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000005:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000005
+  result: bin/BlastWave/Data_000005
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000004:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000004
+  result: bin/BlastWave/Data_000004
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000003:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000003
+  result: bin/BlastWave/Data_000003
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000002:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000002
+  result: bin/BlastWave/Data_000002
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000001:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000001
+  result: bin/BlastWave/Data_000001
+  level0: 1e-9
+  level1: 2
+
+ input1_Data_000000:
+  expect: regression_test/tests/BlastWave/BlastWave/Data_000000
+  result: bin/BlastWave/Data_000000
+  level0: 1e-9
+  level1: 2
+
