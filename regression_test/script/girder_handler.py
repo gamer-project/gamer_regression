@@ -351,6 +351,7 @@ def upload_test_compare_data( test_name, source_folders, **kwargs ):
     except:
         exit("logger is not passed into %s."%(upload_test_compare_data.__name__) )
     
+
     #1. Load compare list
     result_compare_list = gamer.gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
     with open(result_compare_list,'r') as stream:
@@ -366,7 +367,7 @@ def upload_test_compare_data( test_name, source_folders, **kwargs ):
         up_date_folders.append(folder_name)
     
         #Copy files which wait for upload to a folder
-        input_name = source_folder.split('_')[1]
+        #input_name = source_folder.split('_')[1]
         copy_cmds = []
         for mode in ['identicle']:
             for f in compare_list[mode]:
@@ -406,10 +407,11 @@ if __name__ == '__main__':
     test_logger.addHandler(ch)
 
     folders_to_upload = [
-        '/work1/xuanshan/gamer/bin/Plummer_input1'
+        '/work1/xuanshan/gamer/bin/BlastWave',
         ]
     print('test start')
-    upload_test_compare_data('Plummer',folders_to_upload,logger=test_logger)
+    download_compare_version_list(logger=test_logge)
+    upload_test_compare_data('BlastWave',folders_to_upload,logger=test_logger)
 
     #download_test_compare_data('Riemann','.',logger=test_logger)
     #download_compare_version_list(logger=test_logger)
