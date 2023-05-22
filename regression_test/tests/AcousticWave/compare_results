@@ -6,24 +6,291 @@ compare:
   level1: 1
 
 identicle:
- input1_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input1/Data_000008
-  result: bin/AcousticWave_input1/Data_000008
+ 032_AcousticWave_Dens_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Dens_000000
+  result: bin/AcousticWave_032/AcousticWave_Dens_000000
   level0: 1e-8
   level1: 2.01
 
- input2_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input2/Data_000015
-  result: bin/AcousticWave_input2/Data_000015
+ 032_AcousticWave_Dens_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Dens_000008
+  result: bin/AcousticWave_032/AcousticWave_Dens_000008
   level0: 1e-8
   level1: 2.01
- input3_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input3/Data_000030
-  result: bin/AcousticWave_input3/Data_000030
+
+ 032_AcousticWave_MomX_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomX_000000
+  result: bin/AcousticWave_032/AcousticWave_MomX_000000
   level0: 1e-8
   level1: 2.01
- input4_Data_000000:
-  expect: regression_test/tests/AcousticWave/AcousticWave_input4/Data_000060
-  result: bin/AcousticWave_input4/Data_000060
+
+ 032_AcousticWave_MomX_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomX_000008
+  result: bin/AcousticWave_032/AcousticWave_MomX_000008
   level0: 1e-8
   level1: 2.01
+
+ 032_AcousticWave_MomY_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomY_000000
+  result: bin/AcousticWave_032/AcousticWave_MomY_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_MomY_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomY_000008
+  result: bin/AcousticWave_032/AcousticWave_MomY_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_MomZ_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomZ_000000
+  result: bin/AcousticWave_032/AcousticWave_MomZ_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_MomZ_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_MomZ_000008
+  result: bin/AcousticWave_032/AcousticWave_MomZ_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_Pres_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Pres_000000
+  result: bin/AcousticWave_032/AcousticWave_Pres_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_Pres_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Pres_000008
+  result: bin/AcousticWave_032/AcousticWave_Pres_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_Temp_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Temp_000000
+  result: bin/AcousticWave_032/AcousticWave_Temp_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 032_AcousticWave_Temp_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Temp_000008
+  result: bin/AcousticWave_032/AcousticWave_Temp_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Dens_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Dens_000000
+  result: bin/AcousticWave_064/AcousticWave_Dens_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Dens_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Dens_000008
+  result: bin/AcousticWave_064/AcousticWave_Dens_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomX_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomX_000000
+  result: bin/AcousticWave_064/AcousticWave_MomX_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomX_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomX_000008
+  result: bin/AcousticWave_064/AcousticWave_MomX_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomY_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomY_000000
+  result: bin/AcousticWave_064/AcousticWave_MomY_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomY_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomY_000008
+  result: bin/AcousticWave_064/AcousticWave_MomY_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomZ_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomZ_000000
+  result: bin/AcousticWave_064/AcousticWave_MomZ_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_MomZ_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_MomZ_000008
+  result: bin/AcousticWave_064/AcousticWave_MomZ_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Pres_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Pres_000000
+  result: bin/AcousticWave_064/AcousticWave_Pres_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Pres_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Pres_000008
+  result: bin/AcousticWave_064/AcousticWave_Pres_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Temp_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Temp_000000
+  result: bin/AcousticWave_064/AcousticWave_Temp_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 064_AcousticWave_Temp_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Temp_000008
+  result: bin/AcousticWave_064/AcousticWave_Temp_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Dens_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Dens_000000
+  result: bin/AcousticWave_128/AcousticWave_Dens_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Dens_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Dens_000008
+  result: bin/AcousticWave_128/AcousticWave_Dens_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomX_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomX_000000
+  result: bin/AcousticWave_128/AcousticWave_MomX_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomX_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomX_000008
+  result: bin/AcousticWave_128/AcousticWave_MomX_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomY_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomY_000000
+  result: bin/AcousticWave_128/AcousticWave_MomY_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomY_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomY_000008
+  result: bin/AcousticWave_128/AcousticWave_MomY_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomZ_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomZ_000000
+  result: bin/AcousticWave_128/AcousticWave_MomZ_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_MomZ_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_MomZ_000008
+  result: bin/AcousticWave_128/AcousticWave_MomZ_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Pres_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Pres_000000
+  result: bin/AcousticWave_128/AcousticWave_Pres_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Pres_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Pres_000008
+  result: bin/AcousticWave_128/AcousticWave_Pres_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Temp_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Temp_000000
+  result: bin/AcousticWave_128/AcousticWave_Temp_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 128_AcousticWave_Temp_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Temp_000008
+  result: bin/AcousticWave_128/AcousticWave_Temp_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Dens_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Dens_000000
+  result: bin/AcousticWave_256/AcousticWave_Dens_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Dens_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Dens_000008
+  result: bin/AcousticWave_256/AcousticWave_Dens_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomX_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomX_000000
+  result: bin/AcousticWave_256/AcousticWave_MomX_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomX_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomX_000008
+  result: bin/AcousticWave_256/AcousticWave_MomX_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomY_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomY_000000
+  result: bin/AcousticWave_256/AcousticWave_MomY_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomY_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomY_000008
+  result: bin/AcousticWave_256/AcousticWave_MomY_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomZ_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomZ_000000
+  result: bin/AcousticWave_256/AcousticWave_MomZ_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_MomZ_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_MomZ_000008
+  result: bin/AcousticWave_256/AcousticWave_MomZ_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Pres_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Pres_000000
+  result: bin/AcousticWave_256/AcousticWave_Pres_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Pres_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Pres_000008
+  result: bin/AcousticWave_256/AcousticWave_Pres_000008
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Temp_000000:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Temp_000000
+  result: bin/AcousticWave_256/AcousticWave_Temp_000000
+  level0: 1e-8
+  level1: 2.01
+
+ 256_AcousticWave_Temp_000008:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Temp_000008
+  result: bin/AcousticWave_256/AcousticWave_Temp_000008
+  level0: 1e-8
+  level1: 2.01
+
