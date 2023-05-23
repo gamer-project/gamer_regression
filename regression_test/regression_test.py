@@ -2,7 +2,6 @@ from __future__ import print_function
 import argparse
 import os
 import sys
-import re
 import logging
 import logging.config
 from os import listdir
@@ -20,21 +19,28 @@ import script.run_gamer as gamer
 ####################################################################################################
 # Global variables
 ####################################################################################################
-#1. Paths
+# 0. Variables
+STATUS_SUCCESS = 0
+STATUS_FAIL    = 1
+
+# 1. Paths
 CURRENT_ABS_PATH     = os.getcwd()
 GAMER_ABS_PATH       = os.path.dirname( CURRENT_ABS_PATH )
 gamer.gamer_abs_path = GAMER_ABS_PATH
 
-#2. Test problem
+# 2. Test problem
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'
 ALL_TESTS = {}
 for direc in listdir( test_example_path ):
     if direc == 'Template':   continue
-    ALL_TESTS[direc]=test_example_path + '/' + direc + '/Inputs'
+    ALL_TESTS[direc] = test_example_path + '/' + direc + '/Inputs'
+ALL_GROUPS = gamer.read_test_group()
 
-TEST_INDEX = [ t for t in ALL_TESTS ]   # Set up index of tests
-        
-#3. Logging variable
+TEST_INDEX  = [ t for t in ALL_TESTS  ]   # Set up index of tests
+GROUP_INDEX = [ g for g in ALL_GROUPS ]   # Set up index of groups
+
+
+# 3. Logging variable
 STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
 SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
 
@@ -50,86 +56,95 @@ def argument_handler():
     Returns
     -------
 
-    args : class argparse.Namespace
+    args    : class argparse.Namespace
        Storing the input arguments.
 
+    unknown : list of string
+       Storing the unknown argument input.
+
     """
-    test_groups = gamer.read_test_group()
 
     test_msg = ""
     test_msg += "Test index:\n"
     for i in range(len(TEST_INDEX)):
-        test_msg += "\t%i\t%s\n"%(i,TEST_INDEX[i])
+        test_msg += "  %2d : %-20s\n"%(i, TEST_INDEX[i])
     test_msg += "Test groups:\n"
-    for g in test_groups:
-        test_msg += "\t%s\n"%g
-        for t in test_groups[g]:
-            test_msg += "\t\t%s\n"%t
-    
-    parser = argparse.ArgumentParser( description = "Regression test of GAMER.", 
+    for g in range(len(ALL_GROUPS)):
+        key, val = list(ALL_GROUPS.items())[g]
+        test_msg += "  %2d : %-20s => "%(g, key)
+        for t in val:
+            test_msg += "%s, "%t
+        test_msg += "\n"
+
+    parser = argparse.ArgumentParser( description = "Regression test of GAMER.",
                                       formatter_class = argparse.RawTextHelpFormatter,
                                       epilog = test_msg )
 
     parser.add_argument( "--error-level",
-                         help="Error allowed in this test. (level0/level1) \nDefault: %(default)s",
-                         type=str,
+                         help="Error allowed in this test. \nDefault: %(default)s",
+                         type=str, choices=["level0", "level1"],
                          default="level0"
                        )
-    parser.add_argument( "-p", "--path", 
-                         help="Set the path of the GAMER path. \nDefault: %(default)s", 
-                         type=str, 
+    parser.add_argument( "-p", "--path",
+                         help="Set the path of the GAMER path. \nDefault: %(default)s",
+                         type=str,
                          default=GAMER_ABS_PATH
                        )
-    parser.add_argument( "-t", "--test", 
-                         help="Specify tests to run. \nDefault: %(default)s", 
+    parser.add_argument( "-g", "--group",
+                         help="Specify test group to run. \nDefault: %(default)s",
                          nargs="+",
-                         type=int, 
-                         default=[ i for i in range(len(ALL_TESTS))]
+                         type=int,
+                         default=[]
                        )
-    parser.add_argument( "-o", "--output", 
-                         help="Set the file name of the test log. The output file will add a suffix '.log' automatically. \nDefault: %(default)s", 
-                         type=str, 
+    parser.add_argument( "-t", "--test",
+                         help="Specify tests to run. \nDefault: %(default)s",
+                         nargs="+",
+                         type=int,
+                         default=[]
+                       )
+    parser.add_argument( "-o", "--output",
+                         help="Set the file name of the test log. The output file will add a suffix '.log' automatically. \nDefault: %(default)s",
+                         type=str,
                          default="test"
                        )
-    
-    # OPENMP
-    parser.add_argument( "--OPENMP",
-                         help="Enable to use OpenMP. \nDefault: %(default)s",
-                         action="store_true",
-                         default=False
-                       )
+
+    parser.add_argument("--cluster",
+                        help="Select the cluster path setup in ../configs. \nDefault: %(default)s",
+                        default="eureka")
+
+    parser.add_argument("--flags",
+                        help="Select the compile flags in ../configs. \nDefault: %(default)s",
+                        default="intel")
+
+    parser.add_argument("--serial_compiler",
+                        help="Select the serial compiler. \nDefault: %(default)s",
+                        choices=["icpc", "g++"],
+                        default="icpc")
 
     # MPI arguments
-    parser.add_argument( "--MPI",
-                         help="Enable to use open-mpi. \nDefault: %(default)s",
+    parser.add_argument( "--mpi",
+                         help="Force running run with open-mpi for all tests. \nDefault: %(default)s",
                          action="store_true",
                          default=False
                        )
-    parser.add_argument( "--path_mpi",
-                         help="Specify the path of the open-mpi compiler. \nDefault: %(default)s",
-                         type=str,
-                         default="/software/openmpi/default"
+    parser.add_argument( "--mpi_rank", metavar="N_RANK",
+                         help="Number of ranks of mpi. \nDefault: %(default)s",
+                         default=2
+                       )
+    parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE",
+                         help="Core used per rank. \nDefault: %(default)s",
+                         default=8
                        )
 
     # GPU arguments
-    parser.add_argument( "--GPU",
-                         help="Enable to use GPU. \nDefault: %(default)s",
-                         action="store_true",
-                         default=False
-                       )
-    parser.add_argument( "--GPU-arch",
+    parser.add_argument( "--gpu_arch",
                          help="Specify the gpu architecture. \nDefault: %(default)s",
                          type=str,
                          default="TURING"
                        )
-    parser.add_argument( "--path_nvcc",
-                         help="Specify the path of the nvcc compiler. \nDefault: %(default)s",
-                         type=str,
-                         default="/software/cuda/default"
-                       )
-    
+
     # Others
-    parser.add_argument( "--HIDE_MAKE",
+    parser.add_argument( "--hide_make",
                          help="Hide the make messages. \nDefault: %(default)s",
                          action="store_true",
                          default=False
@@ -137,11 +152,11 @@ def argument_handler():
 
     args, unknown = parser.parse_known_args()
 
-    # Print out the unknown arguments and invalid test index
+    # Print out the unknown arguments
     if unknown != []:
-        print("Unknown arguments: ", unknown)
-    
-    return args
+        print("Simulation forced or unknown arguments: ", unknown)
+
+    return args, unknown
 
 
 
@@ -151,46 +166,46 @@ def reg_init( input_args ):
        A list contains strings of test name which to be tested.
     """
     global GAMER_ABS_PATH
-   
-    testing_tests = {}
-    # 2. Check if the input arguments are valid.
+
+    testing_groups = {}
+    # 0. Setting the default
+    # if nothing input, run group 0 which include all test
+    if len(input_args.group) == 0 and len(input_args.test) == 0:
+        input_args.group = [0]
+
+    # 1. Check if the input arguments are valid.
+    for idx_g in input_args.group:
+        if idx_g < 0 or idx_g > len(ALL_GROUPS):
+            print("Unrecognize index of the group: %d"%idx_g)
+            continue
+
+        group_tests = ALL_GROUPS[GROUP_INDEX[idx_g]]
+        testing_tests  = {}
+        for test in group_tests:
+            testing_tests[test] = ALL_TESTS[test]
+
+        testing_groups[GROUP_INDEX[idx_g]] = testing_tests
+
+    testing_tests  = {}
     for idx in input_args.test:
         if idx >= len(TEST_INDEX) or idx < 0:
             print("Unrecognize index of the test: %d"%idx)
             continue
         testing_tests[TEST_INDEX[idx]] = ALL_TESTS[TEST_INDEX[idx]]
 
-    #2.b Unsupported arguments
-    if not input_args.OPENMP:
-        print("Disable OPENMP option is not supported yet. Reset to true.")
-        input_args.OPENMP = True
-    
-    if input_args.MPI:
-        print("MPI option is not supported yet. Reset to false.")
-        input_args.MPI = False
-    if input_args.path_mpi != "/software/openmpi/default":
-        print("path_mpi option is not supported yet. This option is not functional now.")
-    
-    if input_args.GPU:
-        print("GPU option is not supported yet. Reset to false.")
-        input_args.GPU = False
-    if input_args.GPU_arch != "TURING":
-        print("GPU_arch option is not supported yet. This option is not functional now.")
-    if input_args.path_nvcc != "/software/cuda/default":
-        print("path_nvcc option is not supported yet. This option is not functional now.")
+    testing_groups["Extra_test"] = testing_tests
 
-
-    # 3. Store to global variables
+    # 2. Store to global variables
     GAMER_ABS_PATH = input_args.path
     gamer.gamer_abs_path = GAMER_ABS_PATH
     input_args.output += ".log"
-   
-   # Remove the existing log file
+
+    # 3. Remove the existing log file
     if isfile( input_args.output ):
         print('WARNING!!! %s is already exist. The original log file will be removed.'%(input_args.output))
         os.remove( input_args.output )
 
-    return testing_tests, input_args
+    return testing_groups, input_args
 
 
 
@@ -208,12 +223,12 @@ def log_init( log_file_name ):
     """
     #1. Set up log config
     logging.basicConfig(level=0)
-    
+
     ch           = logging.StreamHandler()
     file_handler = logging.FileHandler( log_file_name )
 
     #2. Add log config into std output
-    ch.setLevel(logging.DEBUG)    
+    ch.setLevel(logging.DEBUG)
     ch.setFormatter( STD_FORMATTER )
 
     #3. Add log config into file
@@ -240,10 +255,10 @@ def set_up_logger( logger_name, ch, file_handler ):
 
     Returns
     -------
-    
+
     logger       : class logger.Logger
        The logger added the file handler and the stream handler with logger_name.
-    
+
     """
     logger = logging.getLogger( logger_name )
     logger.setLevel(logging.DEBUG)
@@ -255,9 +270,9 @@ def set_up_logger( logger_name, ch, file_handler ):
 
 
 
-def main( tests, ch, file_handler, **kwargs ):
+def main( groups, ch, file_handler, **kwargs ):
     """
-    Main regression test. 
+    Main regression test.
 
     Parameters
     ----------
@@ -271,69 +286,102 @@ def main( tests, ch, file_handler, **kwargs ):
     """
     # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    Fail = gh.download_compare_version_list( logger=gh_logger )
-    #TODO: stop the program if download is fail
-    
-    # Loop over all tests
-    for test_name in tests:
-        #1. Set up individual test logger
-        indi_test_logger = set_up_logger( test_name, ch, file_handler )
-        indi_test_logger.info( 'Test %s start.' %(test_name) )
+    if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
+        raise BaseException("The download from girder fails.")
 
-        #2. Set up gamer make configuration
-        config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
-        config, input_settings = gamer.get_config( config_folder + '/configs' )
+    # Loop over all groups
+    group_status = { group_name:{"status":True, "reason":""} for group_name in groups }
+    for group_name in groups:
+        tests = groups[group_name]
+        test_status = { test_name:{"status":True, "reason":""} for test_name in tests }
+        group_logger = set_up_logger( group_name, ch, file_handler )
+        group_logger.info( 'Group %s start.' %(group_name) )
+        for test_name in tests:
+            #1. Set up individual test logger
+            indi_test_logger = set_up_logger( test_name, ch, file_handler )
+            indi_test_logger.info( 'Test %s start.' %(test_name) )
 
-        #3. Compile gamer
-        indi_test_logger.info('Start compiling gamer')
-        os.chdir( GAMER_ABS_PATH + '/src' )
-        Fail = gamer.make( config, logger=indi_test_logger, **kwargs )
-        
-        if Fail == 1:    continue       # Run next test if compilation failed.
-    
-        #4. Run gamer
-        Fails = []
-        test_folder = tests[test_name]
-        #run gamer in different Input__Parameter    
-        indi_test_logger.info('Start running test.')
-        for input_setting in input_settings:
-            Fail = gamer.copy_example( test_folder, test_name+'_'+ input_setting, logger=indi_test_logger, **kwargs )
-            #TODO: stop the test if file copy fail
+            #2. Set up gamer make configuration
+            config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
+            config, input_settings, error_settings = gamer.get_config( config_folder + '/configs' )
+            run_mpi = True  if "mpi" in config or kwargs["mpi"]  else False
 
-            Fail = gamer.set_input( input_settings[input_setting], logger=indi_test_logger, **kwargs )
-            #TODO: stop the test if file setting fail
+            #3. Compile gamer
+            indi_test_logger.info('Start compiling gamer')
+            os.chdir( GAMER_ABS_PATH + '/src' )
+            if gamer.make( config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Compiling error."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
 
-            Fail = gamer.run( logger=indi_test_logger, input_name=input_setting, **kwargs )
-            #TODO: stop the test if execution fail
+            #4. Run gamer
+            indi_test_logger.info('Start running test.')
+            test_folder = tests[test_name]
+            for input_setting in input_settings:    # run gamer with different Input__Parameter
+                if gamer.copy_example( test_folder, test_name+'_'+str(input_setting), logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                    test_status[test_name]["status"] = False
+                    test_status[test_name]["reason"] = "Copying error of %s."%input_setting
+                    group_status[group_name]["status"] = False
+                    group_status[group_name]["reason"] += test_name + ", "
+                    continue
 
-            if Fail == 1:    Fails.append(input_setting)
+                if gamer.set_input( input_settings[input_setting], logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                    test_status[test_name]["status"] = False
+                    test_status[test_name]["reason"] = "Setting error of %s."%input_setting
+                    group_status[group_name]["status"] = False
+                    group_status[group_name]["reason"] += test_name + ", "
+                    continue
 
-        #5. Analyze the result
-        indi_test_logger.info('Start data analyze.')
-        Fail = gamer.analyze( test_name, logger=indi_test_logger ) #TODO: the analysis script has a lot of problem
-        #TODO: stop the test if execution fail
+                if gamer.run( mpi_test=run_mpi, logger=indi_test_logger, input_name=input_setting, **kwargs ) == STATUS_FAIL:
+                    test_status[test_name]["status"] = False
+                    test_status[test_name]["reason"] = "Running error of %s."%input_setting
+                    group_status[group_name]["status"] = False
+                    group_status[group_name]["reason"] += test_name + ", "
+                    continue
 
-        #compare result and expect
-        #download compare file
-        Fail = gh.download_test_compare_data( test_name, config_folder, logger=gh_logger )
-        #TODO: stop the program if download fail
-        
-        #compare file
-        os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
-        indi_test_logger.info('Start compiling compare tool.')
-        Fail = gamer.make_compare_tool( test_folder, config, logger=indi_test_logger, **kwargs )
-        #TODO: stop the test if compilation fail.
+            if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
-        indi_test_logger.info('Start Data_compare data consistency.')
-        #gamer.check_answer( test_name, Fails, logger=indi_test_logger, error_level=kwargs['error_level'] )
-        gamer.check_answer( test_name, Fails, logger=indi_test_logger, **kwargs )
-        #except Exception:
-        #    test_logger.debug('Check script error')
+            #5. Analyze the result
+            indi_test_logger.info('Start data analyze.')
+            #TODO: the analysis script has a lot of problem
+            if gamer.analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Analyzing error."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
 
-        #except Exception:
-        #    test_logger.error('Exception occurred', exc_info=True)
-        #    pass
-        indi_test_logger.info('Test %s end.' %(test_name))
+            #compare result and expect
+            #download compare file
+            if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
+                raise BaseException("The download from girder fails.")
+
+            #compare file
+            os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
+            indi_test_logger.info('Start compiling compare tool.')
+            if gamer.make_compare_tool( test_folder, config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Compiling error of compare tool."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
+
+            indi_test_logger.info('Start Data_compare data consistency.')
+            #if gamer.check_answer( test_name, Fails, logger=indi_test_logger, error_level=kwargs['error_level'] ) == STATUS_FAIL:
+            if gamer.check_answer( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Comparing fail."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
+
+            indi_test_logger.info('Test %s end.' %(test_name))
+        group_status[group_name]["result"] = test_status
+        group_logger.info( 'Group %s end.' %(group_name) )
+
+    return group_status
 
 
 
@@ -342,8 +390,16 @@ def write_args_to_log( logger, **kwargs ):
     for arg in kwargs:
        if arg == 'test':
            msg = ""
-           for i in kwargs[arg]: 
+           for i in kwargs[arg]:
                msg += TEST_INDEX[i] + " "
+           logger.info("%-20s : %s"%("extra_test", msg))
+       elif arg == 'group':
+           msg = ""
+           for i in kwargs[arg]:
+               msg += GROUP_INDEX[i] + " "
+           logger.info("%-20s : %s"%(arg, msg))
+       elif arg == "force_args":
+           msg = " ".join(kwargs[arg])
            logger.info("%-20s : %s"%(arg, msg))
        elif type(kwargs[arg]) == type('str'):  # string
            logger.info("%-20s : %s"%(arg, kwargs[arg]))
@@ -359,102 +415,45 @@ def write_args_to_log( logger, **kwargs ):
 
 
 
-def test_result( all_tests, input_args ):
-    """
-    Check failure during tests.
-    
-    Parameters
-    ----------
-
-    all_tests: dict 
-       A dictionary of a sequence of the test paths with a key access of the test names.
-    """
-    log_file = open('%s/%s'%(CURRENT_ABS_PATH, input_args.output))
-    log = log_file.readlines()
-    error_count = 0
-    test_debug   = { t:{} for t in all_tests }  # storing the DEBUG message
-    test_warning = { t:{} for t in all_tests }  # storing the WARNING message 
-    fail_test = {}
-    
-    for line in log:
-        log_msg   = line.split()
-        log_type  = log_msg[0]
-
-        if   log_type == 'INFO':
-            log_start = log_msg[2]
-            if log_start != 'Start':    continue
-            current_test = log_msg[1]
-            current_work = log_msg[3]
-            test_debug[current_test][current_work]=[]
-            test_warning[current_test][current_work]=[]
-        elif log_type == 'DEBUG':
-            test_debug[current_test][current_work].append(line[25:])
-        elif log_type == 'WARNING':
-            test_warning[current_test][current_work].append(line[25:])
-        elif log_type == 'ERROR':
-            if current_test == 'regression_test': continue
-            if not current_test in fail_test:
-                fail_test[current_test] = []
-            log_start = log_msg[2]
-            fail_test[current_test].append(log_start)
-        else:
-            print('Unrecognized log type. log_type = %s'%(log_type))
-    
-    #summary test results
-    print('\nTest Result: ')
-    
-    for test in all_tests:
-        if test in fail_test:
-            print('%-20s : Failed'%(test))
-            for fail_stage in fail_test[test]:
-                print('\tFail stage:')
-                print('\t\t%s'%fail_stage)
-                print('\tError message:')
-                for errorline in test_debug[test][fail_stage]:
-                    print('\t\t%s'%errorline)
-
-        else:
-            print('%-20s : Passed'%(test))
-    
-    print('(%i/%i) test(s) fail.'%(len(fail_test),len(all_tests)))
-    if len(fail_test) == 0:    print('Regression test passed!')
-    
-    if len(fail_test) > 0:
-        exit(1)
-
-
-
-def ask_for_compare_file_update():
-    #1. ask for the test to update
-    #2. update those tests and version list file
-    return 0
-
-
-
 ####################################################################################################
-# Main execution 
+# Main execution
 ####################################################################################################
 if __name__ == '__main__':
-    args = argument_handler()
-    
-    # Initialize regression test
-    testing_tests, args = reg_init( args )
+    args, unknown_args = argument_handler()
 
-    # Initialize logger 
+    # Initialize regression test
+    testing_groups, args = reg_init( args )
+
+    # Initialize logger
     ch, file_handler = log_init( args.output )
 
     test_logger = set_up_logger( 'regression_test', ch, file_handler )
-    
-    write_args_to_log( test_logger, **vars(args) )
- 
+
+    write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **vars(args) )
+
     # Regression test
     try:
         test_logger.info('Regression test start.')
-        main( testing_tests, ch, file_handler, **vars(args) )
+        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **vars(args) )
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical( '', exc_info=True )
         raise
-    
-    # print the test result
-    test_result( testing_tests, args )
+
+    print("========================================")
+    print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
+    print("========================================")
+    print("%-20s: %06s     %-s"%("Group name", "Passed", "Fail tests"))
+    for key, val in result.items():
+        if not val["status"]:
+            print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
+        else:
+            print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
+    print("========================================")
+
+    #print("%-20s: %06s     %-s"%("Test problem", "Passed", "Fail reason"))
+    #for key, val in result.items():
+    #    print("%-20s: %06r     %-s"%(key, val["status"], val["reason"]))
+    #print("========================================")
+    print("Please check <%s> for the detail message."%args.output)
+

@@ -1,4 +1,17 @@
-test_group:
+all_test:
+ - AcousticWave
+ - BlastWave
+ - MHD_ABC
+ - Plummer
+ - Riemann
+
+Hydro_Pure:
  - Riemann
  - BlastWave
  - AcousticWave
+
+Hydro_MHD:
+ - MHD_ABC
+
+Hydro_Gravity:
+ - Plummer
