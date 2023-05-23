@@ -1,11 +1,8 @@
 MAKE_CONFIG:
- Enable: MODEL=HYDRO
- Disable: GRAVITY,PARTICLE
- Variables:
-  - NCOMP_PASSIVE_USER: 0
+  - model=HYDRO
 
 INPUT_SETTINGS:
- input1:
+ 'input1':
   Input__Parameter:
    - MAX_LEVEL: 2
 
@@ -13,7 +10,7 @@ INPUT_SETTINGS:
 
   Input__TestProb: 
 
- input2:
+ 'input2':
   Input__Parameter:
    - MAX_LEVEL: 2
 

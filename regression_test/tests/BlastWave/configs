@@ -1,14 +1,12 @@
 MAKE_CONFIG:
- Enable: 
-  - MODEL=HYDRO
-  - GPU
-  - GPU_ARCH=TURING
- Disable:
-  - GRAVITY
-  - PARTICLE
+ - model=HYDRO
+ - timing
+ - openmp
+ - gpu
+ - gpu_arch=TURING
 
 INPUT_SETTINGS:
- input1:
+ 'input1':
   Input__Parameter:
    OMP_NTHREAD: 10
 

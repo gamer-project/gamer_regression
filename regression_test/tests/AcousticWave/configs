@@ -1,32 +1,29 @@
 MAKE_CONFIG:
- Enable:
-  - MODEL=HYDRO
-  - FLOAT8
- Disable:
-  - GRAVITY
-  - PARTICLE
-  - COMOVING
+ - model=HYDRO
+ - timing
+ - double
+ - openmp
 
 INPUT_SETTINGS:
- 032:
+ '032':
   Input__Parameter:
    NX0_TOT_X: 32
    NX0_TOT_Y: 32
    NX0_TOT_Z: 32
 
- 064:
+ '064':
   Input__Parameter:
    NX0_TOT_X: 64
    NX0_TOT_Y: 64
    NX0_TOT_Z: 64
 
- 128:
+ '128':
   Input__Parameter:
    NX0_TOT_X: 128
    NX0_TOT_Y: 128
    NX0_TOT_Z: 128
 
- 256:
+ '256':
   Input__Parameter:
    NX0_TOT_X: 256
    NX0_TOT_Y: 256

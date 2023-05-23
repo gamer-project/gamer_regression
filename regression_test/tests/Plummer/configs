@@ -1,12 +1,12 @@
 MAKE_CONFIG:
- Enable:
-  - MODEL=HYDRO
-  - GRAVITY
- Disable:
-  - GPU
+  - model=HYDRO
+  - gravity
+  - timing
+  - fftw=FFTW2
+  - openmp
 
 INPUT_SETTINGS:
- input1:
+ 'input1':
   Input__Parameter:
    MAX_LEVEL: 7
   Input__Flag_Lohner:
