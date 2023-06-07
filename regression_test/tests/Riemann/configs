@@ -2,7 +2,6 @@ MAKE_CONFIG:
  - model=HYDRO
  - hdf5
  - timing
- - openmp
 
 INPUT_SETTINGS:
  'input1':

@@ -3,7 +3,6 @@ MAKE_CONFIG:
   - gravity
   - timing
   - fftw=FFTW2
-  - openmp
 
 INPUT_SETTINGS:
  'input1':

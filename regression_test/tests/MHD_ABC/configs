@@ -2,7 +2,6 @@ MAKE_CONFIG:
   - model=HYDRO
   - mhd
   - timing
-  - openmp
 
 INPUT_SETTINGS:
  'input1':

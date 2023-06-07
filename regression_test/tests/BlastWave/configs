@@ -1,9 +1,6 @@
 MAKE_CONFIG:
  - model=HYDRO
  - timing
- - openmp
- - gpu
- - gpu_arch=TURING
 
 INPUT_SETTINGS:
  'input1':
