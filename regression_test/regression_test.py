@@ -168,18 +168,20 @@ def reg_init( input_args ):
     global GAMER_ABS_PATH
 
     testing_groups = {}
+    group_options  = {}
     # 0. Setting the default
     # if nothing input, run group 0 which include all test
-    if len(input_args.group) == 0 and len(input_args.test) == 0:
-        input_args.group = [0]
+    if len(input_args["group"]) == 0 and len(input_args["test"]) == 0:
+        input_args["group"] = [0]
 
     # 1. Check if the input arguments are valid.
-    for idx_g in input_args.group:
+    for idx_g in input_args["group"]:
         if idx_g < 0 or idx_g > len(ALL_GROUPS):
             print("Unrecognize index of the group: %d"%idx_g)
             continue
 
-        group_tests = ALL_GROUPS[GROUP_INDEX[idx_g]]
+        group_tests = ALL_GROUPS[GROUP_INDEX[idx_g]]["tests"]
+        group_options[GROUP_INDEX[idx_g]] = ALL_GROUPS[GROUP_INDEX[idx_g]]["options"]
         testing_tests  = {}
         for test in group_tests:
             testing_tests[test] = ALL_TESTS[test]
@@ -187,23 +189,25 @@ def reg_init( input_args ):
         testing_groups[GROUP_INDEX[idx_g]] = testing_tests
 
     testing_tests  = {}
-    for idx in input_args.test:
+    for idx in input_args["test"]:
         if idx >= len(TEST_INDEX) or idx < 0:
             print("Unrecognize index of the test: %d"%idx)
             continue
         testing_tests[TEST_INDEX[idx]] = ALL_TESTS[TEST_INDEX[idx]]
 
     testing_groups["Extra_test"] = testing_tests
+    group_options["Extra_test"] = None
 
     # 2. Store to global variables
-    GAMER_ABS_PATH = input_args.path
+    GAMER_ABS_PATH = input_args["path"]
     gamer.gamer_abs_path = GAMER_ABS_PATH
-    input_args.output += ".log"
+    input_args["output"] += ".log"
+    input_args["group_options"] = group_options
 
     # 3. Remove the existing log file
-    if isfile( input_args.output ):
-        print('WARNING!!! %s is already exist. The original log file will be removed.'%(input_args.output))
-        os.remove( input_args.output )
+    if isfile( input_args["output"] ):
+        print('WARNING!!! %s is already exist. The original log file will be removed.'%(input_args["output"]))
+        os.remove( input_args["output"] )
 
     return testing_groups, input_args
 
@@ -293,6 +297,7 @@ def main( groups, ch, file_handler, **kwargs ):
     group_status = { group_name:{"status":True, "reason":""} for group_name in groups }
     for group_name in groups:
         tests = groups[group_name]
+        test_opts = kwargs["group_options"][group_name]
         test_status = { test_name:{"status":True, "reason":""} for test_name in tests }
         group_logger = set_up_logger( group_name, ch, file_handler )
         group_logger.info( 'Group %s start.' %(group_name) )
@@ -304,6 +309,7 @@ def main( groups, ch, file_handler, **kwargs ):
             #2. Set up gamer make configuration
             config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
             config, input_settings, error_settings = gamer.get_config( config_folder + '/configs' )
+            if test_opts != None: config += test_opts   # add the group option
             run_mpi = True  if "mpi" in config or kwargs["mpi"]  else False
 
             #3. Compile gamer
@@ -401,6 +407,8 @@ def write_args_to_log( logger, **kwargs ):
        elif arg == "force_args":
            msg = " ".join(kwargs[arg])
            logger.info("%-20s : %s"%(arg, msg))
+       elif arg == "group_options":
+           continue
        elif type(kwargs[arg]) == type('str'):  # string
            logger.info("%-20s : %s"%(arg, kwargs[arg]))
        elif type(kwargs[arg]) == type(1):      # integer
@@ -420,21 +428,22 @@ def write_args_to_log( logger, **kwargs ):
 ####################################################################################################
 if __name__ == '__main__':
     args, unknown_args = argument_handler()
+    args = vars(args)
 
     # Initialize regression test
     testing_groups, args = reg_init( args )
 
     # Initialize logger
-    ch, file_handler = log_init( args.output )
+    ch, file_handler = log_init( args["output"] )
 
     test_logger = set_up_logger( 'regression_test', ch, file_handler )
 
-    write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **vars(args) )
+    write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
 
     # Regression test
     try:
         test_logger.info('Regression test start.')
-        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **vars(args) )
+        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical( '', exc_info=True )
@@ -455,5 +464,5 @@ if __name__ == '__main__':
     #for key, val in result.items():
     #    print("%-20s: %06r     %-s"%(key, val["status"], val["reason"]))
     #print("========================================")
-    print("Please check <%s> for the detail message."%args.output)
+    print("Please check <%s> for the detail message."%args["output"])
 
