@@ -105,6 +105,7 @@ def generate_modify_command( config, **kwargs ):
 
     # 2. parallel options
     if kwargs['mpi']:    cmd.append("--mpi")
+    cmd.append("--gpu_arch="+kwargs["gpu_arch"])
 
     # 3. user force enable options
     for arg in kwargs["force_args"]:
