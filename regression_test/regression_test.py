@@ -80,7 +80,7 @@ def argument_handler():
     parser = argparse.ArgumentParser( description = "Regression test of GAMER.",
                                       formatter_class = argparse.RawTextHelpFormatter,
                                       epilog = test_msg,
-                                      allow_abbrev=False
+                                      allow_abbrev=False        # python version must be >= 3.5 
                                       )
 
     parser.add_argument( "--error_level",
@@ -111,18 +111,9 @@ def argument_handler():
                          default="test"
                        )
 
-    parser.add_argument("--cluster",
-                        help="Select the cluster path setup in ../configs. \nDefault: %(default)s",
+    parser.add_argument("--machine",
+                        help="Select the machine configuration in ../configs. \nDefault: %(default)s",
                         default="eureka")
-
-    parser.add_argument("--flags",
-                        help="Select the compile flags in ../configs. \nDefault: %(default)s",
-                        default="intel")
-
-    parser.add_argument("--serial_compiler",
-                        help="Select the serial compiler. \nDefault: %(default)s",
-                        choices=["icpc", "g++"],
-                        default="icpc")
 
     # MPI arguments
     parser.add_argument( "--mpi",
@@ -247,7 +238,7 @@ def reg_init( input_args ):
     testing_groups = {}
     group_options  = {}
     # 0. Setting the default
-    # if nothing input, run group 0 which include all test
+    # if nothing input, run group 0 which include all tests
     if len(input_args["group"]) == 0 and len(input_args["test"]) == 0:
         input_args["group"] = [0]
 

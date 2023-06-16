@@ -93,18 +93,19 @@ def generate_modify_command( config, **kwargs ):
     kwargs["mpi_test"] = False
 
     cmd = [kwargs["py_exe"], "configure.py"]
-    # 0. paths, compiler, and flags
-    cmd.append("--cluster="+kwargs["cluster"])
-    cmd.append("--flags="+kwargs["flags"])
-    cmd.append("--serial_compiler="+kwargs["serial_compiler"])
+    # 0. machine configuration
+    cmd.append("--machine="+kwargs["machine"])
 
     # 1. simulation and miscellaneous options
-    cmd.append("--hdf5")  # Enable HDF5 in all test
+    cmd.append("--hdf5=True")  # Enable HDF5 in all test
     for option in config:
-        cmd.append("--"+option)
+        if "=" in option:
+            cmd.append("--"+option)
+        else:
+            cmd.append("--"+option+"=True")
 
     # 2. parallel options
-    if kwargs['mpi']:    cmd.append("--mpi")
+    if kwargs['mpi']:    cmd.append("--mpi=True")
     cmd.append("--gpu_arch="+kwargs["gpu_arch"])
 
     # 3. user force enable options
