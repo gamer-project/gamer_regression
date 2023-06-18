@@ -113,7 +113,7 @@ def argument_handler():
 
     parser.add_argument("--machine",
                         help="Select the machine configuration in ../configs. \nDefault: %(default)s",
-                        default="eureka")
+                        default="eureka_intel")
 
     # MPI arguments
     parser.add_argument( "--mpi",
