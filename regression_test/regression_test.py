@@ -31,10 +31,8 @@ gamer.gamer_abs_path = GAMER_ABS_PATH
 
 # 2. Test problem
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'
-ALL_TESTS = {}
-for direc in listdir( test_example_path ):
-    if direc == 'Template':   continue
-    ALL_TESTS[direc] = test_example_path + '/' + direc + '/Inputs'
+ALL_TESTS = { direc:test_example_path+'/'+direc+'/Inputs' for direc in listdir(test_example_path) }
+ALL_TESTS.pop('Template')                 # Remove the Template folder from test
 ALL_GROUPS = gamer.read_test_group()
 
 TEST_INDEX  = [ t for t in ALL_TESTS  ]   # Set up index of tests
@@ -65,22 +63,17 @@ def argument_handler():
 
     """
 
-    test_msg = ""
-    test_msg += "Test index:\n"
-    for i in range(len(TEST_INDEX)):
-        test_msg += "  %2d : %-20s\n"%(i, TEST_INDEX[i])
+    test_msg = "Test index:\n"
+    test_msg += "".join( ["  %2d : %-20s\n"%(i, t) for i, t in enumerate(TEST_INDEX)] )
     test_msg += "Test groups:\n"
     for g in range(len(ALL_GROUPS)):
         key, val = list(ALL_GROUPS.items())[g]
-        test_msg += "  %2d : %-20s => "%(g, key)
-        for t in val["tests"]:
-            test_msg += "%s, "%t
-        test_msg += "\n"
+        test_msg += "  %2d : %-20s => %s\n"%( g, key, ", ".join(["%s"%t for t in val["tests"]]) )
 
     parser = argparse.ArgumentParser( description = "Regression test of GAMER.",
                                       formatter_class = argparse.RawTextHelpFormatter,
                                       epilog = test_msg,
-                                      allow_abbrev=False        # python version must be >= 3.5 
+                                      allow_abbrev=False        # python version must be >= 3.5
                                       )
 
     parser.add_argument( "--error_level",
