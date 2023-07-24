@@ -523,7 +523,8 @@ def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kw
             fail_or_not = True
         finally:
             out_log.close()
-            # TODO: if compare fail, we should stop the program
+
+        if fail_or_not: return fail_or_not
 
         logger.info('Expect result is run from the version below.')
         logger.info('File name : %s' %expect_file)
@@ -532,14 +533,10 @@ def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kw
         logger.info('Unique ID : %s' %expect_info.DataID)
 
         #3. Check if result equal to expect
-        compare_file = open(compare_result)
-        lines = compare_file.readlines()
-        counter = 0
-        for line in lines:
-            if line[0] == '#':    continue      # comment line
-
-            counter += 1
-            if counter > 4:
+        with open( compare_result, 'r' ) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line[0] in ['#', '\n']:    continue      # comment and empty line
                 fail_or_not = True
                 break
 
