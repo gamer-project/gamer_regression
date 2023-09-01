@@ -7,10 +7,7 @@ INPUT_SETTINGS:
   Input__Parameter:
    OMP_NTHREAD: 10
 
-Input__Flag_Lohner:
+  Input__Flag_Lohner:
 
-Input__TestProb:
+  Input__TestProb:
 
-ERROR_SETTINGS:
- - level0: 1e-23
- - level1: 1e-8

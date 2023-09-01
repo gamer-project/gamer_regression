@@ -52,8 +52,7 @@ def get_config( config_path ):
     with open(config_path) as stream:
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
-    #return data['MAKE_CONFIG'], data['INPUT_SETTINGS'], data["ERROR_SETTINGS"]
-    return data['MAKE_CONFIG'], data['INPUT_SETTINGS'], 1
+    return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
 
 
 
@@ -306,12 +305,12 @@ def copy_example( file_folder, test_folder, **kwargs ):
 
     logger.info('Copying the test folder: %s ---> %s'%(file_folder, run_directory+'/'+test_folder))
     try:
+        os.chdir( run_directory )
+
         if isdir(run_directory+'/'+test_folder):
             logger.warning('Test folder(%s) exist. ALL the original data will be removed.'%(run_directory+'/'+test_folder))
         else:
-            os.chdir( run_directory )
-
-        subprocess.check_call(['cp', '-r', file_folder, test_folder])
+            subprocess.check_call(['cp', '-r', file_folder, test_folder])
 
         os.chdir( run_directory+'/'+test_folder )
         subprocess.check_call(['sh', 'clean.sh'])
@@ -465,165 +464,6 @@ def analyze( test_name, **kwargs ):
 
 
 
-def data_equal( result_file, expect_file, level='level0', data_type='HDF5', **kwargs ):
-    """
-    Parameters
-    ----------
-
-    result_file : string
-       Directory of the test data.
-    expect_file : string
-       Directory of the reference data.
-    level       : string ( level0 / level1 )
-       The error level allowed.
-    data_type   : string ( HDF5 / text )
-       The data type of the compare files.
-    kwargs      :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    fail_or_not : bool
-       Fail the comparision or not.
-
-    """
-    try:
-        logger  = kwargs['logger']
-
-        # TODO: related to the step 2 in this function
-        out_log = LogPipe( logger, logging.DEBUG )
-    except:
-        raise BaseException("logger is not passed into %s."%(data_equal.__name__) )
-
-    try:
-        error_allowed = kwargs['error_allowed']
-    except:
-        raise BaseException("error_allowed is not passed into %s."%(data_equal.__name__) )
-
-    fail_or_not = False
-
-    if data_type == 'HDF5':
-        #1. Load result informations and expect informations
-        compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
-        compare_result  = gamer_abs_path + '/regression_test/compare_result'
-
-        result_info = hdf_info_read(result_file)
-        expect_info = hdf_info_read(expect_file)
-
-        #2. Run data compare program
-        try:
-            with open('compare.log', 'a') as out_file:
-                subprocess.check_call( [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed],
-                                       stderr=out_log, stdout=out_file)
-            subprocess.check_call( ['rm', 'compare.log'] )
-        except:
-            logger.error("Error while compiling files.")
-            fail_or_not = True
-        finally:
-            out_log.close()
-
-        if fail_or_not: return fail_or_not
-
-        logger.info('Expect result is run from the version below.')
-        logger.info('File name : %s' %expect_file)
-        logger.info('Git Branch: %s' %expect_info.gitBranch)
-        logger.info('Git Commit: %s' %expect_info.gitCommit)
-        logger.info('Unique ID : %s' %expect_info.DataID)
-
-        #3. Check if result equal to expect
-        with open( compare_result, 'r' ) as f:
-            lines = f.readlines()
-            for line in lines:
-                if line[0] in ['#', '\n']:    continue      # comment and empty line
-                fail_or_not = True
-                break
-
-    elif data_type == 'text':
-        #1. Load result informations and expect informations
-        a = pd.read_csv(result_file,header=0)
-        b = pd.read_csv(expect_file,header=0)
-
-        if a.shape != b.shape:
-            fail_or_not = True
-            logger.error('Data compare : data shapes are different.')
-            return fail_or_not
-
-        if   level == 'level0':
-            fail_or_not = a.equals(b)
-        elif level == 'level1':
-            err = np.abs(a - b)
-            if err > error_allowed:
-                fail_or_not = True
-                logger.warning('Data_compare')
-                logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(error_allowed, err))
-        else:
-            fail_or_not = True
-            logger.error('Not suported error level: %s.'%(level))
-    else:
-        fail_or_not = True
-        logger.error('Not supported data type: %s.'%(data_type))
-
-    return fail_or_not
-
-
-
-def error_comp( result_file, expect_file, **kwargs ):
-    """
-    Compare error from the reference file.
-
-    Parameters
-    ----------
-
-    result_file : string
-       Directory of the test data.
-    expect_file : string
-       Directory of the reference data.
-    kwargs      :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    fail_or_not : bool
-       Fail the comparision or not.
-    """
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(error_comp.__name__) )
-
-    a = pd.read_csv( result_file, delimiter=r'\s+', dtype={'Error':np.float64} )
-    b = pd.read_csv( expect_file, delimiter=r'\s+', dtype={'Error':np.float64} )
-
-    fail_or_not, greater = False, False
-
-    if a.shape != b.shape:
-        fail_or_not = True
-        logger.error('Data compare : data shapes are different.')
-        return fail_or_not
-
-    comp = a > b
-    for row in comp:
-        for element in comp[row]:
-            if element:
-                greater = True
-                break
-        if greater:
-            break
-    #TODO: print out the error
-
-    if greater:
-        fail_or_not = True
-        logger.warning('Data_compare')
-        logger.debug('Test Error is greater than expect.')
-
-    return fail_or_not
-
-
-
 def read_compare_list( test_name ):
     """
 
@@ -667,7 +507,7 @@ def read_compare_list( test_name ):
 
 
 
-def check_answer( test_name, **kwargs ):
+def compare_data( test_name, **kwargs ):
     """
     Check the answer of test result.
 
@@ -701,17 +541,18 @@ def check_answer( test_name, **kwargs ):
         for err_file in err_comp_f:
             result_file = err_comp_f[err_file]['result']
             expect_file = err_comp_f[err_file]['expect']
+            #print("error: ",  err_comp_f[err_file][level], err_file, level)
 
             if not isfile( result_file ):
                 logger.error('No such result file in the path: %s'%result_file)
-                break
+                return RETURN_FAIL
 
             if not isfile( expect_file ):
                 logger.error('No such expect file in the path: %s'%expect_file)
-                break
+                return RETURN_FAIL
 
             logger.info('Comparing error: %s <-> %s'%(result_file, expect_file))
-            if error_comp( result_file, expect_file, logger=logger ):
+            if compare_error( result_file, expect_file, logger=logger ):
                 compare_fails.append([result_file,expect_file])
             logger.info('Comparing error complete.')
 
@@ -720,6 +561,7 @@ def check_answer( test_name, **kwargs ):
         for ident_file in ident_comp_f:
             result_file = ident_comp_f[ident_file]['result']
             expect_file = ident_comp_f[ident_file]['expect']
+            #print("ident: ",  ident_comp_f[ident_file][level], ident_file, level)
 
             if not isfile( result_file ):
                 logger.error('No such result file in the path: %s'%result_file)
@@ -730,11 +572,11 @@ def check_answer( test_name, **kwargs ):
                 return RETURN_FAIL
 
             logger.info('Comparing equal: %s <-> %s'%(result_file, expect_file))
-            if data_equal( result_file, expect_file, logger=logger, level=level, error_allowed=ident_comp_f[ident_file][level] ):
+            if compare_identical( result_file, expect_file, logger=logger, error_allowed=ident_comp_f[ident_file][level] ):
                 identical_fails.append([result_file,expect_file])
             logger.info('Comparing equal complete.')
 
-    #report the compare result in log
+    # report the compare result in log
     if len(identical_fails) > 0:
         logger.debug('Data_identical')
         logger.debug('Result data is not equal to expect data')
@@ -757,6 +599,169 @@ def check_answer( test_name, **kwargs ):
         return RETURN_FAIL
 
     return RETURN_SUCCESS
+
+
+
+def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
+    """
+    Parameters
+    ----------
+
+    result_file : string
+       Directory of the test data.
+    expect_file : string
+       Directory of the reference data.
+    level       : string ( level0 / level1 )
+       The error level allowed.
+    data_type   : string ( HDF5 / text )
+       The data type of the compare files.
+    kwargs      :
+       logger : class logger.Logger
+          The logger of the test problem.
+
+    Returns
+    -------
+
+    fail_or_not : bool
+       Fail the comparision or not.
+
+    """
+    try:
+        logger  = kwargs['logger']
+
+        # TODO: related to the step 2 in this function
+        out_log = LogPipe( logger, logging.DEBUG )
+    except:
+        raise BaseException("logger is not passed into %s."%(data_equal.__name__) )
+
+    try:
+        error_allowed = kwargs['error_allowed']
+    except:
+        raise BaseException("error_allowed is not passed into %s."%(data_equal.__name__) )
+
+    fail_or_not = False
+
+    #TODO: data_type is not able yet.
+    if data_type == 'HDF5':
+        #1. Load result informations and expect informations
+        compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
+        compare_result  = gamer_abs_path + '/regression_test/compare_result'
+
+        result_info = hdf_info_read(result_file)
+        expect_info = hdf_info_read(expect_file)
+
+        #2. Run data compare program
+        try:
+            with open('compare.log', 'a') as out_file:
+                subprocess.check_call( [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed,'-c'],
+                                       stderr=out_log, stdout=out_file)
+        except:
+            subprocess.check_call( ['rm', 'compare.log'] )
+            logger.error("Error while compiling files.")
+            fail_or_not = True
+        finally:
+            out_log.close()
+
+        if fail_or_not: return fail_or_not
+
+        logger.info('Expect result is run from the version below.')
+        logger.info('File name : %s' %expect_file)
+        logger.info('Git Branch: %s' %expect_info.gitBranch)
+        logger.info('Git Commit: %s' %expect_info.gitCommit)
+        logger.info('Unique ID : %s' %expect_info.DataID)
+
+        #3. Check if result equal to expect
+        with open( compare_result, 'r' ) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line[0] in ['#', '\n']:    continue      # comment and empty line
+                fail_or_not = True
+                break
+
+    elif data_type == 'text':
+    #TODO: this function is not correct yet.
+        #1. Load result informations and expect informations
+        a = pd.read_csv(result_file,header=0)
+        b = pd.read_csv(expect_file,header=0)
+
+        if a.shape != b.shape:
+            fail_or_not = True
+            logger.error('Data compare : data shapes are different.')
+            return fail_or_not
+
+        if   level == 'level0':
+            fail_or_not = a.equals(b)
+        elif level == 'level1':
+            err = np.abs(a - b)
+            if err > error_allowed:
+                fail_or_not = True
+                logger.warning('Data_compare')
+                logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(error_allowed, err))
+        else:
+            fail_or_not = True
+            logger.error('Not suported error level: %s.'%(level))
+    else:
+        fail_or_not = True
+        logger.error('Not supported data type: %s.'%(data_type))
+
+    return fail_or_not
+
+
+
+def compare_error( result_file, expect_file, **kwargs ):
+    """
+    Compare error from the reference file.
+
+    Parameters
+    ----------
+
+    result_file : string
+       Directory of the test data.
+    expect_file : string
+       Directory of the reference data.
+    kwargs      :
+       logger : class logger.Logger
+          The logger of the test problem.
+
+    Returns
+    -------
+
+    fail_or_not : bool
+       Fail the comparision or not.
+    """
+    try:
+        logger = kwargs['logger']
+    except:
+        raise BaseException("logger is not passed into %s."%(error_comp.__name__) )
+
+    a = pd.read_csv( result_file, delimiter=r'\s+', dtype={'Error':np.float64} )
+    b = pd.read_csv( expect_file, delimiter=r'\s+', dtype={'Error':np.float64} )
+
+    fail_or_not, greater = False, False
+
+    if a.shape != b.shape:
+        fail_or_not = True
+        logger.error('Data compare : data shapes are different.')
+        return fail_or_not
+
+    # print out the errors and store to log
+    for key in a:
+        if key == "NGrid":
+            logger.debug("%-5s: %16s %16s"%("NGrid", "result err", "expect err"))
+            continue
+        for j in range(a.shape[0]):
+            if a[key][j] > b[key][j]:
+                greater = True
+                logger.debug("%-5d: %+16e %+16e => Unaccepted error!"%(a["NGrid"][j], a[key][j], b[key][j]))
+            else:
+                logger.debug("%-5d: %+16e %+16e"%(a["NGrid"][j], a[key][j], b[key][j]))
+
+    if greater:
+        fail_or_not = True
+        logger.warning('Data_compare')
+        logger.debug('Test Error is greater than expect.')
+
+    return fail_or_not
 
 
 

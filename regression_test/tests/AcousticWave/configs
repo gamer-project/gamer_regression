@@ -27,7 +27,3 @@ INPUT_SETTINGS:
    NX0_TOT_X: 256
    NX0_TOT_Y: 256
    NX0_TOT_Z: 256
-
-ERROR_SETTINGS:
- - level0: 1e-23
- - level1: 1e-8

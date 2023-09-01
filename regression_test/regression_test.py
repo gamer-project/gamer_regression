@@ -369,9 +369,9 @@ def main( groups, ch, file_handler, **kwargs ):
 
             #2. Set up gamer make configuration
             config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
-            config, input_settings, error_settings = gamer.get_config( config_folder + '/configs' )
+            config, input_settings = gamer.get_config( config_folder + '/configs' )
             if test_opts != None: config += test_opts   # add the group option
-            run_mpi = True  if "mpi" in config or kwargs["mpi"]  else False
+            run_mpi = True  if "mpi=true" in config or "mpi" in config or kwargs["mpi"]  else False
 
             #3. Compile gamer
             indi_test_logger.info('Start compiling gamer')
@@ -436,8 +436,8 @@ def main( groups, ch, file_handler, **kwargs ):
                 continue
 
             indi_test_logger.info('Start Data_compare data consistency.')
-            #if gamer.check_answer( test_name, Fails, logger=indi_test_logger, error_level=kwargs['error_level'] ) == STATUS_FAIL:
-            if gamer.check_answer( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+            #if gamer.compare_data( test_name, logger=indi_test_logger, error_level=kwargs['error_level'] ) == STATUS_FAIL:
+            if gamer.compare_data( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
                 test_status[test_name]["reason"] = "Comparing fail."
                 group_status[group_name]["status"] = False
