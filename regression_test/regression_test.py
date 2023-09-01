@@ -410,17 +410,7 @@ def main( groups, ch, file_handler, **kwargs ):
 
             if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
-            #5. Analyze the result
-            indi_test_logger.info('Start data analyze.')
-            #TODO: the analysis script has a lot of problem
-            if gamer.analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Analyzing error."
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
-                continue
-
-            #compare result and expect
+            #5. Compare by the GAMER_comapre tool
             #download compare file
             if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
@@ -443,6 +433,18 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
+
+
+            #6. User analyze
+            indi_test_logger.info('Start user analyze.')
+            #TODO: the analysis script has a lot of problem
+            if gamer.analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Analyzing error."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
+
 
             indi_test_logger.info('Test %s end.' %(test_name))
         group_status[group_name]["result"] = test_status
