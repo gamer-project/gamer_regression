@@ -2,3 +2,4 @@
 compare_result
 compare_version_list
 tests/*/*_input*
+tests/*/table__convergence

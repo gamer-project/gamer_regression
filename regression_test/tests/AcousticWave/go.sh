@@ -16,13 +16,13 @@ then
   x064=`tail -n 1 $3/$Record__L1Err | awk '{print $1,$3}'`
   x128=`tail -n 1 $4/$Record__L1Err | awk '{print $1,$3}'`
   x256=`tail -n 1 $5/$Record__L1Err | awk '{print $1,$3}'`
-  
-  echo "$x032" >>  $FILE 
-  echo "$x064" >> $FILE 
-  echo "$x128" >> $FILE 
-  echo "$x256" >> $FILE 
-  
-  cat $FILE
+
+  echo "$x032" >>  $FILE
+  echo "$x064" >> $FILE
+  echo "$x128" >> $FILE
+  echo "$x256" >> $FILE
+
+  #cat $FILE
 else
     echo "$Record__L1Err do not exist in $PWD"
 fi

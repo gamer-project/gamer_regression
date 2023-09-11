@@ -410,11 +410,20 @@ def main( groups, ch, file_handler, **kwargs ):
 
             if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
-            #5. Compare by the GAMER_comapre tool
+            #5. Prepare analysis data (e.g. L1 error)
             #download compare file
             if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
+            indi_test_logger.info('Start preparing data.')
+            if gamer.prepare_analysis( test_name, logger=indi_test_logger ) == STATUS_FAIL:
+                test_status[test_name]["status"] = False
+                test_status[test_name]["reason"] = "Preparing analysis data error."
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test_name + ", "
+                continue
+
+            #5. Compare by the GAMER_comapre tool
             #compare file
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
             indi_test_logger.info('Start compiling compare tool.')
@@ -426,7 +435,6 @@ def main( groups, ch, file_handler, **kwargs ):
                 continue
 
             indi_test_logger.info('Start Data_compare data consistency.')
-            #if gamer.compare_data( test_name, logger=indi_test_logger, error_level=kwargs['error_level'] ) == STATUS_FAIL:
             if gamer.compare_data( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
                 test_status[test_name]["reason"] = "Comparing fail."
@@ -434,11 +442,9 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-
             #6. User analyze
             indi_test_logger.info('Start user analyze.')
-            #TODO: the analysis script has a lot of problem
-            if gamer.analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
+            if gamer.user_analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
                 test_status[test_name]["reason"] = "Analyzing error."
                 group_status[group_name]["status"] = False

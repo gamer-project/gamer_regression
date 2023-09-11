@@ -30,6 +30,13 @@ RETURN_FAIL    = 1
 ####################################################################################################
 # Functions
 ####################################################################################################
+def check_passed_kwargs( check_list, **kwargs ):
+    if type(check_list) != type([]): check_list = [check_list]
+
+    for key in check_list:
+        if key not in kwargs: raise BaseException("%s is not passed in kwargs."%(key))
+    return
+
 def get_config( config_path ):
     """
     Get the config of the test.
@@ -54,8 +61,6 @@ def get_config( config_path ):
 
     return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
 
-
-
 def read_test_group():
     """
     Read the test group.
@@ -69,8 +74,6 @@ def read_test_group():
     with open('group') as stream:
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
     return data
-
-
 
 def generate_modify_command( config, **kwargs ):
     """
@@ -113,8 +116,6 @@ def generate_modify_command( config, **kwargs ):
 
     return cmd
 
-
-
 def make( config, **kwargs ):
     """
     Compliing GAMER.
@@ -135,11 +136,10 @@ def make( config, **kwargs ):
        The status of the compilation.
 
     """
-    try:
-        logger  = kwargs['logger']
-        out_log = LogPipe(logger, logging.DEBUG)
-    except:
-        raise BaseException("logger is not passed into %s."%(make.__name__) )
+    check_passed_kwargs( 'logger', **kwargs )
+
+    logger  = kwargs['logger']
+    out_log = LogPipe(logger, logging.DEBUG)
 
     #1. Back up and modify Makefile
     subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
@@ -184,8 +184,6 @@ def make( config, **kwargs ):
 
     return RETURN_SUCCESS
 
-
-
 def make_compare_tool( test_path, make_config, **kwargs ):
     """
     Make compare data program.
@@ -208,12 +206,11 @@ def make_compare_tool( test_path, make_config, **kwargs ):
        The analysis is success or not.
 
     """
-    status = RETURN_SUCCESS
-    try:
-        logger = kwargs['logger']
-        out_log = LogPipe(logger, logging.DEBUG)
-    except:
-        raise BaseException( "logger is not passed into %s."%(make_compare_tool.__name__) )
+    check_passed_kwargs( 'logger', **kwargs )
+
+    status  = RETURN_SUCCESS
+    logger  = kwargs['logger']
+    out_log = LogPipe(logger, logging.DEBUG)
 
     cmds = []
     #1. Back up makefile
@@ -272,8 +269,6 @@ def make_compare_tool( test_path, make_config, **kwargs ):
 
     return status
 
-
-
 def copy_example( file_folder, test_folder, **kwargs ):
     """
     Copy input files to work directory.
@@ -295,11 +290,10 @@ def copy_example( file_folder, test_folder, **kwargs ):
     status      : 0(success)/1(fail)
        The copy is success or not.
     """
+    check_passed_kwargs( 'logger', **kwargs )
+
     status = RETURN_SUCCESS
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(copy_example.__name__) )
+    logger = kwargs['logger']
 
     run_directory = gamer_abs_path + '/bin'
 
@@ -322,7 +316,6 @@ def copy_example( file_folder, test_folder, **kwargs ):
 
     return status
 
-
 def set_input( input_settings, **kwargs ):
     """
     Parameters
@@ -341,11 +334,10 @@ def set_input( input_settings, **kwargs ):
        The setting is success or not.
 
     """
+    check_passed_kwargs( 'logger', **kwargs )
+
     status = RETURN_SUCCESS
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(set_input.__name__) )
+    logger = kwargs['logger']
 
     cmds = []
     for input_file in input_settings:
@@ -364,16 +356,14 @@ def set_input( input_settings, **kwargs ):
 
     logger.info('Setting the Input__Parameter of test.')
     try:
-       for cmd in cmds:
-           subprocess.check_call(cmd)
-       logger.info('Setting completed.')
+        for cmd in cmds:
+            subprocess.check_call(cmd)
+        logger.info('Setting completed.')
     except:
-       status = RETURN_FAIL
-       logger.error('Error on editing `Input__Parameter`.')
+        status = RETURN_FAIL
+        logger.error('Error on editing `Input__Parameter`.')
 
     return status
-
-
 
 def run( **kwargs ):
     """
@@ -394,10 +384,10 @@ def run( **kwargs ):
        The setting is success or not.
 
     """
-    try:
-        out_log = LogPipe( kwargs['logger'],logging.DEBUG )
-    except:
-        raise BaseException("logger is not passed into %s."%(run.__name__) )
+    check_passed_kwargs( 'logger', **kwargs )
+
+    logger  = kwargs['logger']
+    out_log = LogPipe( logger, logging.DEBUG )
 
     #Store the simulation output under test directory
     run_cmd = ["./gamer 1>>log 2>&1"]
@@ -407,7 +397,9 @@ def run( **kwargs ):
     #run gamer
     run_status = RETURN_SUCCESS
     try:
+        logger.info('Running GAMER.')
         subprocess.check_call( run_cmd, stderr=out_log, shell=True )
+        logger.info('GAMER OVER.')
 
     except subprocess.CalledProcessError as err:
         kwargs['logger'].error('running error in %s'%(kwargs['input_name']))
@@ -422,9 +414,7 @@ def run( **kwargs ):
 
     return run_status
 
-
-
-def analyze( test_name, **kwargs ):
+def prepare_analysis( test_name, **kwargs ):
     """
 
     Parameters
@@ -442,27 +432,27 @@ def analyze( test_name, **kwargs ):
     status    : 0(success)/1(fail)
        The analysis is success or not.
     """
-    status = RETURN_SUCCESS
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(analyze.__name__) )
+    check_passed_kwargs( 'logger', **kwargs )
 
-    analyze_file = gamer_abs_path + '/regression_test/test/' + test_name + '/run_analyze.sh'
+    status = RETURN_SUCCESS
+    logger = kwargs['logger']
+
+    script_path    = gamer_abs_path + '/regression_test/tests/' + test_name + '/'
+    data_path      = gamer_abs_path + '/bin/' + test_name + '/'
+    analyze_script = 'prepare_analyze_data.sh'
+    analyze_file   = script_path + analyze_script
+
 
     if not isfile(analyze_file):    return RETURN_SUCCESS # No need to analyze this test
 
-    logger.info('Analyzing the data.')
     try:
-        subprocess.check_call(['sh', analyze_file])
-        logger.info('Analysis completed.')
+        subprocess.check_call(['sh', analyze_file, gamer_abs_path])
+        logger.info('Prepare analysis data completed.')
     except subprocess.CalledProcessError:
         status = RETURN_FAIL
         logger.error('%s has errors.'%(analyze_file))
 
     return status
-
-
 
 def read_compare_list( test_name ):
     """
@@ -505,8 +495,6 @@ def read_compare_list( test_name ):
 
     return L1_err_compare, ident_data_comp
 
-
-
 def compare_data( test_name, **kwargs ):
     """
     Check the answer of test result.
@@ -522,15 +510,10 @@ def compare_data( test_name, **kwargs ):
        error_level : string
           The error allowed level.
     """
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(check_answer.__name__) )
+    check_passed_kwargs( ['logger', 'error_level'], **kwargs )
 
-    try:
-        level = kwargs['error_level']
-    except:
-        raise BaseException("error_level is not passed into %s."%(check_answer.__name__) )
+    logger = kwargs['logger']
+    level  = kwargs['error_level']
 
     #Get the list of files need to be compare
     err_comp_f, ident_comp_f = read_compare_list( test_name )
@@ -541,7 +524,6 @@ def compare_data( test_name, **kwargs ):
         for err_file in err_comp_f:
             result_file = err_comp_f[err_file]['result']
             expect_file = err_comp_f[err_file]['expect']
-            #print("error: ",  err_comp_f[err_file][level], err_file, level)
 
             if not isfile( result_file ):
                 logger.error('No such result file in the path: %s'%result_file)
@@ -561,7 +543,6 @@ def compare_data( test_name, **kwargs ):
         for ident_file in ident_comp_f:
             result_file = ident_comp_f[ident_file]['result']
             expect_file = ident_comp_f[ident_file]['expect']
-            #print("ident: ",  ident_comp_f[ident_file][level], ident_file, level)
 
             if not isfile( result_file ):
                 logger.error('No such result file in the path: %s'%result_file)
@@ -600,8 +581,6 @@ def compare_data( test_name, **kwargs ):
 
     return RETURN_SUCCESS
 
-
-
 def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
     """
     Parameters
@@ -626,18 +605,12 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
        Fail the comparision or not.
 
     """
-    try:
-        logger  = kwargs['logger']
+    check_passed_kwargs( ['logger', 'error_allowed'], **kwargs )
 
-        # TODO: related to the step 2 in this function
-        out_log = LogPipe( logger, logging.DEBUG )
-    except:
-        raise BaseException("logger is not passed into %s."%(data_equal.__name__) )
-
-    try:
-        error_allowed = kwargs['error_allowed']
-    except:
-        raise BaseException("error_allowed is not passed into %s."%(data_equal.__name__) )
+    error_allowed = kwargs['error_allowed']
+    logger        = kwargs['logger']
+    # TODO: related to the step 2 in this function
+    out_log       = LogPipe( logger, logging.DEBUG )
 
     fail_or_not = False
 
@@ -709,8 +682,6 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
 
     return fail_or_not
 
-
-
 def compare_error( result_file, expect_file, **kwargs ):
     """
     Compare error from the reference file.
@@ -732,10 +703,9 @@ def compare_error( result_file, expect_file, **kwargs ):
     fail_or_not : bool
        Fail the comparision or not.
     """
-    try:
-        logger = kwargs['logger']
-    except:
-        raise BaseException("logger is not passed into %s."%(error_comp.__name__) )
+    check_passed_kwargs( 'logger', **kwargs )
+
+    logger = kwargs['logger']
 
     a = pd.read_csv( result_file, delimiter=r'\s+', dtype={'Error':np.float64} )
     b = pd.read_csv( expect_file, delimiter=r'\s+', dtype={'Error':np.float64} )
@@ -765,6 +735,45 @@ def compare_error( result_file, expect_file, **kwargs ):
         logger.debug('Test Error is greater than expect.')
 
     return fail_or_not
+
+def user_analyze( test_name, **kwargs ):
+    """
+
+    Parameters
+    ----------
+
+    test_name : string
+        The name of the test.
+    kwargs    :
+       logger : class logger.Logger
+          The logger of the test problem.
+
+    Returns
+    -------
+
+    status    : 0(success)/1(fail)
+       The analysis is success or not.
+    """
+    check_passed_kwargs( 'logger', **kwargs )
+
+    status = RETURN_SUCCESS
+    logger = kwargs['logger']
+
+    script_path    = gamer_abs_path + '/regression_test/tests/' + test_name + '/'
+    data_path      = gamer_abs_path + '/bin/' + test_name + '/'
+    analyze_script = 'user_analyze.sh'
+    analyze_file   = script_path + analyze_script
+
+    if not isfile(analyze_file):    return RETURN_SUCCESS # No need to analyze this test
+
+    try:
+        subprocess.check_call(['sh', analyze_file, gamer_abs_path])
+        logger.info('User analysis completed.')
+    except subprocess.CalledProcessError:
+        status = RETURN_FAIL
+        logger.error('%s has errors.'%(analyze_file))
+
+    return status
 
 
 
