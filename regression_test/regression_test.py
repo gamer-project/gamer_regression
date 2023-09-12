@@ -5,6 +5,7 @@ import sys
 import ctypes
 import logging
 import logging.config
+import subprocess
 from os import listdir
 from os.path import isfile, isdir, join
 
@@ -219,6 +220,27 @@ def get_gpu_arch():
 
     return arch
 
+
+def get_git_info():
+    """
+    Returns
+    -------
+
+       gamer_commit      : gamer commit hash
+       regression_commit : regression commit hash
+    """
+    try:
+        regression_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+    except:
+        regression_commit = "UNKNOWN"
+    os.chdir( GAMER_ABS_PATH )
+    try:
+        gamer_commit      = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+    except:
+        gamer_commit      = "UNKNOWN"
+    os.chdir( CURRENT_ABS_PATH )
+
+    return gamer_commit, regression_commit
 
 
 def reg_init( input_args ):
@@ -506,6 +528,12 @@ if __name__ == '__main__':
     ch, file_handler = log_init( args["output"] )
 
     test_logger = set_up_logger( 'regression_test', ch, file_handler )
+
+    gamer_commit, reg_commit = get_git_info()
+
+    test_logger.info( 'Recording the commit version.')
+    test_logger.info( 'GAMER      version   : %-s'%(gamer_commit) )
+    test_logger.info( 'Regression version   : %-s'%(reg_commit)   )
 
     write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
 
