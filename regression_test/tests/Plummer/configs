@@ -1,13 +1,13 @@
 MAKE_CONFIG:
   - model=HYDRO
   - gravity
+  - particle
   - timing
-  - fftw=FFTW2
+  - fftw=FFTW3
 
 INPUT_SETTINGS:
  'input1':
   Input__Parameter:
-   MAX_LEVEL: 7
   Input__Flag_Lohner:
 
   Input__TestProb:

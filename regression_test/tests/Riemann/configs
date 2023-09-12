@@ -1,6 +1,5 @@
 MAKE_CONFIG:
  - model=HYDRO
- - hdf5
  - timing
 
 INPUT_SETTINGS:

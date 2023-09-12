@@ -9,21 +9,29 @@ INPUT_SETTINGS:
    NX0_TOT_X: 32
    NX0_TOT_Y: 32
    NX0_TOT_Z: 32
+   OPT__OUTPUT_MODE: 2
+   OUTPUT_DT: 0.1
 
  '064':
   Input__Parameter:
    NX0_TOT_X: 64
    NX0_TOT_Y: 64
    NX0_TOT_Z: 64
+   OPT__OUTPUT_MODE: 2
+   OUTPUT_DT: 0.1
 
  '128':
   Input__Parameter:
    NX0_TOT_X: 128
    NX0_TOT_Y: 128
    NX0_TOT_Z: 128
+   OPT__OUTPUT_MODE: 2
+   OUTPUT_DT: 0.1
 
  '256':
   Input__Parameter:
    NX0_TOT_X: 256
    NX0_TOT_Y: 256
    NX0_TOT_Z: 256
+   OPT__OUTPUT_MODE: 2
+   OUTPUT_DT: 0.1

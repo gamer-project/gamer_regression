@@ -6,4 +6,3 @@ MAKE_CONFIG:
 INPUT_SETTINGS:
  'input1':
   Input__Parameter:
-   MAX_LEVEL: 2
