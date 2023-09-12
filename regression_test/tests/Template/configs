@@ -6,15 +6,15 @@ INPUT_SETTINGS:
   Input__Parameter:
    - MAX_LEVEL: 2
 
-  Input__Flag_Lohner: 
+  Input__Flag_Lohner:
 
-  Input__TestProb: 
+  Input__TestProb:
 
  'input2':
   Input__Parameter:
    - MAX_LEVEL: 2
 
-  Input__Flag_Lohner: 
+  Input__Flag_Lohner:
 
-  Input__TestProb: 
+  Input__TestProb:
 
