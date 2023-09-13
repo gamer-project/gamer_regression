@@ -533,10 +533,10 @@ def compare_data( test_name, **kwargs ):
                 logger.error('No such expect file in the path: %s'%expect_file)
                 return RETURN_FAIL
 
-            logger.info('Comparing error: %s <-> %s'%(result_file, expect_file))
+            logger.info('Comparing L1 error: %s <-> %s'%(result_file, expect_file))
             if compare_error( result_file, expect_file, logger=logger ):
                 compare_fails.append([result_file,expect_file])
-            logger.info('Comparing error complete.')
+            logger.info('Comparing L1 error complete.')
 
     identical_fails = []
     if len(ident_comp_f) > 0:
@@ -553,29 +553,10 @@ def compare_data( test_name, **kwargs ):
                 logger.error('No such expect file in the path: %s'%expect_file)
                 return RETURN_FAIL
 
-            logger.info('Comparing equal: %s <-> %s'%(result_file, expect_file))
+            logger.info('Comparing identical: %s <-> %s'%(result_file, expect_file))
             if compare_identical( result_file, expect_file, data_type=file_type, logger=logger, error_allowed=ident_comp_f[ident_file][level] ):
-                identical_fails.append([result_file,expect_file])
-            logger.info('Comparing equal complete.')
-
-    # report the compare result in log
-    if len(identical_fails) > 0:
-        logger.debug('Data_identical')
-        logger.debug('Result data is not equal to expect data')
-        for fail_files in identical_fails:
-            result_info = hdf_info_read(fail_files[0])
-            expect_info = hdf_info_read(fail_files[1])
-            str_len = str(max( len(fail_files[0]), len(fail_files[1]), 50 ))
-            str_format = "%-"+str_len+"s %-"+str_len+"s"
-            logger.debug( 'Type      : '+str_format%("Expect",              "Result") )
-            logger.debug( 'File name : '+str_format%(fail_files[1],         fail_files[0])         )
-            logger.debug( 'Git Branch: '+str_format%(expect_info.gitBranch, result_info.gitBranch) )
-            logger.debug( 'Git Commit: '+str_format%(expect_info.gitCommit, result_info.gitCommit) )
-            logger.debug( 'Unique ID : '+str_format%(expect_info.DataID,    result_info.DataID)    )
-
-    if len(compare_fails) > 0:
-        logger.debug('Data_compare')
-        logger.debug('Error compare result is greater than expect')
+                identical_fails.append([result_file,expect_file, file_type])
+            logger.info('Comparing identical complete.')
 
     if len(identical_fails) > 0 or len(compare_fails) > 0:
         return RETURN_FAIL
@@ -616,7 +597,6 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
     fail_or_not  = False
     compare_fail = False
 
-    #TODO: data_type is not able yet.
     if data_type == 'HDF5':
         #1. Load result informations and expect informations
         compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
@@ -635,9 +615,6 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
             if not os.path.isfile(compare_result): comapre_fail = True
             fail_or_not = True
 
-        finally:
-            out_log.close()
-
         #2.1 execution error of compare tool
         if compare_fail:
             logger.error( "The execution of '[%s]' is fail."%(" ".join(cmd)) )
@@ -650,37 +627,42 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
         #        fail_or_not = True
         #        break
 
-        logger.info('Expect result is run from the version below.')
-        logger.info('File name : %s' %expect_file)
-        logger.info('Git Branch: %s' %expect_info.gitBranch)
-        logger.info('Git Commit: %s' %expect_info.gitCommit)
-        logger.info('Unique ID : %s' %expect_info.DataID)
+        if fail_or_not:
+            logger.debug('Result data is not identical to expect data')
+            logger.debug('Error is greater than expect.')
+            #logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(float(error_allowed), err))
+            str_len = str(max( len(expect_file), len(result_file), 50 ))
+            str_format = "%-"+str_len+"s %-"+str_len+"s"
+            logger.debug( 'Type      : '+str_format%("Expect",              "Result"             ) )
+            logger.debug( 'File name : '+str_format%(expect_file,           result_file          ) )
+            logger.debug( 'Git Branch: '+str_format%(expect_info.gitBranch, result_info.gitBranch) )
+            logger.debug( 'Git Commit: '+str_format%(expect_info.gitCommit, result_info.gitCommit) )
+            logger.debug( 'Unique ID : '+str_format%(expect_info.DataID,    result_info.DataID   ) )
 
     elif data_type == 'TEXT':
-    #TODO: this function is not correct yet.
-        #1. Load result informations and expect informations
-        a = pd.read_csv(result_file,header=0)
-        b = pd.read_csv(expect_file,header=0)
+        #1. Load result and expect files
+        a = np.loadtxt( result_file )
+        b = np.loadtxt( expect_file )
 
         if a.shape != b.shape:
             fail_or_not = True
             logger.error('Data compare : data shapes are different.')
+            out_log.close()
             return fail_or_not
 
-        if   level == 'level0':
-            fail_or_not = a.equals(b)
-        elif level == 'level1':
-            err = np.abs(a - b)
-            if err > error_allowed:
-                fail_or_not = True
-                logger.warning('Data_compare')
-                logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(error_allowed, err))
-        else:
-            fail_or_not = True
-            logger.error('Not suported error level: %s.'%(level))
+        #err = np.abs(1 - a/b) # there is an issue of devided by zero
+        err = np.max(np.abs(a - b))
+        if err > float(error_allowed): fail_or_not = True
+
+        if fail_or_not:
+            logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(float(error_allowed), err))
+            #TODO: add commit info
+
     else:
         fail_or_not = True
         logger.error('Not supported data type: %s.'%(data_type))
+
+    out_log.close()
 
     return fail_or_not
 
@@ -733,7 +715,6 @@ def compare_error( result_file, expect_file, **kwargs ):
 
     if greater:
         fail_or_not = True
-        logger.warning('Data_compare')
         logger.debug('Test Error is greater than expect.')
 
     return fail_or_not
