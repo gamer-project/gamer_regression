@@ -543,6 +543,7 @@ def compare_data( test_name, **kwargs ):
         for ident_file in ident_comp_f:
             result_file = ident_comp_f[ident_file]['result']
             expect_file = ident_comp_f[ident_file]['expect']
+            file_type   = ident_comp_f[ident_file]['f_type']
 
             if not isfile( result_file ):
                 logger.error('No such result file in the path: %s'%result_file)
@@ -553,7 +554,7 @@ def compare_data( test_name, **kwargs ):
                 return RETURN_FAIL
 
             logger.info('Comparing equal: %s <-> %s'%(result_file, expect_file))
-            if compare_identical( result_file, expect_file, logger=logger, error_allowed=ident_comp_f[ident_file][level] ):
+            if compare_identical( result_file, expect_file, data_type=file_type, logger=logger, error_allowed=ident_comp_f[ident_file][level] ):
                 identical_fails.append([result_file,expect_file])
             logger.info('Comparing equal complete.')
 
@@ -612,7 +613,8 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
     # TODO: related to the step 2 in this function
     out_log       = LogPipe( logger, logging.DEBUG )
 
-    fail_or_not = False
+    fail_or_not  = False
+    compare_fail = False
 
     #TODO: data_type is not able yet.
     if data_type == 'HDF5':
@@ -624,37 +626,37 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
         expect_info = hdf_info_read(expect_file)
 
         #2. Run data compare program
+        cmd = [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',str(error_allowed),'-c','-m']
         try:
             with open('compare.log', 'w') as out_file:
-                subprocess.check_call( [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',error_allowed,'-c','-m'],
-                                       stderr=out_log, stdout=out_file)
+                subprocess.check_call( cmd, stderr=out_log, stdout=out_file )
         except:
             subprocess.check_call( ['rm', 'compare.log'] )
-
-            #3. Check if result equal to expect
-            with open( compare_result, 'r' ) as f:
-                lines = f.readlines()
-                for line in lines:
-                    if line[0] in ['#', '\n']:    continue      # comment and empty line
-                    fail_or_not = True
-                    break
-                fail_or_not = True
-
-            if not fail_or_not:
-                logger.error("Error while comparing files.")
-            else:
-                logger.info('Expect result is run from the version below.')
-                logger.info('File name : %s' %expect_file)
-                logger.info('Git Branch: %s' %expect_info.gitBranch)
-                logger.info('Git Commit: %s' %expect_info.gitCommit)
-                logger.info('Unique ID : %s' %expect_info.DataID)
+            if not os.path.isfile(compare_result): comapre_fail = True
+            fail_or_not = True
 
         finally:
             out_log.close()
 
-        if fail_or_not: return fail_or_not
+        #2.1 execution error of compare tool
+        if compare_fail:
+            logger.error( "The execution of '[%s]' is fail."%(" ".join(cmd)) )
 
-    elif data_type == 'text':
+        #3. Check if result equal to expect by reading compare_result
+        #with open( compare_result, 'r' ) as f:
+        #    lines = f.readlines()
+        #    for line in lines:
+        #        if line[0] in ['#', '\n']:    continue      # comment and empty line
+        #        fail_or_not = True
+        #        break
+
+        logger.info('Expect result is run from the version below.')
+        logger.info('File name : %s' %expect_file)
+        logger.info('Git Branch: %s' %expect_info.gitBranch)
+        logger.info('Git Commit: %s' %expect_info.gitCommit)
+        logger.info('Unique ID : %s' %expect_info.DataID)
+
+    elif data_type == 'TEXT':
     #TODO: this function is not correct yet.
         #1. Load result informations and expect informations
         a = pd.read_csv(result_file,header=0)
