@@ -152,8 +152,6 @@ def argument_handler():
 
     return args, unknown
 
-
-
 def get_gpu_arch():
     """
     Outputs some information on CUDA-enabled devices on your computer, including current memory usage.
@@ -226,7 +224,6 @@ def get_gpu_arch():
 
     return arch
 
-
 def get_git_info():
     """
     Returns
@@ -247,7 +244,6 @@ def get_git_info():
     os.chdir( CURRENT_ABS_PATH )
 
     return gamer_commit, regression_commit
-
 
 def reg_init( input_args ):
     """
@@ -300,8 +296,6 @@ def reg_init( input_args ):
 
     return testing_groups, input_args
 
-
-
 def log_init( log_file_name ):
     """
     Initialize the logger.
@@ -329,8 +323,6 @@ def log_init( log_file_name ):
     file_handler.setFormatter( SAVE_FORMATTER )
 
     return ch, file_handler
-
-
 
 def set_up_logger( logger_name, ch, file_handler ):
     """
@@ -360,8 +352,6 @@ def set_up_logger( logger_name, ch, file_handler ):
     logger.addHandler(file_handler)
 
     return logger
-
-
 
 def main( groups, ch, file_handler, **kwargs ):
     """
@@ -438,11 +428,11 @@ def main( groups, ch, file_handler, **kwargs ):
 
             if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
-            # 5. Prepare analysis data (e.g. L1 error)
-            # download compare file
+            # 5. Download compare file
             if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
+            # 6. Prepare analysis data (e.g. L1 error)
             indi_test_logger.info('Start preparing data.')
             if gamer.prepare_analysis( test_name, logger=indi_test_logger ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
@@ -450,9 +440,13 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
+            indi_test_logger.info('Preparaiton data done.')
 
-            # 5. Compare by the GAMER_comapre tool
-            # compare file
+            # 7. Compare the data
+            # 7.1 Compare the Record__Note
+            gamer.compare_note( test_name, input_settings, logger=indi_test_logger, **kwargs )
+
+            # 7.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
             indi_test_logger.info('Start compiling compare tool.')
             if gamer.make_compare_tool( test_folder, config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
@@ -462,6 +456,7 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
+            # 7.2 Compare data
             indi_test_logger.info('Start Data_compare data consistency.')
             if gamer.compare_data( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
@@ -470,7 +465,7 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-            # 6. User analyze
+            # 8. User analyze
             indi_test_logger.info('Start user analyze.')
             if gamer.user_analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
@@ -479,14 +474,12 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-
             indi_test_logger.info('Test %s end.' %(test_name))
+
         group_status[group_name]["result"] = test_status
         group_logger.info( 'Group %s end.' %(group_name) )
 
     return group_status
-
-
 
 def write_args_to_log( logger, **kwargs ):
     logger.info("Record all arguments have been set.")

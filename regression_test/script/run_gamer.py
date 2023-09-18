@@ -8,6 +8,7 @@ import six
 import subprocess
 import pandas as pd
 import numpy as np
+import copy
 
 # Prevent generation of .pyc files
 # This should be set before importing any user modules
@@ -442,7 +443,6 @@ def prepare_analysis( test_name, **kwargs ):
     analyze_script = 'prepare_analyze_data.sh'
     analyze_file   = script_path + analyze_script
 
-
     if not isfile(analyze_file):    return RETURN_SUCCESS # No need to analyze this test
 
     try:
@@ -494,6 +494,119 @@ def read_compare_list( test_name ):
             ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
 
     return L1_err_compare, ident_data_comp
+
+def compare_note( test_name, input_settings, **kwargs ):
+    """
+    Compare the Record__Note files
+
+    Parameters
+    ----------
+
+    test_name: string
+       Name of the test.
+    input_settings: list
+       list of the input settings
+    """
+    check_passed_kwargs( 'logger', **kwargs )
+    logger = kwargs['logger']
+
+    def store_note_para( file_name ):
+        with open( file_name, "r" ) as f:
+            data = f.readlines()
+
+        paras = {}
+        in_section = False
+        cur_sec = ""
+        section_pattern = "*****"
+        skip_sec = ["Flag Criterion (# of Particles per Patch)", "Flag Criterion (Lohner Error Estimator)", "Cell Size and Scale (scale = number of cells at the finest level)", "Compilation Time", "Current Time"]
+        end_sec  = ["OpenMP Diagnosis", "Device Diagnosis"]
+        for i in range(len(data)):
+            if data[i] == "\n": continue        # ignore the empty line
+
+            # ignore the section split line, and change the section
+            if section_pattern in data[i]:
+                in_section = not in_section
+                continue
+
+            # record the section name
+            if not in_section:
+                sec = data[i].rstrip()
+                cur_sec = sec
+                if cur_sec in end_sec: break   # End of the parameter information
+                paras[cur_sec] = {}
+                continue
+
+            if cur_sec in skip_sec: continue   # Skip the parameter information
+
+            para = data[i].rstrip().split()
+            key = " ".join(para[0:-1])
+            paras[cur_sec][key] = para[-1]
+        return paras
+
+    def compare_para( para_1, para_2 ):
+        para_1_copy = copy.deepcopy( para_1 )
+        para_2_copy = copy.deepcopy( para_2 )
+
+        diff_para = {"1":{}, "2":{}}
+        for sec in para_1:
+            # 1. store all the sections exist only in para_1
+            if sec not in para_2:
+                for para in para_1[sec]:
+                    diff_para["1"][para] = para_1[sec][para]
+                    diff_para["2"][para] = "EMPTY"
+                continue
+            # 2. store all the parameters exist only in para_1
+            for para in para_1[sec]:
+                if para not in para_2[sec]:
+                    diff_para["1"][para] = para_1[sec][para]
+                    diff_para["2"][para] = "EMPTY"
+                    para_1_copy[sec].pop(para)
+                    continue
+
+                # 3. store the different parameter
+                if para_1[sec][para] != para_2[sec][para]:
+                    diff_para["1"][para] = para_1[sec][para]
+                    diff_para["2"][para] = para_2[sec][para]
+
+                # 4. remove the compared parameter
+                para_1_copy[sec].pop(para)
+                para_2_copy[sec].pop(para)
+
+            # 5. store all the parameters exist only in para_2
+            for para in para_2_copy[sec]:
+                diff_para["1"][para] = "EMPTY"
+                diff_para["2"][para] = para_2[sec][para]
+
+            # 6. clean empty dict
+            para_1_copy.pop(sec)
+            para_2_copy.pop(sec)
+
+        # 7. store all the sections exist only in para_2
+        for sec in para_2:
+            if sec in para_1: continue
+            for para in para_2_copy[sec]:
+                diff_para["1"][para] = "EMPTY"
+                diff_para["2"][para] = para_2[sec][para]
+            para_2_copy.pop(sec)
+
+        return diff_para
+
+    for input_setting in input_settings:
+        run_dir     = test_name + "_" + str(input_setting)
+        result_note = gamer_abs_path + "/bin/" + run_dir + "/Record__Note"
+        expect_note = gamer_abs_path + "/regression_test/tests/" + test_name + "/" + run_dir + "/Record__Note"
+
+        logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
+
+        para_result = store_note_para( result_note )
+        para_expect = store_note_para( expect_note )
+        diff_para   = compare_para( para_result, para_expect )
+
+        logger.debug("%-30s | %40s | %40s |"%("Parameter name", "result parameter", "expect parameter"))
+        for key in diff_para["1"]:
+            logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
+        logger.info("Comparison of Record__Note done.")
+    return
 
 def compare_data( test_name, **kwargs ):
     """
