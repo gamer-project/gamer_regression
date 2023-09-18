@@ -1,5 +1,6 @@
 MAKE_CONFIG:
   - model=HYDRO
+  - bitwise_reproducibility
 
 INPUT_SETTINGS:
  'input1':

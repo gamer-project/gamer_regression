@@ -4,6 +4,7 @@ MAKE_CONFIG:
   - particle
   - timing
   - fftw=FFTW3
+  - bitwise_reproducibility
 
 INPUT_SETTINGS:
  'input1':

@@ -2,6 +2,7 @@ MAKE_CONFIG:
  - model=HYDRO
  - timing
  - double
+ - bitwise_reproducibility
 
 INPUT_SETTINGS:
  '032':
