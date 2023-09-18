@@ -39,10 +39,16 @@ ALL_GROUPS = gamer.read_test_group()
 TEST_INDEX  = [ t for t in ALL_TESTS  ]   # Set up index of tests
 GROUP_INDEX = [ g for g in ALL_GROUPS ]   # Set up index of groups
 
-
 # 3. Logging variable
 STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
 SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
+
+# 4. MPI variables
+THREAD_PER_CORE = 2
+CORE_PER_RANK = 8
+thread_nums = os.cpu_count()
+core_nums = thread_nums // THREAD_PER_CORE
+RANK_NUMS = core_nums // CORE_PER_RANK
 
 
 
@@ -117,11 +123,11 @@ def argument_handler():
                        )
     parser.add_argument( "--mpi_rank", metavar="N_RANK",
                          help="Number of ranks of mpi. \nDefault: %(default)s",
-                         default=2
+                         default=RANK_NUMS
                        )
     parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE",
                          help="Core used per rank. \nDefault: %(default)s",
-                         default=8
+                         default=CORE_PER_RANK
                        )
 
     # GPU arguments
@@ -308,17 +314,17 @@ def log_init( log_file_name ):
     file_handler : class logging.FileHandler
        Saving the file output format to the logger.
     """
-    #1. Set up log config
+    # 1. Set up log config
     logging.basicConfig(level=0)
 
     ch           = logging.StreamHandler()
     file_handler = logging.FileHandler( log_file_name )
 
-    #2. Add log config into std output
+    # 2. Add log config into std output
     ch.setLevel(logging.DEBUG)
     ch.setFormatter( STD_FORMATTER )
 
-    #3. Add log config into file
+    # 3. Add log config into file
     file_handler.setLevel(0)
     file_handler.setFormatter( SAVE_FORMATTER )
 
@@ -385,17 +391,17 @@ def main( groups, ch, file_handler, **kwargs ):
         group_logger = set_up_logger( group_name, ch, file_handler )
         group_logger.info( 'Group %s start.' %(group_name) )
         for test_name in tests:
-            #1. Set up individual test logger
+            # 1. Set up individual test logger
             indi_test_logger = set_up_logger( test_name, ch, file_handler )
             indi_test_logger.info( 'Test %s start.' %(test_name) )
 
-            #2. Set up gamer make configuration
+            # 2. Set up gamer make configuration
             config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
             config, input_settings = gamer.get_config( config_folder + '/configs' )
             if test_opts != None: config += test_opts   # add the group option
             run_mpi = True  if "mpi=true" in config or "mpi" in config or kwargs["mpi"]  else False
 
-            #3. Compile gamer
+            # 3. Compile gamer
             indi_test_logger.info('Start compiling gamer')
             os.chdir( GAMER_ABS_PATH + '/src' )
             if gamer.make( config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
@@ -405,7 +411,7 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-            #4. Run gamer
+            # 4. Run gamer
             indi_test_logger.info('Start running test.')
             test_folder = tests[test_name]
             for input_setting in input_settings:    # run gamer with different Input__Parameter
@@ -432,8 +438,8 @@ def main( groups, ch, file_handler, **kwargs ):
 
             if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
-            #5. Prepare analysis data (e.g. L1 error)
-            #download compare file
+            # 5. Prepare analysis data (e.g. L1 error)
+            # download compare file
             if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
@@ -445,8 +451,8 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-            #5. Compare by the GAMER_comapre tool
-            #compare file
+            # 5. Compare by the GAMER_comapre tool
+            # compare file
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
             indi_test_logger.info('Start compiling compare tool.')
             if gamer.make_compare_tool( test_folder, config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
@@ -464,7 +470,7 @@ def main( groups, ch, file_handler, **kwargs ):
                 group_status[group_name]["reason"] += test_name + ", "
                 continue
 
-            #6. User analyze
+            # 6. User analyze
             indi_test_logger.info('Start user analyze.')
             if gamer.user_analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
@@ -541,6 +547,7 @@ if __name__ == '__main__':
     try:
         test_logger.info('Regression test start.')
         result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
+        #result = {"empty":{"status":True, "reason":"Pass"}}
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical( '', exc_info=True )
