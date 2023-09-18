@@ -302,10 +302,10 @@ def copy_example( file_folder, test_folder, **kwargs ):
         os.chdir( run_directory )
 
         if isdir(run_directory+'/'+test_folder):
-            logger.warning('Test folder(%s) exist. ALL the original data will be removed.'%(run_directory+'/'+test_folder))
-        else:
-            subprocess.check_call(['cp', '-r', file_folder, test_folder])
+            logger.warning('Test folder(%s) exist. ALL the original data (including Input__* and your scripts) will be removed.'%(run_directory+'/'+test_folder))
+            subprocess.check_call(['rm', '-rf', run_directory+'/'+test_folder])
 
+        subprocess.check_call(['cp', '-r', file_folder, test_folder])
         os.chdir( run_directory+'/'+test_folder )
         subprocess.check_call(['sh', 'clean.sh'])
         subprocess.check_call(['cp', '../gamer', '.'])
