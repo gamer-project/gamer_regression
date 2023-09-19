@@ -31,22 +31,24 @@ RETURN_FAIL    = 1
 ####################################################################################################
 # Functions
 ####################################################################################################
-def check_passed_kwargs( check_list, **kwargs ):
+def check_dict_key( check_list, check_dict, dict_name ):
     """
-    Check if the key is passed in kwargs
+    Check if the key is exist in dict
 
     Inputs
     ------
 
     check_list : str or list of string
        Keys to be checked.
-    **kwargs   : dict
-       Keyword argument to be checked.
+    check_dict : dict
+       Dictionary to be checked.
+    dict_name  : str
+       The name of dictionary.
     """
     if type(check_list) != type([]): check_list = [check_list]
 
     for key in check_list:
-        if key not in kwargs: raise BaseException( "%s is not passed in kwargs."%(key) )
+        if key not in check_dict: raise BaseException( "%s is not passed in %s."%(key, dict_name) )
 
     return
 
@@ -80,7 +82,7 @@ def read_yaml( file_name, read_type ):
 
     if read_type == "config":
         return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
-    elif read_type == "test_list":
+    elif read_type in ["test_list", "compare_list"]:
         return data
     else:
         raise ValueError( "%s is not supported!"%read_type )
@@ -150,7 +152,7 @@ def make( config, **kwargs ):
        The status of the compilation.
 
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     logger  = kwargs['logger']
     out_log = LogPipe(logger, logging.DEBUG)
@@ -221,7 +223,7 @@ def make_compare_tool( test_path, make_config, **kwargs ):
        The analysis is success or not.
 
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     status  = RETURN_SUCCESS
     logger  = kwargs['logger']
@@ -306,7 +308,7 @@ def copy_example( file_folder, test_folder, **kwargs ):
     status      : 0(success)/1(fail)
        The copy is success or not.
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     status = RETURN_SUCCESS
     logger = kwargs['logger']
@@ -318,7 +320,7 @@ def copy_example( file_folder, test_folder, **kwargs ):
         os.chdir( run_directory )
 
         if isdir(run_directory+'/'+test_folder):
-            logger.warning('Test folder(%s) exist. ALL the original data (including Input__* and your scripts) will be removed.'%(run_directory+'/'+test_folder))
+            logger.warning('Test folder (%s) exist. ALL the original data (including Input__* and your scripts) will be removed.'%(run_directory+'/'+test_folder))
             subprocess.check_call(['rm', '-rf', run_directory+'/'+test_folder])
 
         subprocess.check_call(['cp', '-r', file_folder, test_folder])
@@ -351,7 +353,7 @@ def set_input( input_settings, **kwargs ):
        The setting is success or not.
 
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     status = RETURN_SUCCESS
     logger = kwargs['logger']
@@ -402,7 +404,7 @@ def run( **kwargs ):
        The setting is success or not.
 
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     logger  = kwargs['logger']
     out_log = LogPipe( logger, logging.DEBUG )
@@ -451,7 +453,7 @@ def prepare_analysis( test_name, **kwargs ):
     status    : 0(success)/1(fail)
        The analysis is success or not.
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     status = RETURN_SUCCESS
     logger = kwargs['logger']
@@ -492,9 +494,7 @@ def read_compare_list( test_name ):
     """
     L1_err_compare, ident_data_comp = {}, {}
     compare_list_file = gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
-
-    with open(compare_list_file) as stream:
-        compare_list = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
+    compare_list      = read_yaml( compare_list_file, "compare_list" )
 
     if compare_list == None:    return L1_err_compare, ident_data_comp
 
@@ -527,7 +527,7 @@ def compare_note( test_name, input_settings, **kwargs ):
     input_settings: list
        list of the input settings
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
     logger = kwargs['logger']
 
     def store_note_para( file_name ):
@@ -653,7 +653,7 @@ def compare_data( test_name, **kwargs ):
        error_level : string
           The error allowed level.
     """
-    check_passed_kwargs( ['logger', 'error_level'], **kwargs )
+    check_dict_key( ['logger', 'error_level'], kwargs, "kwargs" )
 
     logger = kwargs['logger']
     level  = kwargs['error_level']
@@ -665,6 +665,7 @@ def compare_data( test_name, **kwargs ):
     compare_fails = []
     if len(err_comp_f) > 0:
         for err_file in err_comp_f:
+            check_dict_key( ['result', 'expect', 'level0'], err_comp_f[err_file], "err_comp_f[err_file]" )
             result_file = err_comp_f[err_file]['result']
             expect_file = err_comp_f[err_file]['expect']
 
@@ -677,13 +678,21 @@ def compare_data( test_name, **kwargs ):
                 return RETURN_FAIL
 
             logger.info('Comparing L1 error: %s <-> %s'%(result_file, expect_file))
-            if compare_error( result_file, expect_file, logger=logger ):
+
+            if level not in err_comp_f[err_file]:
+                logger.warning( "Error tolerance of %s is not set. Switch to level0!"%(level, err_file) )
+                error_allowed = err_comp_f[err_file]['level0']
+            else:
+                error_allowed = err_comp_f[err_file][level]
+
+            if compare_error( result_file, expect_file, error_allowed=error_allowed, logger=logger ):
                 compare_fails.append([result_file,expect_file])
             logger.info('Comparing L1 error complete.')
 
     identical_fails = []
     if len(ident_comp_f) > 0:
         for ident_file in ident_comp_f:
+            check_dict_key( ['result', 'expect', 'f_type', 'level0'], ident_comp_f[ident_file], "ident_comp_f[ident_file]" )
             result_file = ident_comp_f[ident_file]['result']
             expect_file = ident_comp_f[ident_file]['expect']
             file_type   = ident_comp_f[ident_file]['f_type']
@@ -700,11 +709,7 @@ def compare_data( test_name, **kwargs ):
 
             if level not in ident_comp_f[ident_file]:
                 logger.warning( "Error tolerance of %s is not set. Switch to level0!"%(level, ident_file) )
-                try:
-                    error_allowed = ident_comp_f[ident_file]['level0']
-                except:
-                    logger.error( "Error tolerance of level0 is not set under %s!"%(level, ident_file) )
-                    return RETURN_FAIL
+                error_allowed = ident_comp_f[ident_file]['level0']
             else:
                 error_allowed = ident_comp_f[ident_file][level]
 
@@ -742,7 +747,7 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
        Fail the comparision or not.
 
     """
-    check_passed_kwargs( ['logger', 'error_allowed'], **kwargs )
+    check_dict_key( ['logger', 'error_allowed'], kwargs, "kwargs" )
 
     error_allowed = kwargs['error_allowed']
     logger        = kwargs['logger']
@@ -811,7 +816,6 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
 
         if fail_or_not:
             logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(float(error_allowed), err))
-            #TODO: add commit info
 
     else:
         fail_or_not = True
@@ -843,9 +847,10 @@ def compare_error( result_file, expect_file, **kwargs ):
     fail_or_not : bool
        Fail the comparision or not.
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( ['logger', 'error_allowed'], kwargs, "kwargs" )
 
-    logger = kwargs['logger']
+    logger        = kwargs['logger']
+    error_allowed = kwargs['error_allowed']
 
     a = pd.read_csv( result_file, delimiter=r'\s+', dtype={'Error':np.float64} )
     b = pd.read_csv( expect_file, delimiter=r'\s+', dtype={'Error':np.float64} )
@@ -863,7 +868,7 @@ def compare_error( result_file, expect_file, **kwargs ):
             logger.debug("%-5s: %16s %16s"%("NGrid", "result err", "expect err"))
             continue
         for j in range(a.shape[0]):
-            if a[key][j] > b[key][j]:
+            if a[key][j] > b[key][j] + error_allowed:
                 greater = True
                 logger.debug("%-5d: %+16e %+16e => Unaccepted error!"%(a["NGrid"][j], a[key][j], b[key][j]))
             else:
@@ -871,7 +876,7 @@ def compare_error( result_file, expect_file, **kwargs ):
 
     if greater:
         fail_or_not = True
-        logger.debug('Test Error is greater than expect.')
+        logger.debug('Test Error is greater than expected.')
 
     return fail_or_not
 
@@ -894,7 +899,7 @@ def user_analyze( test_name, **kwargs ):
     status    : 0(success)/1(fail)
        The analysis is success or not.
     """
-    check_passed_kwargs( 'logger', **kwargs )
+    check_dict_key( 'logger', kwargs, "kwargs" )
 
     status = RETURN_SUCCESS
     logger = kwargs['logger']

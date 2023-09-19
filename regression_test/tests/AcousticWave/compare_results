@@ -2,34 +2,44 @@ compare:
  L1_Err:
   expect: regression_test/tests/AcousticWave/convergence_compare
   result: regression_test/tests/AcousticWave/table__convergence
-  level0: 1e-8
-  level1: 1
+  level0: 1.e-30
+  level1: 1.e-15
+  level2: 1.e-07
+  level3: 1.e+100
 
 identicle:
  input1_AcousticWave_Dens_000000:
   expect: regression_test/tests/AcousticWave/AcousticWave_intpu1/AcousticWave_Dens_000000
   result: bin/AcousticWave_input1/AcousticWave_Dens_000000
   f_type: TEXT
-  level0: 1e-8
-  level1: 2.01
+  level0: 1.e-30
+  level1: 1.e-15
+  level2: 1.e-07
+  level3: 1.e+100
 
  input2_AcousticWave_Dens_000000:
   expect: regression_test/tests/AcousticWave/AcousticWave_input2/AcousticWave_Dens_000000
   result: bin/AcousticWave_input2/AcousticWave_Dens_000000
   f_type: TEXT
-  level0: 1e-8
-  level1: 2.01
+  level0: 1.e-30
+  level1: 1.e-15
+  level2: 1.e-07
+  level3: 1.e+100
 
  input3_AcousticWave_Dens_000000:
   expect: regression_test/tests/AcousticWave/AcousticWave_input3/AcousticWave_Dens_000000
   result: bin/AcousticWave_input3/AcousticWave_Dens_000000
   f_type: TEXT
-  level0: 1e-8
-  level1: 2.01
+  level0: 1.e-30
+  level1: 1.e-15
+  level2: 1.e-07
+  level3: 1.e+100
 
  input4_AcousticWave_Dens_000000:
   expect: regression_test/tests/AcousticWave/AcousticWave_input4/AcousticWave_Dens_000000
   result: bin/AcousticWave_input4/AcousticWave_Dens_000000
   f_type: TEXT
-  level0: 1e-8
-  level1: 2.01
+  level0: 1.e-30
+  level1: 1.e-15
+  level2: 1.e-07
+  level3: 1.e+100

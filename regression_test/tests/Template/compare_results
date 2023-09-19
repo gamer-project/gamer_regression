@@ -4,6 +4,8 @@ Error compare:
   result:       regression_test/tests/AcousticWave/table__convergence
   level0:
   level1:
+  level2:
+  level3:
 
 identicle:
  Data_000000:
@@ -11,3 +13,5 @@ identicle:
   result:
   level0:
   level1:
+  level2:
+  level3:
