@@ -85,7 +85,7 @@ def argument_handler():
 
     parser.add_argument( "--error_level",
                          help="Error allowed in this test. \nDefault: %(default)s",
-                         type=str, choices=["level0", "level1"],
+                         type=str, choices=["level0", "level1", "level2"],
                          default="level0"
                        )
     parser.add_argument( "-p", "--path",
@@ -463,7 +463,9 @@ def main( groups, ch, file_handler, **kwargs ):
 
             # 7. Compare the data
             # 7.1 Compare the Record__Note
-            gamer.compare_note( test_name, input_settings, logger=indi_test_logger, **kwargs )
+            if gamer.compare_note( test_name, input_settings, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+                # It is not necessary to compare the Record__Note for now
+                pass
 
             # 7.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )

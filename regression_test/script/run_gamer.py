@@ -616,11 +616,11 @@ def compare_note( test_name, input_settings, **kwargs ):
         result_note = gamer_abs_path + "/bin/" + run_dir + "/Record__Note"
         expect_note = gamer_abs_path + "/regression_test/tests/" + test_name + "/" + run_dir + "/Record__Note"
 
-        if not os.isfile( result_note ):
+        if not isfile( result_note ):
             logger.error( "Result Record__Note (%s) is not exist!"%result_note )
             return RETURN_FAIL
 
-        if not os.isfile( expect_note ):
+        if not isfile( expect_note ):
             logger.error( "Expect Record__Note (%s) is not exist!"%expect_note )
             return RETURN_FAIL
 
@@ -697,8 +697,19 @@ def compare_data( test_name, **kwargs ):
                 return RETURN_FAIL
 
             logger.info('Comparing identical: %s <-> %s'%(result_file, expect_file))
-            if compare_identical( result_file, expect_file, data_type=file_type, logger=logger, error_allowed=ident_comp_f[ident_file][level] ):
-                identical_fails.append([result_file,expect_file, file_type])
+
+            if level not in ident_comp_f[ident_file]:
+                logger.warning( "Error tolerance of %s is not set. Switch to level0!"%(level, ident_file) )
+                try:
+                    error_allowed = ident_comp_f[ident_file]['level0']
+                except:
+                    logger.error( "Error tolerance of level0 is not set under %s!"%(level, ident_file) )
+                    return RETURN_FAIL
+            else:
+                error_allowed = ident_comp_f[ident_file][level]
+
+            if compare_identical( result_file, expect_file, data_type=file_type, logger=logger, error_allowed=error_allowed ):
+                identical_fails.append( [result_file, expect_file, file_type] )
             logger.info('Comparing identical complete.')
 
     if len(identical_fails) > 0 or len(compare_fails) > 0:
@@ -716,7 +727,7 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
        Directory of the test data.
     expect_file : string
        Directory of the reference data.
-    level       : string ( level0 / level1 )
+    level       : string ( level[0/1/2] )
        The error level allowed.
     data_type   : string ( HDF5 / text )
        The data type of the compare files.
