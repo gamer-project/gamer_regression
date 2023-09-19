@@ -38,6 +38,7 @@ def check_passed_kwargs( check_list, **kwargs ):
         if key not in kwargs: raise BaseException("%s is not passed in kwargs."%(key))
     return
 
+
 def get_config( config_path ):
     """
     Get the config of the test.
@@ -62,6 +63,7 @@ def get_config( config_path ):
 
     return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
 
+
 def read_test_group():
     """
     Read the test group.
@@ -75,6 +77,7 @@ def read_test_group():
     with open('group') as stream:
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
     return data
+
 
 def generate_modify_command( config, **kwargs ):
     """
@@ -116,6 +119,7 @@ def generate_modify_command( config, **kwargs ):
         cmd.append(arg)
 
     return cmd
+
 
 def make( config, **kwargs ):
     """
@@ -184,6 +188,7 @@ def make( config, **kwargs ):
         return RETURN_FAIL
 
     return RETURN_SUCCESS
+
 
 def make_compare_tool( test_path, make_config, **kwargs ):
     """
@@ -270,6 +275,7 @@ def make_compare_tool( test_path, make_config, **kwargs ):
 
     return status
 
+
 def copy_example( file_folder, test_folder, **kwargs ):
     """
     Copy input files to work directory.
@@ -316,6 +322,7 @@ def copy_example( file_folder, test_folder, **kwargs ):
         logger.error('Error when createing running directory.')
 
     return status
+
 
 def set_input( input_settings, **kwargs ):
     """
@@ -366,6 +373,7 @@ def set_input( input_settings, **kwargs ):
 
     return status
 
+
 def run( **kwargs ):
     """
     Running GAMER.
@@ -415,6 +423,7 @@ def run( **kwargs ):
 
     return run_status
 
+
 def prepare_analysis( test_name, **kwargs ):
     """
 
@@ -453,6 +462,7 @@ def prepare_analysis( test_name, **kwargs ):
         logger.error('%s has errors.'%(analyze_file))
 
     return status
+
 
 def read_compare_list( test_name ):
     """
@@ -494,6 +504,7 @@ def read_compare_list( test_name ):
             ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
 
     return L1_err_compare, ident_data_comp
+
 
 def compare_note( test_name, input_settings, **kwargs ):
     """
@@ -596,6 +607,14 @@ def compare_note( test_name, input_settings, **kwargs ):
         result_note = gamer_abs_path + "/bin/" + run_dir + "/Record__Note"
         expect_note = gamer_abs_path + "/regression_test/tests/" + test_name + "/" + run_dir + "/Record__Note"
 
+        if not os.isfile( result_note ):
+            logger.error( "Result Record__Note (%s) is not exist!"%result_note )
+            return RETURN_FAIL
+
+        if not os.isfile( expect_note ):
+            logger.error( "Expect Record__Note (%s) is not exist!"%expect_note )
+            return RETURN_FAIL
+
         logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
 
         para_result = store_note_para( result_note )
@@ -606,7 +625,9 @@ def compare_note( test_name, input_settings, **kwargs ):
         for key in diff_para["1"]:
             logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
         logger.info("Comparison of Record__Note done.")
-    return
+
+    return RETURN_SUCCESS
+
 
 def compare_data( test_name, **kwargs ):
     """
@@ -675,6 +696,7 @@ def compare_data( test_name, **kwargs ):
         return RETURN_FAIL
 
     return RETURN_SUCCESS
+
 
 def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
     """
@@ -779,6 +801,7 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
 
     return fail_or_not
 
+
 def compare_error( result_file, expect_file, **kwargs ):
     """
     Compare error from the reference file.
@@ -831,6 +854,7 @@ def compare_error( result_file, expect_file, **kwargs ):
         logger.debug('Test Error is greater than expect.')
 
     return fail_or_not
+
 
 def user_analyze( test_name, **kwargs ):
     """

@@ -44,11 +44,11 @@ STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : 
 SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
 
 # 4. MPI variables
+thread_nums     = os.cpu_count()
 THREAD_PER_CORE = 2
-CORE_PER_RANK = 8
-thread_nums = os.cpu_count()
-core_nums = thread_nums // THREAD_PER_CORE
-RANK_NUMS = core_nums // CORE_PER_RANK
+CORE_PER_RANK   = 8
+core_nums       = thread_nums // THREAD_PER_CORE
+RANK_NUMS       = core_nums   // CORE_PER_RANK
 
 
 
@@ -147,10 +147,10 @@ def argument_handler():
     args, unknown = parser.parse_known_args()
 
     # Print out the unknown arguments
-    if unknown != []:
-        print("Simulation forced or unknown arguments: ", unknown)
+    if unknown != []: print("Simulation forced or unknown arguments: ", unknown)
 
     return args, unknown
+
 
 def get_gpu_arch():
     """
@@ -185,7 +185,7 @@ def get_gpu_arch():
         error_str = ctypes.c_char_p()
 
         cuda.cuGetErrorString(result, ctypes.byref(error_str))
-        raise BaseException("CUDA failed with error code %d: %s" % (result, error_str.value.decode()))
+        raise BaseException( "CUDA failed with error code %d: %s"%( result, error_str.value.decode() ) )
 
         return
 
@@ -224,13 +224,18 @@ def get_gpu_arch():
 
     return arch
 
+
 def get_git_info():
     """
+    Get the current gamer and regression hash.
+
     Returns
     -------
 
-       gamer_commit      : gamer commit hash
-       regression_commit : regression commit hash
+    gamer_commit      : str
+       gamer commit hash
+    regression_commit : str
+       regression commit hash
     """
     try:
         regression_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
@@ -245,16 +250,28 @@ def get_git_info():
 
     return gamer_commit, regression_commit
 
+
 def reg_init( input_args ):
     """
+    Initialize the regression test.
+
+    Inputs
+    ------
+
+    input_args   : dict
+       A dictionary contains the regression parameters.
+
+    Returns
+    -------
+
     testing_test : list
        A list contains strings of test name which to be tested.
     """
     global GAMER_ABS_PATH
 
-    testing_groups = {}
-    group_options  = {}
-    # 0. Setting the default
+    testing_groups, group_options = {}, {}
+
+    # 0. Setting the default test group
     # if nothing input, run group 0 which include all tests
     if len(input_args["group"]) == 0 and len(input_args["test"]) == 0:
         input_args["group"] = [0]
@@ -295,6 +312,7 @@ def reg_init( input_args ):
         os.remove( input_args["output"] )
 
     return testing_groups, input_args
+
 
 def log_init( log_file_name ):
     """
@@ -352,6 +370,7 @@ def set_up_logger( logger_name, ch, file_handler ):
     logger.addHandler(file_handler)
 
     return logger
+
 
 def main( groups, ch, file_handler, **kwargs ):
     """
@@ -480,6 +499,7 @@ def main( groups, ch, file_handler, **kwargs ):
         group_logger.info( 'Group %s end.' %(group_name) )
 
     return group_status
+
 
 def write_args_to_log( logger, **kwargs ):
     logger.info("Record all arguments have been set.")
