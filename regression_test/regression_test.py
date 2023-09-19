@@ -34,7 +34,7 @@ gamer.gamer_abs_path = GAMER_ABS_PATH
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'
 ALL_TESTS = { direc:test_example_path+'/'+direc+'/Inputs' for direc in listdir(test_example_path) }
 ALL_TESTS.pop('Template')                 # Remove the Template folder from test
-ALL_GROUPS = gamer.read_test_group()
+ALL_GROUPS = gamer.read_yaml( GAMER_ABS_PATH + "/regression_test/group", 'test_list' )
 
 TEST_INDEX  = [ t for t in ALL_TESTS  ]   # Set up index of tests
 GROUP_INDEX = [ g for g in ALL_GROUPS ]   # Set up index of groups
@@ -70,9 +70,9 @@ def argument_handler():
 
     """
 
-    test_msg = "Test index:\n"
+    test_msg = "Extra test index:\n"
     test_msg += "".join( ["  %2d : %-20s\n"%(i, t) for i, t in enumerate(TEST_INDEX)] )
-    test_msg += "Test groups:\n"
+    test_msg += "Group index:\n"
     for g in range(len(ALL_GROUPS)):
         key, val = list(ALL_GROUPS.items())[g]
         test_msg += "  %2d : %-20s => %s\n"%( g, key, ", ".join(["%s"%t for t in val["tests"]]) )
@@ -406,7 +406,7 @@ def main( groups, ch, file_handler, **kwargs ):
 
             # 2. Set up gamer make configuration
             config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
-            config, input_settings = gamer.get_config( config_folder + '/configs' )
+            config, input_settings = gamer.read_yaml( config_folder + '/configs', 'config' )
             if test_opts != None: config += test_opts   # add the group option
             run_mpi = True  if "mpi=true" in config or "mpi" in config or kwargs["mpi"]  else False
 

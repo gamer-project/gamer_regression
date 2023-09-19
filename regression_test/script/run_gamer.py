@@ -32,50 +32,59 @@ RETURN_FAIL    = 1
 # Functions
 ####################################################################################################
 def check_passed_kwargs( check_list, **kwargs ):
+    """
+    Check if the key is passed in kwargs
+
+    Inputs
+    ------
+
+    check_list : str or list of string
+       Keys to be checked.
+    **kwargs   : dict
+       Keyword argument to be checked.
+    """
     if type(check_list) != type([]): check_list = [check_list]
 
     for key in check_list:
-        if key not in kwargs: raise BaseException("%s is not passed in kwargs."%(key))
+        if key not in kwargs: raise BaseException( "%s is not passed in kwargs."%(key) )
+
     return
 
 
-def get_config( config_path ):
+def read_yaml( file_name, read_type ):
     """
-    Get the config of the test.
+    Read the yaml file.
 
-    Parameters
-    ----------
-
-    config_path: string
-       The file path of the config.
+    Inputs
+    ------
+    file_name : str
+       File name.
+    read_type : str
+       Read file type. [config/test_list]
 
     Returns
     -------
 
-    data['MAKE_CONFIG']    : dict
-       The config of the makefile.
-    data['INPUT_SETTINGS'] : dict
-       The config of the Input__Parameters.
+    config:
+       data['MAKE_CONFIG']    : dict
+          The config of the makefile.
+       data['INPUT_SETTINGS'] : dict
+          The config of the Input__Parameters.
+    test_list:
+       data                   : dict
+          The test problems of each group.
 
     """
-    with open(config_path) as stream:
+    with open( file_name ) as stream:
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
-    return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
+    if read_type == "config":
+        return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
+    elif read_type == "test_list":
+        return data
+    else:
+        raise ValueError( "%s is not supported!"%read_type )
 
-
-def read_test_group():
-    """
-    Read the test group.
-
-    Returns
-    -------
-
-    data :
-
-    """
-    with open('group') as stream:
-        data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
     return data
 
 
@@ -913,7 +922,7 @@ if __name__ == '__main__':
     test_logger.addHandler(ch)
 
     config_path    = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
-    config, input_settings = get_config(config_path)
+    config, input_settings = read_yaml(config_path, 'config')
     os.chdir('../src')
     Fail = make(config,logger=test_logger)
     print(Fail)
