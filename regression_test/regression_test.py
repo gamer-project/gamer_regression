@@ -13,7 +13,8 @@ from os.path import isfile, isdir, join
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
-import script.girder_handler as gh
+#import script.girder_handler as gh
+import script.girder_inscript as gi
 import script.run_gamer as gamer
 
 
@@ -388,7 +389,8 @@ def main( groups, ch, file_handler, **kwargs ):
     """
     # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
+#    if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
+    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) == STATUS_FAIL:
         raise BaseException("The download from girder fails.")
 
     # Loop over all groups
@@ -448,7 +450,8 @@ def main( groups, ch, file_handler, **kwargs ):
             if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
 
             # 5. Download compare file
-            if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
+            #if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
+            if gi.download_data( test_name, GAMER_ABS_PATH, config_folder, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
             # 6. Prepare analysis data (e.g. L1 error)

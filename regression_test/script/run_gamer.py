@@ -16,6 +16,7 @@ sys.dont_write_bytecode = True
 
 from script.hdf5_file_config import hdf_info_read
 from script.log_pipe import LogPipe
+from script.utilities import check_dict_key, read_yaml
 
 
 
@@ -31,65 +32,6 @@ RETURN_FAIL    = 1
 ####################################################################################################
 # Functions
 ####################################################################################################
-def check_dict_key( check_list, check_dict, dict_name ):
-    """
-    Check if the key is exist in dict
-
-    Inputs
-    ------
-
-    check_list : str or list of string
-       Keys to be checked.
-    check_dict : dict
-       Dictionary to be checked.
-    dict_name  : str
-       The name of dictionary.
-    """
-    if type(check_list) != type([]): check_list = [check_list]
-
-    for key in check_list:
-        if key not in check_dict: raise BaseException( "%s is not passed in %s."%(key, dict_name) )
-
-    return
-
-
-def read_yaml( file_name, read_type ):
-    """
-    Read the yaml file.
-
-    Inputs
-    ------
-    file_name : str
-       File name.
-    read_type : str
-       Read file type. [config/test_list]
-
-    Returns
-    -------
-
-    config:
-       data['MAKE_CONFIG']    : dict
-          The config of the makefile.
-       data['INPUT_SETTINGS'] : dict
-          The config of the Input__Parameters.
-    test_list:
-       data                   : dict
-          The test problems of each group.
-
-    """
-    with open( file_name ) as stream:
-        data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
-
-    if read_type == "config":
-        return data['MAKE_CONFIG'], data['INPUT_SETTINGS']
-    elif read_type in ["test_list", "compare_list"]:
-        return data
-    else:
-        raise ValueError( "%s is not supported!"%read_type )
-
-    return data
-
-
 def generate_modify_command( config, **kwargs ):
     """
     Edit gamer configuration settings.
