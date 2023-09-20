@@ -53,34 +53,7 @@ def item_id_list( girder_dict ):
     return id_list
 
 
-def get_latest_expect_version( test_name, version_list ):
-    """
-    Get the latest version of the reference data.
-
-    Parameters
-    ----------
-
-    test_name    : string
-       The name of the test problem.
-    version_list : dict
-       All the available verison.
-
-    Returns
-    -------
-
-    ver          : dict
-       The latest version.
-    """
-    ver = {'time':0,'inputs':[]}
-    for version in version_list[test_name]:
-        if int(version_list[test_name][version]['time']) <= ver['time']:    continue
-        ver['time'] = int(version_list[test_name][version]['time'])
-        ver['inputs'] = version_list[test_name][version]['members']
-
-    return ver
-
-
-def get_latest_time( test_name, gamer_abs_path ):
+def get_latest_version( test_name, gamer_abs_path ):
     """
     Get the latest upload time of the latest reference data.
 
@@ -100,9 +73,14 @@ def get_latest_time( test_name, gamer_abs_path ):
     """
     comp_list_file = gamer_abs_path + '/regression_test/compare_version_list/compare_list'
     ver_list = read_yaml( comp_list_file )
-    ver = get_latest_expect_version( test_name, ver_list )
 
-    return ver['time']
+    ver = {'time':0,'inputs':[]}
+    for version in ver_list[test_name]:
+        if int(ver_list[test_name][version]['time']) <= ver['time']:    continue
+        ver['time'] = int(ver_list[test_name][version]['time'])
+        ver['inputs'] = ver_list[test_name][version]['members']
+
+    return ver
 
 
 def download_data( test_name, gamer_path, test_folder, **kwargs ):
@@ -118,12 +96,15 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
     check_dict_key( 'logger', kwargs, 'kwargs' )
     logger = kwargs['logger']
 
-    time = get_latest_time( test_name, gamer_path )
+    ver_latest = get_latest_version( test_name, gamer_path )
+    time       = ver_latest['time']
+    inputs     = ver_latest['inputs']
 
     download_list = test_folder + '/compare_results'
     download_dict = read_yaml( download_list )
     test_folder_dict = {}
 
+    # 1. Download the data
     for key in download_dict['identical']:
         d_path   = gamer_path + "/" + download_dict['identical'][key]['expect']
         d_temp   = d_path.split('/')
@@ -151,6 +132,26 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
         except:
             logger.error( "Download (name: %s/%s, id: %s) fail!"%(d_folder, d_file, file_id) )
             return RETURN_FAIL
+
+    # 2. Download the Record__*
+    for sub_test_folder in test_folder_dict:
+        for sub_file in test_folder_dict[sub_test_folder]:
+            file_name = test_folder_dict[sub_test_folder][sub_file]['name']
+
+            if "Record" not in file_name: continue
+
+            file_id = test_folder_dict[sub_test_folder][sub_file]['_id']
+
+            target_folder = gamer_path + "/regression_test/tests/" + test_name + "/" + sub_test_folder.split('-')[0]    # download destination
+
+            # download
+            try:
+                logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%(sub_test_folder, file_name, file_id, target_folder) )
+                GC.downloadItem( file_id, target_folder ) # Download a single file
+                logger.info( "Finish Downloading" )
+            except:
+                logger.error( "Download (name: %s/%s, id: %s) fail!"%(sub_test_folder, file_name, file_id) )
+                return RETURN_FAIL
 
     return RETURN_SUCCESS
 
