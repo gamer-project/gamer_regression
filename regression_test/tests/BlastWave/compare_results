@@ -1,4 +1,4 @@
-identicle:
+identical:
  input1_Data_000010:
   expect: regression_test/tests/BlastWave/BlastWave_input1/Data_000010
   result: bin/BlastWave_input1/Data_000010

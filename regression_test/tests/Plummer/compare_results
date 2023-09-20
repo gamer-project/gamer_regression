@@ -1,4 +1,4 @@
-identicle:
+identical:
  input1_Data_000019:
   expect: regression_test/tests/Plummer/Plummer_input1/Data_000019
   result: bin/Plummer_input1/Data_000019

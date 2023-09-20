@@ -1,4 +1,4 @@
-identicle:
+identical:
  Data_000010:
   expect: regression_test/tests/MHD_ABC/MHD_ABC_input1/Data_000010
   result: bin/MHD_ABC_input1/Data_000010

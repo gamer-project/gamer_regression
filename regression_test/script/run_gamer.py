@@ -500,8 +500,8 @@ def read_compare_list( test_name ):
 
     if 'compare' in compare_list:
         L1_err_compare = compare_list['compare']
-    if 'identicle' in compare_list:
-        ident_data_comp = compare_list['identicle']
+    if 'identical' in compare_list:
+        ident_data_comp = compare_list['identical']
 
     if L1_err_compare != {}:
         for item in L1_err_compare:
@@ -509,8 +509,8 @@ def read_compare_list( test_name ):
             L1_err_compare[item]['result'] = gamer_abs_path + '/' + compare_list['compare'][item]['result']
     if ident_data_comp != {}:
         for item in ident_data_comp:
-            ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identicle'][item]['expect']
-            ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identicle'][item]['result']
+            ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identical'][item]['expect']
+            ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identical'][item]['result']
 
     return L1_err_compare, ident_data_comp
 
