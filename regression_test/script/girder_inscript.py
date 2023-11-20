@@ -243,7 +243,7 @@ def upload_data(test_name, gamer_path, test_folder, **kwargs):
 
     # 6. Upload compare_list
     logger.info("Upload new compare_list")
-    if upload_compare_version_list(gc, gamer_path, logger=kwargs['logger']) == RETURN_FAIL:
+    if upload_compare_version_list(gc, gamer_path, **kwargs) == RETURN_FAIL:
         logger.error("Error while uploading the compare_list")
         return RETURN_FAIL
     return RETURN_SUCCESS
