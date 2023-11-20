@@ -570,16 +570,29 @@ if __name__ == '__main__':
     except Exception:
         test_logger.critical( '', exc_info=True )
         raise
-
+    print(result)
     print("========================================")
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
-    print("%-20s: %06s     %-s"%("Group name", "Passed", "Fail tests"))
+    print("%-20s: %06s     %-15s  %s"%("Group name", "Passed", "Fail tests", "Reason"))
+    summary = ""
     for key, val in result.items():
+        if not val["status"]:
+            summary += "\033[91m%-20s: %06r     "%(key, val["status"])
+        else:
+            summary += "\033[92m%-20s: %06r     "%(key, val["status"])
+        for sub_test, sub_result in val["result"].items():
+            if summary[-2:] == '\n':
+                summary += "                                %-15s  %s\n"%(sub_test, sub_result)
+            else:
+                summary += "%-15s  %s\n"%(sub_test, sub_result)
+
+
         if not val["status"]:
             print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
         else:
             print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
+    print(summary + "\033[0m")
     print("========================================")
 
     #print("%-20s: %06s     %-s"%("Test problem", "Passed", "Fail reason"))
