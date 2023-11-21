@@ -570,11 +570,10 @@ if __name__ == '__main__':
     except Exception:
         test_logger.critical( '', exc_info=True )
         raise
-    print(result)
     print("========================================")
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
-    print("%-20s: %06s     %-15s  %s"%("Group name", "Passed", "Fail tests", "Reason"))
+    print("%-20s: %06s     %-15s  %06s  %s"%("Group name", "Passed", "Included tests", "Passed", "Reason"))
     summary = ""
     for key, val in result.items():
         if not val["status"]:
@@ -582,17 +581,25 @@ if __name__ == '__main__':
         else:
             summary += "\033[92m%-20s: %06r     "%(key, val["status"])
         for sub_test, sub_result in val["result"].items():
-            if summary[-2:] == '\n':
-                summary += "                                %-15s  %s\n"%(sub_test, sub_result)
+            if summary[-1] == "\n":
+                if not sub_result["status"]:
+                    summary += "\033[91m"
+                else:
+                    summary += "\033[92m"
+                summary += "                                 %-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
             else:
-                summary += "%-15s  %s\n"%(sub_test, sub_result)
+                if not sub_result["status"]:
+                    summary += "\033[91m"
+                else:
+                    summary += "\033[92m"
+                summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
+        #if not val["status"]:
+        #    print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
+        #else:
+        #    print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
+    summary += "\033[0m"
+    print(summary)
 
-
-        if not val["status"]:
-            print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
-        else:
-            print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
-    print(summary + "\033[0m")
     print("========================================")
 
     #print("%-20s: %06s     %-s"%("Test problem", "Passed", "Fail reason"))
