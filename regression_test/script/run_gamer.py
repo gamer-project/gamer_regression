@@ -722,12 +722,12 @@ def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
             logger.error( "The execution of '[%s]' is fail."%(" ".join(cmd)) )
 
         #3. Check if result equal to expect by reading compare_result
-        #with open( compare_result, 'r' ) as f:
-        #    lines = f.readlines()
-        #    for line in lines:
-        #        if line[0] in ['#', '\n']:    continue      # comment and empty line
-        #        fail_or_not = True
-        #        break
+        with open( compare_result, 'r' ) as f:
+            lines = f.readlines()
+            for line in lines:
+                if line[0] in ['#', '\n']:    continue      # comment and empty line
+                fail_or_not = True
+                break
 
         if fail_or_not:
             logger.debug('Result data is not identical to expect data')
