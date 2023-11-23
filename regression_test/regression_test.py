@@ -122,11 +122,11 @@ def argument_handler():
                          action="store_true",
                          default=False
                        )
-    parser.add_argument( "--mpi_rank", metavar="N_RANK",
+    parser.add_argument( "--mpi_rank", metavar="N_RANK", type=int, 
                          help="Number of ranks of mpi. \nDefault: %(default)s",
                          default=RANK_NUMS
                        )
-    parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE",
+    parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE", type=int,
                          help="Core used per rank. \nDefault: %(default)s",
                          default=CORE_PER_RANK
                        )
