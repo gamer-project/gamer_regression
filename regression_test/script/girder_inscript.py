@@ -212,7 +212,7 @@ def upload_data(test_name, gamer_path, test_folder, **kwargs):
         files = read_yaml(compare_result_path)['identical']
         for file_name in files:
             source_file = "%s/%s" %(gamer_path, files[file_name]['result'])
-            if n_input == file_name.split('_')[0]:
+            if n_input == files[file_name]['result'].split('/')[1].split('_')[-1]:
                 logger.info('Copying the file to be upload: %s ---> %s'%(source_file, folder_to_upload))
                 try:
                     subprocess.check_call(['cp', source_file, folder_to_upload])
@@ -295,8 +295,8 @@ if __name__ == '__main__':
     logger.propagate = False
     
 
-    test_name = "Riemann"
+    test_name = "MHD_ABC"
     gamer_path = "/work1/xuanshan/reg_sandbox/gamer"
-    test_folder = gamer_path + "/regression_test/tests/Riemann"
+    test_folder = gamer_path + "/regression_test/tests/" + test_name
     upload_data(test_name, gamer_path, test_folder,logger=logger)
 
