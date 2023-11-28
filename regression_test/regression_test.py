@@ -122,12 +122,14 @@ def argument_handler():
                          action="store_true",
                          default=False
                        )
-    parser.add_argument( "--mpi_rank", metavar="N_RANK", type=int, 
+    parser.add_argument( "--mpi_rank", metavar="N_RANK",
                          help="Number of ranks of mpi. \nDefault: %(default)s",
+                         type=int,
                          default=RANK_NUMS
                        )
-    parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE", type=int,
+    parser.add_argument( "--mpi_core_per_rank", metavar="N_CORE",
                          help="Core used per rank. \nDefault: %(default)s",
+                         type=int,
                          default=CORE_PER_RANK
                        )
 
@@ -389,7 +391,7 @@ def main( groups, ch, file_handler, **kwargs ):
     """
     # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-#    if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
+    #if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
     if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) == STATUS_FAIL:
         raise BaseException("The download from girder fails.")
 
@@ -582,17 +584,14 @@ if __name__ == '__main__':
             summary += "\033[92m%-20s: %06r     "%(key, val["status"])
         for sub_test, sub_result in val["result"].items():
             if summary[-1] == "\n":
-                if not sub_result["status"]:
-                    summary += "\033[91m"
-                else:
-                    summary += "\033[92m"
-                summary += "                                 %-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
+                summary += "                                 "
+
+            if not sub_result["status"]:
+                summary += "\033[91m"
             else:
-                if not sub_result["status"]:
-                    summary += "\033[91m"
-                else:
-                    summary += "\033[92m"
-                summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
+                summary += "\033[92m"
+
+            summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
         #if not val["status"]:
         #    print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
         #else:
