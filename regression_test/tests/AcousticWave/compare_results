@@ -17,9 +17,9 @@ identical:
   level2: 1.e-07
   level3: 1.e+100
 
- 032_AcousticWave_Dens_000008:
-  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Dens_000008
-  result: bin/AcousticWave_032/AcousticWave_Dens_000008
+ 032_AcousticWave_Dens_000006:
+  expect: regression_test/tests/AcousticWave/AcousticWave_032/AcousticWave_Dens_000006
+  result: bin/AcousticWave_032/AcousticWave_Dens_000006
   f_type: TEXT
   level0: 1.e-30
   level1: 1.e-15
@@ -35,9 +35,9 @@ identical:
   level2: 1.e-07
   level3: 1.e+100
 
- 064_AcousticWave_Dens_000008:
-  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Dens_000008
-  result: bin/AcousticWave_064/AcousticWave_Dens_000008
+ 064_AcousticWave_Dens_000006:
+  expect: regression_test/tests/AcousticWave/AcousticWave_064/AcousticWave_Dens_000006
+  result: bin/AcousticWave_064/AcousticWave_Dens_000006
   f_type: TEXT
   level0: 1.e-30
   level1: 1.e-15
@@ -53,9 +53,9 @@ identical:
   level2: 1.e-07
   level3: 1.e+100
 
- 128_AcousticWave_Dens_000008:
-  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Dens_000008
-  result: bin/AcousticWave_128/AcousticWave_Dens_000008
+ 128_AcousticWave_Dens_000006:
+  expect: regression_test/tests/AcousticWave/AcousticWave_128/AcousticWave_Dens_000006
+  result: bin/AcousticWave_128/AcousticWave_Dens_000006
   f_type: TEXT
   level0: 1.e-30
   level1: 1.e-15
@@ -71,9 +71,9 @@ identical:
   level2: 1.e-07
   level3: 1.e+100
 
- 256_AcousticWave_Dens_000008:
-  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Dens_000008
-  result: bin/AcousticWave_256/AcousticWave_Dens_000008
+ 256_AcousticWave_Dens_000006:
+  expect: regression_test/tests/AcousticWave/AcousticWave_256/AcousticWave_Dens_000006
+  result: bin/AcousticWave_256/AcousticWave_Dens_000006
   f_type: TEXT
   level0: 1.e-30
   level1: 1.e-15
