@@ -572,6 +572,8 @@ if __name__ == '__main__':
     except Exception:
         test_logger.critical( '', exc_info=True )
         raise
+
+    # Print out short summary
     print("========================================")
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
@@ -607,3 +609,5 @@ if __name__ == '__main__':
     #print("========================================")
     print("Please check <%s> for the detail message."%args["output"])
 
+    # Further process for fail tests
+    # TODO: add further process such as do nothing or accept new result and upload to hub.yt
