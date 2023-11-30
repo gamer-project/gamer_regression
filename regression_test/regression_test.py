@@ -134,6 +134,11 @@ def argument_handler():
                        )
 
     # GPU arguments
+    parser.add_argument( "--gpu",
+                         help="Force running run with gpu for all tests. \nDefault: %(default)s",
+                         action="store_true",
+                         default=False
+                       )
     parser.add_argument( "--gpu_arch",
                          help="Specify the gpu architecture. \nDefault: %(default)s",
                          type=str,
@@ -344,6 +349,7 @@ def log_init( log_file_name ):
     file_handler.setFormatter( SAVE_FORMATTER )
 
     return ch, file_handler
+
 
 def set_up_logger( logger_name, ch, file_handler ):
     """
@@ -621,7 +627,7 @@ if __name__ == '__main__':
         tests_to_upload = input("Enter tests you'd like to update result.")
         tests_upload = tests_to_upload.split()
         for test in tests_upload:
-            print("Uploading test %s" test)
+            print("Uploading test %s" %test)
             test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
             gi.upload_folder(test, GAMER_ABS_PATH, test_logger)
     else:
