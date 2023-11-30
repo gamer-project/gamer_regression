@@ -578,20 +578,22 @@ if __name__ == '__main__':
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
     print("%-20s: %06s     %-15s  %06s  %s"%("Group name", "Passed", "Included tests", "Passed", "Reason"))
+    fail_tests = {}
     summary = ""
     for key, val in result.items():
-        if not val["status"]:
-            summary += "\033[91m%-20s: %06r     "%(key, val["status"])
+        if val["status"]:
+            summary += "\033[92m%-20s: %06r     "%(key, val["status"]) #Group Passed
         else:
-            summary += "\033[92m%-20s: %06r     "%(key, val["status"])
+            summary += "\033[91m%-20s: %06r     "%(key, val["status"]) #Group Failed
         for sub_test, sub_result in val["result"].items():
             if summary[-1] == "\n":
                 summary += "                                 "
 
-            if not sub_result["status"]:
-                summary += "\033[91m"
+            if sub_result["status"]:
+                summary += "\033[92m" # Subtest Passed
             else:
-                summary += "\033[92m"
+                summary += "\033[91m" # Subtest Failed
+                fail_tests[sub_test] = sub_result
 
             summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
         #if not val["status"]:
@@ -611,3 +613,16 @@ if __name__ == '__main__':
 
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
+    if not fail_tests: exit(0)
+
+    print("========================================")
+    upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
+    if upload_or_not in ['Y','y','yes']:
+        tests_to_upload = input("Enter tests you'd like to update result.")
+        tests_upload = tests_to_upload.split()
+        for test in tests_upload:
+            print("Uploading test %s" test)
+            test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
+            gi.upload_folder(test, GAMER_ABS_PATH, test_logger)
+    else:
+        exit(1)
