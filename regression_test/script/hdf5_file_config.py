@@ -1,5 +1,5 @@
 import h5py
-
+import numpy as np
 
 class hdf_info_read:
     def __init__(self, file_name):
@@ -9,10 +9,28 @@ class hdf_info_read:
         self.gitCommit    = hdf_file['Info']['KeyInfo']['GitCommit']
         self.DataID       = hdf_file['Info']['KeyInfo']['UniqueDataID']
 
+        self.GridData     = self.loadGridData(hdf_file)
+        self.ParticleData = self.loadParticleData(hdf_file)
+    
+    def loadGridData(self, hdf_file):
+        if 'GridData' in hdf_file.keys():
+            return hdf_file['GridData']
+        else:
+            return None
+
+    def loadParticleData(self, hdf_file):
+        if 'Particle' in hdf_file.keys():
+            return hdf_file['Particle']
+        else:
+            return None
+
 #Simple test
 if __name__ == '__main__':
-    f = hdf_info_read('../tests/Riemann/Data_000010')
+    f = hdf_info_read('./tests/MHD_ABC/MHD_ABC_input1/Data_000000')
 
     print(f.DataID)
     print(f.gitBranch)
     print(f.gitCommit)
+
+    print(f.GridData)
+    print(f.ParticleData)
