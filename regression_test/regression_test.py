@@ -545,41 +545,7 @@ def write_args_to_log( logger, **kwargs ):
     return
 
 
-
-####################################################################################################
-# Main execution
-####################################################################################################
-if __name__ == '__main__':
-    args, unknown_args = argument_handler()
-    args = vars(args)
-
-    # Initialize regression test
-    testing_groups, args = reg_init( args )
-
-    # Initialize logger
-    ch, file_handler = log_init( args["output"] )
-
-    test_logger = set_up_logger( 'regression_test', ch, file_handler )
-
-    gamer_commit, reg_commit = get_git_info()
-
-    test_logger.info( 'Recording the commit version.')
-    test_logger.info( 'GAMER      version   : %-s'%(gamer_commit) )
-    test_logger.info( 'Regression version   : %-s'%(reg_commit)   )
-
-    write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
-
-    # Regression test
-    try:
-        test_logger.info('Regression test start.')
-        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
-        #result = {"empty":{"status":True, "reason":"Pass"}}
-        test_logger.info('Regression test done.')
-    except Exception:
-        test_logger.critical( '', exc_info=True )
-        raise
-
-    # Print out short summary
+def output_summary(result):
     print("========================================")
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
@@ -617,6 +583,44 @@ if __name__ == '__main__':
     #print("========================================")
     print("Please check <%s> for the detail message."%args["output"])
 
+    return fail_tests
+
+####################################################################################################
+# Main execution
+####################################################################################################
+if __name__ == '__main__':
+    args, unknown_args = argument_handler()
+    args = vars(args)
+
+    # Initialize regression test
+    testing_groups, args = reg_init( args )
+
+    # Initialize logger
+    ch, file_handler = log_init( args["output"] )
+
+    test_logger = set_up_logger( 'regression_test', ch, file_handler )
+
+    gamer_commit, reg_commit = get_git_info()
+
+    test_logger.info( 'Recording the commit version.')
+    test_logger.info( 'GAMER      version   : %-s'%(gamer_commit) )
+    test_logger.info( 'Regression version   : %-s'%(reg_commit)   )
+
+    write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
+
+    # Regression test
+    try:
+        test_logger.info('Regression test start.')
+        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
+        #result = {"empty":{"status":True, "reason":"Pass"}}
+        test_logger.info('Regression test done.')
+    except Exception:
+        test_logger.critical( '', exc_info=True )
+        raise
+
+    # Print out short summary
+    fail_tests = output_summary(result)
+
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
     if not fail_tests: exit(0)
@@ -629,6 +633,6 @@ if __name__ == '__main__':
         for test in tests_upload:
             print("Uploading test %s" %test)
             test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
-            gi.upload_folder(test, GAMER_ABS_PATH, test_logger)
+            gi.upload_data(test, GAMER_ABS_PATH, test_logger)
     else:
         exit(1)
