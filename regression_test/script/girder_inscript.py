@@ -191,9 +191,12 @@ def upload_data(test_name, gamer_path, test_folder, **kwargs):
 
     # 0. Set up gc for upload files
     api_key = getpass.getpass("Enter the api key:")
-
-    gc = girder_client.GirderClient( apiUrl=API_URL )
-    gc.authenticate( apiKey=api_key ) 
+    try:
+        gc = girder_client.GirderClient( apiUrl=API_URL )
+        gc.authenticate( apiKey=api_key )
+    except:
+        logger.error("Upload authentication fail.")
+        return
 
     logger.info("Upload new answer for test %s" %(test_name))
 
@@ -295,7 +298,7 @@ if __name__ == '__main__':
     logger.propagate = False
     
 
-    test_name = "MHD_ABC"
+    test_name = "AcousticWave"
     gamer_path = "/work1/xuanshan/reg_sandbox/gamer"
     test_folder = gamer_path + "/regression_test/tests/" + test_name
     upload_data(test_name, gamer_path, test_folder,logger=logger)
