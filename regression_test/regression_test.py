@@ -585,6 +585,30 @@ def output_summary(result):
 
     return fail_tests
 
+
+def upload_process(testing_groups, **kwargs):
+    tests_to_upload = input("Enter tests you'd like to update result. ")
+    tests_upload = tests_to_upload.split()
+
+    run_test = {key for inner_dict in testing_groups.values() for key in inner_dict.keys()}
+    reask = False
+    for test_upload in tests_upload:
+        if test_upload not in ALL_TESTS:
+            print("'%s' no such test.")
+            reask = True
+        elif test_upload not in run_test:
+            print("%s is not included in the tests you have ran.")
+            reask = True
+    if reask: 
+        upload_process(testing_groups, logger=kwargs['logger'])
+        return
+
+    for test in tests_upload:
+        print("Uploading test %s" %test)
+        test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
+        gi.upload_data(test, GAMER_ABS_PATH, test_folder, logger=kwargs['logger'])
+
+
 ####################################################################################################
 # Main execution
 ####################################################################################################
@@ -628,11 +652,6 @@ if __name__ == '__main__':
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y','y','yes']:
-        tests_to_upload = input("Enter tests you'd like to update result.")
-        tests_upload = tests_to_upload.split()
-        for test in tests_upload:
-            print("Uploading test %s" %test)
-            test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
-            gi.upload_data(test, GAMER_ABS_PATH, test_logger)
+        upload_process(testing_groups, logger=test_logger)
     else:
         exit(1)
