@@ -176,36 +176,33 @@ def make_compare_tool( test_path, make_config, **kwargs ):
 
     cmds = []
     #1. Back up makefile
-    subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
+    os.rename('Makefile','Makefile.origin')
+    with open('Makefile.origin') as f:
+        makefile_content = f.read()
+
 
     #2. Check settings in configs
     #TODO: This part is hard coded cause we use the configure.py to generate the Makefile, but it does not support for the compare tool
-    if "model=HYDRO" in make_config:
-        cmds.append(['sed','-i','s/SIMU_OPTION += -DMODEL=HYDRO/SIMU_OPTION += -DMODEL=HYDRO/g','Makefile'])
-    if "model=ELBDM" in make_config:
-        cmds.append(['sed','-i','s/SIMU_OPTION += -DMODEL=HYDRO/SIMU_OPTION += -DMODEL=ELBDM/g','Makefile'])
-    if "double" in make_config:
-        cmds.append(['sed','-i','s/#SIMU_OPTION += -DFLOAT8/SIMU_OPTION += -DFLOAT8/g','Makefile'])
-    if "debug" in make_config:
-        cmds.append(['sed','-i','s/SIMU_OPTION += -DGAMER_DEBUG/SIMU_OPTION += -DMODEL=GAMER_DEBUG/g','Makefile'])
-    if "hdf5" in make_config:
-        cmds.append(['sed','-i','s/SIMU_OPTION += -DSUPPORT_HDF5/SIMU_OPTION += -DSUPPORT_HDF5/g','Makefile'])
 
-    #cmds.append(['sed','-i','s/#SIMU_OPTION += -DFLOAT8/SIMU_OPTION += -DFLOAT8/g','Makefile'])
-    cmds.append(['sed','-i','s/SIMU_OPTION += -DSUPPORT_HDF5/SIMU_OPTION += -DSUPPORT_HDF5/g','Makefile'])
+    if "model=HYDRO" in make_config:
+        makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=HYDRO")
+    if "model=ELBDM" in make_config:
+        makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=ELBDM")
+    if "double" in make_config:
+        makefile_content = makefile_content.replace("#SIMU_OPTION += -DFLOAT8", "SIMU_OPTION += -DFLOAT8")
+    if "debug" in make_config:
+        makefile_content = makefile_content.replace("#SIMU_OPTION += -DGAMER_DEBUG", "SIMU_OPTION += -DGAME_DEBUG")
+    if "hdf5" in make_config:
+        makefile_content = makefile_content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
+
+    #makefile_content = makefile_content.replace('#SIMU_OPTION += -DFLOAT8','SIMU_OPTION += -DFLOAT8')
+    makefile_content = makefile_content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
 
     #3. Modify makefile
     logger.info('Modifying the makefile.')
-    try:
-        for cmd in cmds:
-            subprocess.check_call(cmd)
-        logger.info('Modification complete.')
-    except:
-        logger.error('Error while modifying the compare tool makefile.')
-        subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
-        subprocess.check_call(['rm', 'Makefile.origin'])
-        out_log.close()
-        return RETURN_FAIL
+    with open('Makefile','w') as f:
+        f.write(makefile_content)
+    logger.info('Modification complete.')
 
     #4. Compile
     logger.info('Compiling the compare tool.')
@@ -214,7 +211,7 @@ def make_compare_tool( test_path, make_config, **kwargs ):
 
         if kwargs["hide_make"]:
             subprocess.check_call( ['make > make.log'], stderr=out_log, shell=True )
-            subprocess.check_call( ['rm', 'make.log'], stderr=out_log )
+            os.remove('make.log')
         else:
             subprocess.check_call( ['make'], stderr=out_log )
         logger.info('Compilation complete.')
@@ -224,8 +221,8 @@ def make_compare_tool( test_path, make_config, **kwargs ):
         status = RETURN_FAIL
     finally:
         # Repair makefile
-        subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
-        subprocess.check_call(['rm', 'Makefile.origin'])
+        os.remove('Makefile')
+        os.rename('Makefile.origin','Makefile')
 
         out_log.close()
 
