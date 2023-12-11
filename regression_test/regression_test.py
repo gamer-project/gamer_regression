@@ -481,7 +481,7 @@ def main( groups, ch, file_handler, **kwargs ):
             # 7.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
             indi_test_logger.info('Start compiling compare tool.')
-            if gamer.make_compare_tool( test_folder, config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+            if gamer.make_compare_tool( config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
                 test_status[test_name]["status"] = False
                 test_status[test_name]["reason"] = "Compiling error of compare tool."
                 group_status[group_name]["status"] = False

@@ -146,7 +146,7 @@ def make( config, **kwargs ):
     return RETURN_SUCCESS
 
 
-def make_compare_tool( test_path, make_config, **kwargs ):
+def make_compare_tool( make_config, **kwargs ):
     """
     Make compare data program.
 
