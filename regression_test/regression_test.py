@@ -406,109 +406,76 @@ def main( groups, ch, file_handler, **kwargs ):
     for group_name in groups:
         tests = groups[group_name]
         test_opts = kwargs["group_options"][group_name]
-        test_status = { test_name:{"status":True, "reason":""} for test_name in tests }
+        test_classes = [ gamer.gamer_test( test_name, tests[test_name], GAMER_ABS_PATH, ch, file_handler ) for test_name in tests ]
         group_logger = set_up_logger( group_name, ch, file_handler )
         group_logger.info( 'Group %s start.' %(group_name) )
-        for test_name in tests:
+        for test in test_classes:
             # 1. Set up individual test logger
-            indi_test_logger = set_up_logger( test_name, ch, file_handler )
-            indi_test_logger.info( 'Test %s start.' %(test_name) )
+            test.logger.info( 'Test %s start.' %(test.name) )
 
             # 2. Set up gamer make configuration
-            config_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test_name
-            config, input_settings = gamer.read_yaml( config_folder + '/configs', 'config' )
-            if test_opts != None: config += test_opts   # add the group option
-            run_mpi = True  if "mpi=true" in config or "mpi" in config or kwargs["mpi"]  else False
+            if test_opts != None: test.config += test_opts   # add the group option
+            run_mpi = True  if "mpi=true" in test.config or "mpi" in test.config or kwargs["mpi"]  else False
 
             # 3. Compile gamer
-            indi_test_logger.info('Start compiling gamer')
+            test.logger.info('Start compiling gamer')
             os.chdir( GAMER_ABS_PATH + '/src' )
-            if gamer.make( config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Compiling error."
+            if test.compile_gamer( **kwargs ) == STATUS_FAIL:
                 group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
+                group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 4. Run gamer
-            indi_test_logger.info('Start running test.')
-            test_folder = tests[test_name]
-            for input_setting in input_settings:    # run gamer with different Input__Parameter
-                if gamer.copy_example( test_folder, test_name+'_'+str(input_setting), logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
-                    test_status[test_name]["status"] = False
-                    test_status[test_name]["reason"] = "Copying error of %s."%input_setting
-                    group_status[group_name]["status"] = False
-                    group_status[group_name]["reason"] += test_name + ", "
-                    continue
-
-                if gamer.set_input( input_settings[input_setting], logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
-                    test_status[test_name]["status"] = False
-                    test_status[test_name]["reason"] = "Setting error of %s."%input_setting
-                    group_status[group_name]["status"] = False
-                    group_status[group_name]["reason"] += test_name + ", "
-                    continue
-
-                if gamer.run( mpi_test=run_mpi, logger=indi_test_logger, input_name=input_setting, **kwargs ) == STATUS_FAIL:
-                    test_status[test_name]["status"] = False
-                    test_status[test_name]["reason"] = "Running error of %s."%input_setting
-                    group_status[group_name]["status"] = False
-                    group_status[group_name]["reason"] += test_name + ", "
-                    continue
-
-            if not test_status[test_name]["status"]:    continue    # Run next test if any of the subtest fail.
+            test.logger.info('Start running test.')
+            if test.run_all_inputs( run_mpi, **kwargs ) == STATUS_FAIL:
+                group_status[group_name]["status"] = False
+                group_status[group_name]["reason"] += test.name + ", "
+                continue
 
             # 5. Download compare file
-            #if gh.download_test_compare_data( test_name, config_folder, logger=gh_logger ) == STATUS_FAIL:
-            if gi.download_data( test_name, GAMER_ABS_PATH, config_folder, logger=gh_logger ) == STATUS_FAIL:
+            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
+            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
             # 6. Prepare analysis data (e.g. L1 error)
-            indi_test_logger.info('Start preparing data.')
-            if gamer.prepare_analysis( test_name, logger=indi_test_logger ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Preparing analysis data error."
+            test.logger.info('Start preparing data.')
+            if test.prepare_analysis() == STATUS_FAIL:
                 group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
+                group_status[group_name]["reason"] += test.name + ", "
                 continue
-            indi_test_logger.info('Preparaiton data done.')
+            test.logger.info('Preparaiton data done.')
 
             # 7. Compare the data
             # 7.1 Compare the Record__Note
-            if gamer.compare_note( test_name, input_settings, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
+            if test.compare_note( **kwargs ) == STATUS_FAIL:
                 # It is not necessary to compare the Record__Note for now
                 pass
 
             # 7.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
-            indi_test_logger.info('Start compiling compare tool.')
-            if gamer.make_compare_tool( config, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Compiling error of compare tool."
+            test.logger.info('Start compiling compare tool.')
+            if test.make_compare_tool( **kwargs ) == STATUS_FAIL:
                 group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
+                group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 7.2 Compare data
-            indi_test_logger.info('Start Data_compare data consistency.')
-            if gamer.compare_data( test_name, logger=indi_test_logger, **kwargs ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Comparing fail."
+            test.logger.info('Start Data_compare data consistency.')
+            if test.compare_data( **kwargs ) == STATUS_FAIL:
                 group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
+                group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 8. User analyze
-            indi_test_logger.info('Start user analyze.')
-            if gamer.user_analyze( test_name, logger=indi_test_logger ) == STATUS_FAIL:
-                test_status[test_name]["status"] = False
-                test_status[test_name]["reason"] = "Analyzing error."
+            test.logger.info('Start user analyze.')
+            if test.user_analyze( **kwargs ) == STATUS_FAIL:
                 group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test_name + ", "
+                group_status[group_name]["reason"] += test.name + ", "
                 continue
 
-            indi_test_logger.info('Test %s end.' %(test_name))
+            test.logger.info('Test %s end.' %(test.name))
 
-        group_status[group_name]["result"] = test_status
+        group_status[group_name]["result"] = { test.name:{"status":test.status, "reason":test.reason} for test in test_classes }
         group_logger.info( 'Group %s end.' %(group_name) )
 
     return group_status
@@ -545,7 +512,10 @@ def write_args_to_log( logger, **kwargs ):
     return
 
 
-def output_summary(result):
+def output_summary( result ):
+    TEXT_RED   = "\033[91m"
+    TEXT_GREEN = "\033[92m"
+    TEXT_RESET = "\033[0m"
     print("========================================")
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("========================================")
@@ -553,18 +523,17 @@ def output_summary(result):
     fail_tests = {}
     summary = ""
     for key, val in result.items():
-        if val["status"]:
-            summary += "\033[92m%-20s: %06r     "%(key, val["status"]) #Group Passed
-        else:
-            summary += "\033[91m%-20s: %06r     "%(key, val["status"]) #Group Failed
+        summary += TEXT_GREEN if val["status"] else TEXT_RED
+        summary += "%-20s: %06r     "%(key, val["status"])
+
         for sub_test, sub_result in val["result"].items():
             if summary[-1] == "\n":
                 summary += "                                 "
 
             if sub_result["status"]:
-                summary += "\033[92m" # Subtest Passed
+                summary += TEXT_GREEN # Subtest Passed
             else:
-                summary += "\033[91m" # Subtest Failed
+                summary += TEXT_RED # Subtest Failed
                 fail_tests[sub_test] = sub_result
 
             summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
@@ -572,7 +541,7 @@ def output_summary(result):
         #    print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
         #else:
         #    print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
-    summary += "\033[0m"
+    summary += TEXT_RESET
     print(summary)
 
     print("========================================")
@@ -599,7 +568,7 @@ def upload_process(testing_groups, **kwargs):
         elif test_upload not in run_test:
             print("%s is not included in the tests you have ran.")
             reask = True
-    if reask: 
+    if reask:
         upload_process(testing_groups, logger=kwargs['logger'])
         return
 
