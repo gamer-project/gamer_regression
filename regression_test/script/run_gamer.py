@@ -24,8 +24,13 @@ from script.utilities import check_dict_key, read_yaml
 # Global variables
 ####################################################################################################
 gamer_abs_path = '/work1/xuanshan/gamer'
-STATUS_SUCCESS = 0
-STATUS_FAIL    = 1
+STATUS_SUCCESS      = 0
+STATUS_FAIL         = 1
+STATUS_MISSING_FILE = 2
+STATUS_COMPILE_ERR  = 3
+STATUS_EDITING_FAIL = 4
+STATUS_EXTERNAL     = 5
+STATUS_GAMER_FAIL   = 6
 
 
 
@@ -62,7 +67,7 @@ class gamer_test():
             self.logger.debug("Generating Makefile using: %s"%(" ".join(cmd)))
             subprocess.check_call(cmd)
         except subprocess.CalledProcessError:
-            self.set_fail_test("Error while editing Makefile.")
+            self.set_fail_test("Error while editing Makefile.", STATUS_EDITING_FAIL)
             subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
             subprocess.check_call(['rm', 'Makefile.origin'])
             out_log.close()
@@ -78,7 +83,7 @@ class gamer_test():
                 subprocess.check_call( ['make','-j'], stderr=out_log )
 
         except subprocess.CalledProcessError:
-            self.set_fail_test("Compiling error.")
+            self.set_fail_test("Compiling error.", STATUS_COMPILE_ERR)
             return
 
         finally:
@@ -99,15 +104,15 @@ class gamer_test():
     def run_all_inputs( self, run_mpi, **kwargs ):
         for input_setting in self.inputs:
             if copy_example( self.folder, self.name+'_'+str(input_setting), logger=self.logger, **kwargs ) == STATUS_FAIL:
-                self.set_fail_test("Copying error of %s."%input_setting)
+                self.set_fail_test("Copying error of %s."%input_setting, STATUS_EXTERNAL)
                 return
 
             if set_input( self.inputs[input_setting], logger=self.logger, **kwargs ) == STATUS_FAIL:
-                self.set_fail_test("Setting error of %s."%input_setting)
+                self.set_fail_test("Setting error of %s."%input_setting, STATUS_EDITING_FAIL)
                 return
 
             if run( mpi_test=run_mpi, logger=self.logger, input_name=input_setting, **kwargs ) == STATUS_FAIL:
-                self.set_fail_test("Running error of %s."%input_setting)
+                self.set_fail_test("Running error of %s."%input_setting, STATUS_GAMER_FAIL)
                 return
 
         return
@@ -122,7 +127,7 @@ class gamer_test():
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
             self.logger.info('Prepare analysis data completed.')
         except subprocess.CalledProcessError:
-            self.set_fail_test( '%s has errors. (In %s)'%(analyze_script, prepare_analysis.__name__) )
+            self.set_fail_test( '%s has errors. (In %s)'%(analyze_script, prepare_analysis.__name__), STATUS_EXTERNAL )
 
         return
 
@@ -174,7 +179,7 @@ class gamer_test():
             self.logger.info('Compilation complete.')
 
         except:
-            self.set_fail_test('Error while compiling the compare tool.')
+            self.set_fail_test('Error while compiling the compare tool.', STATUS_COMPILE_ERR)
         finally:
             # Repair makefile
             os.remove('Makefile')
@@ -246,7 +251,7 @@ class gamer_test():
                 self.logger.info('Comparing identical complete.')
 
         if len(identical_fails) > 0 or len(compare_fails) > 0:
-            self.set_fail_test('Comparing to reference data fail.')
+            self.set_fail_test('Comparing to reference data fail.', STATUS_FAIL)
             return
 
         return STATUS_SUCCESS
@@ -293,12 +298,12 @@ class gamer_test():
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
             self.logger.info('User analysis completed.')
         except subprocess.CalledProcessError:
-            self.set_fail_test('%s has errors. (In %s)'%(analyze_script, user_analyze.__name__))
+            self.set_fail_test('%s has errors. (In %s)'%(analyze_script, user_analyze.__name__), STATUS_EXTERNAL)
 
         return
 
-    def set_fail_test( self, reason ):
-        self.status = STATUS_FAIL
+    def set_fail_test( self, reason, status_type ):
+        self.status = status_type
         self.reason = reason
         self.logger.error( reason )
         return
@@ -306,7 +311,7 @@ class gamer_test():
     def file_not_exist( self, filename ):
         if isfile( filename ): return False
         reason = "%s does not exist."%filename
-        self.set_fail_test( reason )
+        self.set_fail_test( reason, STATUS_MISSING_FILE )
         return True
 
 
@@ -587,44 +592,6 @@ def run( **kwargs ):
         run_status = STATUS_FAIL
 
     return run_status
-
-
-def prepare_analysis( test_name, **kwargs ):
-    """
-
-    Parameters
-    ----------
-
-    test_name : string
-        The name of the test.
-    kwargs    :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    status    : 0(success)/1(fail)
-       The analysis is success or not.
-    """
-    check_dict_key( 'logger', kwargs, "kwargs" )
-
-    status = STATUS_SUCCESS
-    logger = kwargs['logger']
-
-    analyze_script = 'prepare_analyze_data.sh'
-    analyze_file   = self.ref_path + '/' + analyze_script
-
-    if not isfile(analyze_file):    return STATUS_SUCCESS # No need to analyze this test
-
-    try:
-        subprocess.check_call(['sh', analyze_file, gamer_abs_path])
-        logger.info('Prepare analysis data completed.')
-    except subprocess.CalledProcessError:
-        status = STATUS_FAIL
-        logger.error('%s has errors.'%(analyze_file))
-
-    return status
 
 
 def read_compare_list( test_name ):

@@ -23,8 +23,13 @@ import script.run_gamer as gamer
 # Global variables
 ####################################################################################################
 # 0. Variables
-STATUS_SUCCESS = 0
-STATUS_FAIL    = 1
+STATUS_SUCCESS      = 0
+STATUS_FAIL         = 1
+STATUS_MISSING_FILE = 2
+STATUS_COMPILE_ERR  = 3
+STATUS_EDITING_FAIL = 4
+STATUS_EXTERNAL     = 5
+STATUS_GAMER_FAIL   = 6
 
 # 1. Paths
 CURRENT_ABS_PATH     = os.getcwd()
@@ -618,6 +623,7 @@ if __name__ == '__main__':
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y','y','yes']:
-        upload_process(testing_groups, logger=test_logger)
+        upload_logger = set_up_logger( 'upload', ch, file_handler )
+        upload_process(testing_groups, logger=upload_logger)
     else:
         exit(1)
