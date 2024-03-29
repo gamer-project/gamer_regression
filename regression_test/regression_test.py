@@ -415,79 +415,51 @@ def main( groups, ch, file_handler, **kwargs ):
         group_logger = set_up_logger( group_name, ch, file_handler )
         group_logger.info( 'Group %s start.' %(group_name) )
         for test in test_classes:
-            # 1. Set up individual test logger
             test.logger.info( 'Test %s start.' %(test.name) )
 
-            # 2. Set up gamer make configuration
+            # 1. Set up gamer make configuration
             if test_opts != None: test.config += test_opts   # add the group option
-            run_mpi = True  if "mpi=true" in test.config or "mpi" in test.config or kwargs["mpi"]  else False
+            run_mpi = True  if "mpi=true" in test.config or "mpi" in test.config or kwargs["mpi"] else False
 
-            # 3. Compile gamer
-            test.logger.info('Start compiling gamer')
+            # 2. Compile gamer
             os.chdir( GAMER_ABS_PATH + '/src' )
-            test.compile_gamer( **kwargs )
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
+            if test.compile_gamer( **kwargs ) != STATUS_SUCCESS: continue
 
-            # 4. Run gamer
-            test.logger.info('Start running test.')
-            test.run_all_inputs( run_mpi, **kwargs )
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
+            # 3. Run gamer
+            if test.run_all_inputs( run_mpi, **kwargs ) != STATUS_SUCCESS: continue
 
-            # 5. Download compare file
+            # 4. Download compare file
             #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
             if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
                 raise BaseException("The download from girder fails.")
 
-            # 6. Prepare analysis data (e.g. L1 error)
-            test.logger.info('Start preparing data.')
-            test.prepare_analysis()
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
-            test.logger.info('Preparaiton data done.')
+            # 5. Prepare analysis data (e.g. L1 error)
+            if test.prepare_analysis( **kwargs ) != STATUS_SUCCESS: continue
 
-            # 7. Compare the data
-            # 7.1 Compare the Record__Note
-            test.compare_note( **kwargs )
-            if test.status != STATUS_SUCCESS:
-                # It is not necessary to compare the Record__Note for now
-                pass
+            # 6. Compare the data
+            # 6.1 Compare the Record__Note
+            # It is not necessary to compare the Record__Note for now
+            if test.compare_note( **kwargs ) != STATUS_SUCCESS: pass
 
-            # 7.2 Prepare GAMER_comapre tool
+            # 6.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
-            test.logger.info('Start compiling compare tool.')
-            test.make_compare_tool( **kwargs )
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
+            if test.make_compare_tool( **kwargs ) != STATUS_SUCCESS: continue
 
-            # 7.2 Compare data
-            test.logger.info('Start Data_compare data consistency.')
-            test.compare_data( **kwargs )
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
+            # 6.2 Compare data
+            if test.compare_data( **kwargs ) != STATUS_SUCCESS: continue
 
-            # 8. User analyze
-            test.logger.info('Start user analyze.')
-            test.user_analyze( **kwargs )
-            if test.status != STATUS_SUCCESS:
-                group_status[group_name]["status"] = False
-                group_status[group_name]["reason"] += test.name + ", "
-                continue
+            # 7. User analyze
+            if test.user_analyze( **kwargs ) != STATUS_SUCCESS: continue
 
             test.logger.info('Test %s end.' %(test.name))
 
+        # Record the test result
+        for test in test_classes:
+            if test.status == STATUS_SUCCESS: continue
+            group_status[group_name]["status"] = False
+            group_status[group_name]["reason"] += test.name + ", "
         group_status[group_name]["result"] = { test.name:{"status":test.status, "reason":test.reason} for test in test_classes }
+
         group_logger.info( 'Group %s end.' %(group_name) )
 
     return group_status

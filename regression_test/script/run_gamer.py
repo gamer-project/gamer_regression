@@ -54,6 +54,7 @@ class gamer_test():
         return
 
     def compile_gamer( self, **kwargs ):
+        self.logger.info('Start compiling gamer')
         out_log = LogPipe( self.logger, logging.DEBUG )
 
         # 1. Back up the original Makefile
@@ -71,7 +72,7 @@ class gamer_test():
             subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
             subprocess.check_call(['rm', 'Makefile.origin'])
             out_log.close()
-            return
+            return self.status
 
         # 3. Compile GAMER
         try:
@@ -84,7 +85,7 @@ class gamer_test():
 
         except subprocess.CalledProcessError:
             self.set_fail_test("Compiling error.", STATUS_COMPILE_ERR)
-            return
+            return self.status
 
         finally:
             # Repair Makefile
@@ -97,44 +98,48 @@ class gamer_test():
             out_log.close()
 
         # 4. Check if gamer exist
-        if file_not exist('./gamer'): return
+        if file_not exist('./gamer'): return self.status
 
-        return
+        return self.status
 
     def run_all_inputs( self, run_mpi, **kwargs ):
+        self.logger.info('Start running test.')
         for input_setting in self.inputs:
             if copy_example( self.folder, self.name+'_'+str(input_setting), logger=self.logger, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Copying error of %s."%input_setting, STATUS_EXTERNAL)
-                return
+                return self.status
 
             if set_input( self.inputs[input_setting], logger=self.logger, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Setting error of %s."%input_setting, STATUS_EDITING_FAIL)
-                return
+                return self.status
 
             if run( mpi_test=run_mpi, logger=self.logger, input_name=input_setting, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Running error of %s."%input_setting, STATUS_GAMER_FAIL)
-                return
+                return self.status
 
         return
 
     def prepare_analysis( self, **kwargs ):
+        self.logger.info('Start preparing data.')
         analyze_filename = 'prepare_analyze_data.sh'
         analyze_script   = self.ref_path + '/' + analyze_filename
 
-        if not isfile(analyze_script):    return # No need to analyze this test
+        if not isfile(analyze_script):    return self.status # No need to analyze this test
 
         try:
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
             self.logger.info('Prepare analysis data completed.')
         except subprocess.CalledProcessError:
             self.set_fail_test( '%s has errors. (In %s)'%(analyze_script, prepare_analysis.__name__), STATUS_EXTERNAL )
+        self.logger.info('Preparaiton data done.')
 
-        return
+        return self.status
 
     def make_compare_tool( self, **kwargs ):
         """
         Make compare data program.
         """
+        self.logger.info('Start compiling compare tool.')
         out_log = LogPipe(self.logger, logging.DEBUG)
 
         cmds = []
@@ -187,7 +192,7 @@ class gamer_test():
 
             out_log.close()
 
-        return
+        return self.status
 
     def compare_data( self, **kwargs ):
         """
@@ -200,6 +205,7 @@ class gamer_test():
            error_level : string
               The error allowed level.
         """
+        self.logger.info('Start Data_compare data consistency.')
         check_dict_key( 'error_level', kwargs, "kwargs" )
         level  = kwargs['error_level']
 
@@ -214,7 +220,7 @@ class gamer_test():
                 result_file = err_comp_f[err_file]['result']
                 expect_file = err_comp_f[err_file]['expect']
 
-                if file_not_exist( result_file ) or file_not_exist( expect_file ): return
+                if file_not_exist( result_file ) or file_not_exist( expect_file ): return self.status
 
                 self.logger.info('Comparing L1 error: %s <-> %s'%(result_file, expect_file))
 
@@ -252,9 +258,9 @@ class gamer_test():
 
         if len(identical_fails) > 0 or len(compare_fails) > 0:
             self.set_fail_test('Comparing to reference data fail.', STATUS_FAIL)
-            return
+            return self.status
 
-        return STATUS_SUCCESS
+        return self.status
 
     def compare_note( self, **kwargs ):
         """
@@ -268,11 +274,11 @@ class gamer_test():
             #TODO: replace the file check to file_not_exist() if comparing Record_Note is necessary
             if not isfile( result_note ):
                 self.logger.error( "Result Record__Note (%s) is not exist!"%result_note )
-                return
+                return self.status
 
             if not isfile( expect_note ):
                 self.logger.error( "Expect Record__Note (%s) is not exist!"%expect_note )
-                return
+                return self.status
 
             self.logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
 
@@ -285,14 +291,15 @@ class gamer_test():
                 self.logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
             self.logger.info("Comparison of Record__Note done.")
 
-        return
+        return self.status
 
     def user_analyze( self, **kwargs ):
+        self.logger.info('Start user analyze.')
         #TODO: this function is very similar to prepare_analysis. We should combine them
         analyze_filename = 'user_analyze.sh'
         analyze_script   = self.ref_path + '/' + analyze_filename
 
-        if not isfile(analyze_script):    return STATUS_SUCCESS # No need to analyze this test
+        if not isfile(analyze_script):    return self.status # No need to analyze this test
 
         try:
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
@@ -300,7 +307,7 @@ class gamer_test():
         except subprocess.CalledProcessError:
             self.set_fail_test('%s has errors. (In %s)'%(analyze_script, user_analyze.__name__), STATUS_EXTERNAL)
 
-        return
+        return self.status
 
     def set_fail_test( self, reason, status_type ):
         self.status = status_type
