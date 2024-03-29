@@ -420,14 +420,16 @@ def main( groups, ch, file_handler, **kwargs ):
             # 3. Compile gamer
             test.logger.info('Start compiling gamer')
             os.chdir( GAMER_ABS_PATH + '/src' )
-            if test.compile_gamer( **kwargs ) == STATUS_FAIL:
+            test.compile_gamer( **kwargs )
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 4. Run gamer
             test.logger.info('Start running test.')
-            if test.run_all_inputs( run_mpi, **kwargs ) == STATUS_FAIL:
+            test.run_all_inputs( run_mpi, **kwargs )
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue
@@ -439,7 +441,8 @@ def main( groups, ch, file_handler, **kwargs ):
 
             # 6. Prepare analysis data (e.g. L1 error)
             test.logger.info('Start preparing data.')
-            if test.prepare_analysis() == STATUS_FAIL:
+            test.prepare_analysis()
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue
@@ -447,28 +450,32 @@ def main( groups, ch, file_handler, **kwargs ):
 
             # 7. Compare the data
             # 7.1 Compare the Record__Note
-            if test.compare_note( **kwargs ) == STATUS_FAIL:
+            test.compare_note( **kwargs )
+            if test.status != STATUS_SUCCESS:
                 # It is not necessary to compare the Record__Note for now
                 pass
 
             # 7.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
             test.logger.info('Start compiling compare tool.')
-            if test.make_compare_tool( **kwargs ) == STATUS_FAIL:
+            test.make_compare_tool( **kwargs )
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 7.2 Compare data
             test.logger.info('Start Data_compare data consistency.')
-            if test.compare_data( **kwargs ) == STATUS_FAIL:
+            test.compare_data( **kwargs )
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue
 
             # 8. User analyze
             test.logger.info('Start user analyze.')
-            if test.user_analyze( **kwargs ) == STATUS_FAIL:
+            test.user_analyze( **kwargs )
+            if test.status != STATUS_SUCCESS:
                 group_status[group_name]["status"] = False
                 group_status[group_name]["reason"] += test.name + ", "
                 continue

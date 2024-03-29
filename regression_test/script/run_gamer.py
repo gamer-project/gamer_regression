@@ -37,7 +37,7 @@ class gamer_test():
         self.name = name
         self.folder = folder
         self.ref_path = gamer_abs_path + '/regression_test/tests/' + name
-        self.status = True
+        self.status = STATUS_SUCCESS
         self.reason = ""
         self.config, self.inputs = read_yaml( self.ref_path + '/configs', 'config' )
 
@@ -66,7 +66,7 @@ class gamer_test():
             subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
             subprocess.check_call(['rm', 'Makefile.origin'])
             out_log.close()
-            return STATUS_FAIL
+            return
 
         # 3. Compile GAMER
         try:
@@ -79,7 +79,7 @@ class gamer_test():
 
         except subprocess.CalledProcessError:
             self.set_fail_test("Compiling error.")
-            return STATUS_FAIL
+            return
 
         finally:
             # Repair Makefile
@@ -92,71 +92,44 @@ class gamer_test():
             out_log.close()
 
         # 4. Check if gamer exist
-        if not isfile('./gamer'):
-            self.set_fail_test("GAMER does not exist.")
-            return STATUS_FAIL
+        if file_not exist('./gamer'): return
 
-        return STATUS_SUCCESS
+        return
 
     def run_all_inputs( self, run_mpi, **kwargs ):
         for input_setting in self.inputs:
             if copy_example( self.folder, self.name+'_'+str(input_setting), logger=self.logger, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Copying error of %s."%input_setting)
-                return STATUS_FAIL
+                return
 
             if set_input( self.inputs[input_setting], logger=self.logger, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Setting error of %s."%input_setting)
-                return STATUS_FAIL
+                return
 
             if run( mpi_test=run_mpi, logger=self.logger, input_name=input_setting, **kwargs ) == STATUS_FAIL:
                 self.set_fail_test("Running error of %s."%input_setting)
-                return STATUS_FAIL
+                return
 
-        return STATUS_SUCCESS
+        return
 
     def prepare_analysis( self, **kwargs ):
-        """
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-
-        status    : 0(success)/1(fail)
-           The analysis is success or not.
-        """
-        status = STATUS_SUCCESS
-
         analyze_filename = 'prepare_analyze_data.sh'
         analyze_script   = self.ref_path + '/' + analyze_filename
 
-        if not isfile(analyze_script):    return STATUS_SUCCESS # No need to analyze this test
+        if not isfile(analyze_script):    return # No need to analyze this test
 
         try:
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
             self.logger.info('Prepare analysis data completed.')
         except subprocess.CalledProcessError:
-            status = STATUS_FAIL
             self.set_fail_test( '%s has errors. (In %s)'%(analyze_script, prepare_analysis.__name__) )
 
-        return status
+        return
 
     def make_compare_tool( self, **kwargs ):
         """
         Make compare data program.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-
-        status: 0(success)/1(fail)
-           The analysis is success or not.
-
         """
-        status  = STATUS_SUCCESS
         out_log = LogPipe(self.logger, logging.DEBUG)
 
         cmds = []
@@ -202,7 +175,6 @@ class gamer_test():
 
         except:
             self.set_fail_test('Error while compiling the compare tool.')
-            status = STATUS_FAIL
         finally:
             # Repair makefile
             os.remove('Makefile')
@@ -210,7 +182,7 @@ class gamer_test():
 
             out_log.close()
 
-        return status
+        return
 
     def compare_data( self, **kwargs ):
         """
@@ -237,13 +209,7 @@ class gamer_test():
                 result_file = err_comp_f[err_file]['result']
                 expect_file = err_comp_f[err_file]['expect']
 
-                if not isfile( result_file ):
-                    self.set_fail_test('Result file (%s) does not exist.'%result_file)
-                    return STATUS_FAIL
-
-                if not isfile( expect_file ):
-                    self.set_fail_test('Expect file (%s) does not exist.'%expect_file)
-                    return STATUS_FAIL
+                if file_not_exist( result_file ) or file_not_exist( expect_file ): return
 
                 self.logger.info('Comparing L1 error: %s <-> %s'%(result_file, expect_file))
 
@@ -265,13 +231,7 @@ class gamer_test():
                 expect_file = ident_comp_f[ident_file]['expect']
                 file_type   = ident_comp_f[ident_file]['f_type']
 
-                if not isfile( result_file ):
-                    self.set_fail_test('Result file (%s) does not exist.'%result_file)
-                    return STATUS_FAIL
-
-                if not isfile( expect_file ):
-                    self.set_fail_test('Expect file (%s) does not exist.'%expect_file)
-                    return STATUS_FAIL
+                if file_not_exist( result_file ) or file_not_exist( expect_file ): return
 
                 self.logger.info('Comparing identical: %s <-> %s'%(result_file, expect_file))
 
@@ -287,7 +247,7 @@ class gamer_test():
 
         if len(identical_fails) > 0 or len(compare_fails) > 0:
             self.set_fail_test('Comparing to reference data fail.')
-            return STATUS_FAIL
+            return
 
         return STATUS_SUCCESS
 
@@ -300,14 +260,14 @@ class gamer_test():
             result_note = gamer_abs_path + "/bin/" + run_dir + "/Record__Note"
             expect_note = gamer_abs_path + "/regression_test/tests/" + self.name + "/" + run_dir + "/Record__Note"
 
-            #TODO: replace the logger.error to the set_fail_test if comparing Record_Note is necessary
+            #TODO: replace the file check to file_not_exist() if comparing Record_Note is necessary
             if not isfile( result_note ):
                 self.logger.error( "Result Record__Note (%s) is not exist!"%result_note )
-                return STATUS_FAIL
+                return
 
             if not isfile( expect_note ):
                 self.logger.error( "Expect Record__Note (%s) is not exist!"%expect_note )
-                return STATUS_FAIL
+                return
 
             self.logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
 
@@ -320,12 +280,10 @@ class gamer_test():
                 self.logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
             self.logger.info("Comparison of Record__Note done.")
 
-        return STATUS_SUCCESS
+        return
 
     def user_analyze( self, **kwargs ):
         #TODO: this function is very similar to prepare_analysis. We should combine them
-        status = STATUS_SUCCESS
-
         analyze_filename = 'user_analyze.sh'
         analyze_script   = self.ref_path + '/' + analyze_filename
 
@@ -335,16 +293,21 @@ class gamer_test():
             subprocess.check_call(['sh', analyze_script, gamer_abs_path])
             self.logger.info('User analysis completed.')
         except subprocess.CalledProcessError:
-            status = STATUS_FAIL
             self.set_fail_test('%s has errors. (In %s)'%(analyze_script, user_analyze.__name__))
 
-        return status
+        return
 
     def set_fail_test( self, reason ):
-        self.status = False
+        self.status = STATUS_FAIL
         self.reason = reason
         self.logger.error( reason )
         return
+
+    def file_not_exist( self, filename ):
+        if isfile( filename ): return False
+        reason = "%s does not exist."%filename
+        self.set_fail_test( reason )
+        return True
 
 
 ####################################################################################################
