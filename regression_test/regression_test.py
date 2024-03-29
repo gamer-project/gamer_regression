@@ -537,19 +537,9 @@ def output_summary( result ):
                 fail_tests[sub_test] = sub_result
 
             summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
-        #if not val["status"]:
-        #    print("\033[91m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
-        #else:
-        #    print("\033[92m" + "%-20s: %06r     %-s"%(key, val["status"], val["reason"]) + "\033[0m")
     summary += TEXT_RESET
     print(summary)
-
     print("========================================")
-
-    #print("%-20s: %06s     %-s"%("Test problem", "Passed", "Fail reason"))
-    #for key, val in result.items():
-    #    print("%-20s: %06r     %-s"%(key, val["status"], val["reason"]))
-    #print("========================================")
     print("Please check <%s> for the detail message."%args["output"])
 
     return fail_tests
