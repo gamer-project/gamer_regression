@@ -30,6 +30,8 @@ STATUS_COMPILE_ERR  = 3
 STATUS_EDITING_FAIL = 4
 STATUS_EXTERNAL     = 5
 STATUS_GAMER_FAIL   = 6
+STATUS_DOWNLOAD     = 7
+STATUS_UPLOAD       = 8
 
 # 1. Paths
 CURRENT_ABS_PATH     = os.getcwd()
@@ -402,8 +404,8 @@ def main( groups, ch, file_handler, **kwargs ):
     """
     # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    #if gh.download_compare_version_list( logger=gh_logger ) == STATUS_FAIL:
-    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) == STATUS_FAIL:
+    #if gh.download_compare_version_list( logger=gh_logger ) != STATUS_SUCCESS:
+    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) != STATUS_SUCCESS:
         raise BaseException("The download from girder fails.")
 
     # Loop over all groups
@@ -429,8 +431,8 @@ def main( groups, ch, file_handler, **kwargs ):
             if test.run_all_inputs( run_mpi, **kwargs ) != STATUS_SUCCESS: continue
 
             # 4. Download compare file
-            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
-            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) == STATUS_FAIL:
+            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) != STATUS_SUCCESS:
+            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) != STATUS_SUCCESS:
                 raise BaseException("The download from girder fails.")
 
             # 5. Prepare analysis data (e.g. L1 error)
@@ -469,14 +471,10 @@ def write_args_to_log( logger, **kwargs ):
     logger.info("Record all arguments have been set.")
     for arg in kwargs:
        if arg == 'test':
-           msg = ""
-           for i in kwargs[arg]:
-               msg += TEST_INDEX[i] + " "
+           msg = " ".join([ TEST_INDEX[i] for i in kwargs[arg] ])
            logger.info("%-20s : %s"%("extra_test", msg))
        elif arg == 'group':
-           msg = ""
-           for i in kwargs[arg]:
-               msg += GROUP_INDEX[i] + " "
+           msg = " ".join([ GROUP_INDEX[i] for i in kwargs[arg] ])
            logger.info("%-20s : %s"%(arg, msg))
        elif arg == "force_args":
            msg = " ".join(kwargs[arg])

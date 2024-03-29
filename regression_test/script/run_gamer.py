@@ -31,6 +31,8 @@ STATUS_COMPILE_ERR  = 3
 STATUS_EDITING_FAIL = 4
 STATUS_EXTERNAL     = 5
 STATUS_GAMER_FAIL   = 6
+STATUS_DOWNLOAD     = 7
+STATUS_UPLOAD       = 8
 
 
 
@@ -98,7 +100,7 @@ class gamer_test():
             out_log.close()
 
         # 4. Check if gamer exist
-        if file_not exist('./gamer'): return self.status
+        if file_not_exist('./gamer'): return self.status
 
         return self.status
 
