@@ -1,15 +1,26 @@
-MAKE_CONFIG:
-  - model=HYDRO
-  - gravity
-  - particle
-  - timing
-  - fftw=FFTW3
-  - bitwise_reproducibility
+Gravity:
+  priority: high
 
-INPUT_SETTINGS:
- 'input1':
-  Input__Parameter:
-  Input__Flag_Lohner:
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
 
-  Input__TestProb:
+  cases:
+  - Makefile:
+      model : HYDRO
+      gravity : true
+      fftw : FFTW3
+      hdf5 : true
+    Input__Parameter: {}
+    Input__TestProb: {}
 
+  pre_script:
+  - "clean.sh"
+
+  post_script: []
+
+  reference: []
+
+  user_compare_script: []

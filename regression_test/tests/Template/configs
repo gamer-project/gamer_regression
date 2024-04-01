@@ -1,21 +1,36 @@
-MAKE_CONFIG:
-  - model=HYDRO
-  - bitwise_reproducibility
+# The is a yaml file
+test_type:
+  priority: high        # high, medium, low
 
-INPUT_SETTINGS:
- 'input1':
-  Input__Parameter:
-   - MAX_LEVEL: 2
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
 
-  Input__Flag_Lohner:
+  cases:
+  - Makefile: {}
+    Input__Parameter: {}
+    Input__TestProb: {}
+  - Makefile: {}
+    Input__Parameter: {}
+    Input__TestProb: {}
 
-  Input__TestProb:
+# scripts are expected as *.sh, the test.bin_path will be passed as the first argument
+  pre_script:                   # the scripts executed before GAMER execution
+  - "script/name1"
+  - "script/name2"
 
- 'input2':
-  Input__Parameter:
-   - MAX_LEVEL: 2
+# the scripts to be executed after GAMER execution
+  post_script: []
 
-  Input__Flag_Lohner:
+  reference:
+  - name: file_name_1
+    loc: "local:/somewhere/local"       # local or cloud, local has higher priority
+    file_type: TEXT                     # HDF5, TEXT, NOTE
+  - name: file_name_2
+    loc: "cloud:/on/hub.yt"             # TODO: write a doc of this, the path of cloud is meanless for now
+    file_type: HDF5
 
-  Input__TestProb:
-
+# the scripts to be executed to comapre data
+  user_compare_script: []

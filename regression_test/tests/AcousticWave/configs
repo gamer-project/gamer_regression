@@ -1,38 +1,54 @@
-MAKE_CONFIG:
- - model=HYDRO
- - timing
- - double
- - bitwise_reproducibility
+L1Error:
+  priority: medium
 
-INPUT_SETTINGS:
- '032':
-  Input__Parameter:
-   NX0_TOT_X: 32
-   NX0_TOT_Y: 32
-   NX0_TOT_Z: 32
-   OPT__OUTPUT_MODE: 2
-   OUTPUT_DT: 0.1
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
 
- '064':
-  Input__Parameter:
-   NX0_TOT_X: 64
-   NX0_TOT_Y: 64
-   NX0_TOT_Z: 64
-   OPT__OUTPUT_MODE: 2
-   OUTPUT_DT: 0.1
+  cases:
+  - Makefile: &L1ERR_MAKE
+      model : HYDRO
+      mpi : True
+      timing : true
+      double : true
+      bitwise_reproducibility : true
+    Input__Parameter:
+      NX0_TOT_X: 32
+      NX0_TOT_Y: 32
+      NX0_TOT_Z: 32
+    Input__TestProb: {}
+  - Makefile: *L1ERR_MAKE
+    Input__Parameter:
+      NX0_TOT_X: 64
+      NX0_TOT_Y: 64
+      NX0_TOT_Z: 64
+      OPT_OUTPUT_MODE: 2
+      OUTPUT_DT: 0.1
+    Input__TestProb: {}
+  - Makefile: *L1ERR_MAKE
+    Input__Parameter:
+      NX0_TOT_X: 128
+      NX0_TOT_Y: 128
+      NX0_TOT_Z: 128
+      OPT_OUTPUT_MODE: 2
+      OUTPUT_DT: 0.1
+    Input__TestProb: {}
+  - Makefile: *L1ERR_MAKE
+    Input__Parameter:
+      NX0_TOT_X: 256
+      NX0_TOT_Y: 256
+      NX0_TOT_Z: 256
+      OPT_OUTPUT_MODE: 2
+      OUTPUT_DT: 0.1
+    Input__TestProb: {}
 
- '128':
-  Input__Parameter:
-   NX0_TOT_X: 128
-   NX0_TOT_Y: 128
-   NX0_TOT_Z: 128
-   OPT__OUTPUT_MODE: 2
-   OUTPUT_DT: 0.1
+  pre_script:
+  - "clean.sh"
 
- '256':
-  Input__Parameter:
-   NX0_TOT_X: 256
-   NX0_TOT_Y: 256
-   NX0_TOT_Z: 256
-   OPT__OUTPUT_MODE: 2
-   OUTPUT_DT: 0.1
+  post_script: []
+
+  reference: []
+
+  user_compare_script: []

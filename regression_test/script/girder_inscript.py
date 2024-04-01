@@ -14,7 +14,7 @@ import getpass
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
-from script.utilities import check_dict_key, read_yaml, gen2dict, STATUS
+from script.utilities import *
 
 
 
@@ -29,7 +29,7 @@ REG_FOLDER_ID = '6123170168085e0001634586'       # ID of /user/xuanweishan/gamer
 GC = girder_client.GirderClient( apiUrl=API_URL )
 GC.authenticate( apiKey=API_KEY )
 
-HOME_FOLDER_DICT = gen2dict( GC.listFolder(REG_FOLDER_ID) )
+HOME_FOLDER_DICT = get_folder_tree( GC, REG_FOLDER_ID )
 
 
 
@@ -74,16 +74,16 @@ def get_latest_version( test_name, gamer_abs_path ):
     comp_list_file = gamer_abs_path + '/regression_test/compare_version_list/compare_list'
     ver_list = read_yaml( comp_list_file )
 
-    ver = {'time':0,'inputs':[]}
+    time_out = 0
     for version in ver_list[test_name]:
-        if int(ver_list[test_name][version]['time']) <= ver['time']:    continue
-        ver['time'] = int(ver_list[test_name][version]['time'])
-        ver['inputs'] = ver_list[test_name][version]['members']
+        cur_time = int( ver_list[test_name][version] )
+        if cur_time <= time_out:    continue
+        time_out = cur_time
 
-    return ver
+    return {"time":time_out}
 
 
-def download_data( test_name, gamer_path, test_folder, **kwargs ):
+def download_data( test, gamer_path, **kwargs ):
     """
     Download the data from hub.yt
 
@@ -96,62 +96,52 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
     check_dict_key( 'logger', kwargs, 'kwargs' )
     logger = kwargs['logger']
 
-    ver_latest = get_latest_version( test_name, gamer_path )
-    time       = ver_latest['time']
-    inputs     = ver_latest['inputs']
+    download_list = test.config["reference"]
 
-    download_list = test_folder + '/compare_results'
-    download_dict = read_yaml( download_list )
-    test_folder_dict = {}
+    # TODO: the path here is confusing
+    for file_dict in download_list:
+        file_where, ref_path = file_dict["loc"].split(":")
+        temp = file_dict["name"].split('/')
+        case = "/".join(temp[:-1])
+        ref_name = temp[-1]
 
-    # 1. Download the data
-    for key in download_dict['identical']:
-        d_path   = gamer_path + "/" + download_dict['identical'][key]['expect']
-        d_temp   = d_path.split('/')
-        d_folder = d_temp[-2] + '-' + str(time) # the folder of the file to be downloaded
-        d_file   = d_temp[-1]                   # the file to be downloaded
-
-        # store the folder information
-        if d_folder not in test_folder_dict:
-            try:
-                test_folder_dict[d_folder] = gen2dict( GC.listItem( HOME_FOLDER_DICT[d_folder]['_id']) )
-            except:
-                logger.error( "Can not get the info of (name: %s, id: %s)!"%(d_folder, HOME_FOLDER_DICT[d_folder]['_id']) )
-                return STATUS.FAIL
-
-        file_id = test_folder_dict[d_folder][d_file]['_id']
-
-        target_folder = "/".join(d_temp[:-1])   # download destination
+        target_folder = test.bin_path + "/" + "reference" + "/" + case
         if not os.path.isdir(target_folder): os.makedirs(target_folder)
 
-        # download
-        try:
-            logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%(d_folder, d_file, file_id, target_folder) )
-            GC.downloadItem( file_id, target_folder ) # Download a single file
-            logger.info( "Finish Downloading" )
-        except:
-            logger.error( "Download (name: %s/%s, id: %s) fail!"%(d_folder, d_file, file_id) )
-            return STATUS.DOWNLOAD
-
-    # 2. Download the Record__*
-    for sub_test_folder in test_folder_dict:
-        for sub_file in test_folder_dict[sub_test_folder]:
-            file_name = test_folder_dict[sub_test_folder][sub_file]['name']
-
-            if "Record" not in file_name: continue
-
-            file_id = test_folder_dict[sub_test_folder][sub_file]['_id']
-
-            target_folder = gamer_path + "/regression_test/tests/" + test_name + "/" + sub_test_folder.split('-')[0]    # download destination
-
-            # download
+        if file_where == "local":
+            logger.info( "Linking %s --> %s"%(ref_path, target_folder+'/'+ref_name) )
             try:
-                logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%(sub_test_folder, file_name, file_id, target_folder) )
+                subprocess.check_call(['ln', '-s', ref_path, target_folder+'/'+ref_name])
+            except:
+                logger.error("Can not link file %s"%ref_path)
+                return STATUS.EXTERNAL
+        # TODO: change the name of cloud
+        elif file_where == "cloud":
+            ver_latest = get_latest_version( test.name, gamer_path )
+            time       = ver_latest['time']
+            ref_folder = test.name + "-" + str(time)
+
+            file_id = HOME_FOLDER_DICT[ref_folder][case][ref_name]['_id']
+
+            logger.info( "Downloading (name: %s/%s/%s, id: %s) --> %s"%(ref_folder, case, ref_name, file_id, target_folder) )
+            try:
                 GC.downloadItem( file_id, target_folder ) # Download a single file
                 logger.info( "Finish Downloading" )
             except:
-                logger.error( "Download (name: %s/%s, id: %s) fail!"%(sub_test_folder, file_name, file_id) )
+                logger.error( "Download (name: %s/%s/%s, id: %s) fail!"%(ref_folder, case, ref_name, file_id) )
                 return STATUS.DOWNLOAD
+        elif file_where == "url":
+            logger.error( "Download from url is not supported yet." )
+            continue
+            # TODO: test download from url
+            try:
+                subprocess.check_call( ["curl", ref_path, "-o", target_folder+'/'+ref_name] )
+            except:
+                logger.error( "Download from %s fail!"%(ref_path) )
+                return STATUS.DOWNLOAD
+        else:
+            logger.error("Unknown file location %s"%file_where)
+            return STATUS.DOWNLOAD
 
     return STATUS.SUCCESS
 
@@ -165,8 +155,8 @@ def download_compare_version_list( gamer_path, **kwargs ):
 
     if not os.path.isdir(target_folder): os.makedirs(target_folder)
 
+    logger.info( "Downloading compare_version_list" )
     try:
-        logger.info( "Downloading compare_version_list" )
         GC.downloadFolderRecursive( folder_id, target_folder ) # This only download the files inside the folder
         logger.info( "Finish Downloading" )
     except:

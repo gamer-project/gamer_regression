@@ -1,5 +1,4 @@
 import h5py
-import numpy as np
 
 class hdf_info_read:
     def __init__(self, file_name):
@@ -11,7 +10,7 @@ class hdf_info_read:
 
         self.GridData     = self.loadGridData(hdf_file)
         self.ParticleData = self.loadParticleData(hdf_file)
-    
+
     def loadGridData(self, hdf_file):
         if 'GridData' in hdf_file.keys():
             return hdf_file['GridData']

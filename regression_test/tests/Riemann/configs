@@ -1,9 +1,93 @@
-MAKE_CONFIG:
- - model=HYDRO
- - timing
- - bitwise_reproducibility
+Hydro:
+  priority: high
 
-INPUT_SETTINGS:
- 'input1':
-  Input__Parameter:
-   MAX_LEVEL: 2
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
+
+  cases:
+  - Makefile: &HYDRO_MAKE
+      model : HYDRO
+    Input__Parameter: {}
+    Input__TestProb:
+      Riemann_Prob : 0
+  - Makefile: *HYDRO_MAKE
+    Input__Parameter: {}
+    Input__TestProb:
+      Riemann_Prob : 1
+
+  pre_script:
+  - "clean.sh"
+
+  post_script: []
+
+  reference: []
+
+  user_compare_script: []
+
+MHD:
+  priority: high
+
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
+
+  cases:
+  - Makefile: &MHD_MAKE
+      model : HYDRO
+      mhd : true
+    Input__Parameter: {}
+    Input__TestProb:
+      Riemann_Prob : 6
+  - Makefile: *MHD_MAKE
+    Input__Parameter: {}
+    Input__TestProb:
+      Riemann_Prob : 7
+
+  pre_script:
+  - "clean.sh"
+
+  post_script: []
+
+  reference: []
+
+  user_compare_script: []
+
+SRHD:
+  priority: high
+
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
+
+  cases:
+  - Makefile:
+      model : HYDRO
+      flu_scheme : MHM
+      srhd : true
+    Input__Parameter: {}
+    Input__TestProb: {}
+
+  pre_script:
+  - "clean.sh"
+
+  post_script: []
+
+  reference:
+  - name: case_00/Xline_y0.000_z0.000_000000
+    loc: "local:/work1/chunyenc/Develop/gamer_regression/bin/Riemann_SRHD/case_00/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_00/Record__Note
+    loc: "local:/work1/chunyenc/Develop/gamer_regression/bin/Riemann_SRHD/case_00/Record__Note"
+    file_type: NOTE
+  - name: case_00/Xline_y0.000_z0.000_000001
+    loc: "cloud:/case_00/Xline_y0.000_z0.000_000001"
+    file_type: TEXT
+
+  user_compare_script: []

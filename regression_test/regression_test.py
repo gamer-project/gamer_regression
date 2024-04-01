@@ -18,6 +18,19 @@ import script.run_gamer as gamer
 from   script.utilities import *
 
 
+"""
+TODO:
+1. rename variables
+2. remove the unused variables
+3. clean every thing about the path
+
+Documents:
+1. the file structure is assumed
+2. how to add a test
+3. how to modify
+4. the logic of regression test
+"""
+
 
 ####################################################################################################
 # Global variables
@@ -29,16 +42,17 @@ gamer.gamer_abs_path = GAMER_ABS_PATH
 
 # 2. Test problem
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'
-ALL_TESTS = { direc:test_example_path+'/'+direc+'/Inputs' for direc in listdir(test_example_path) }
-ALL_TESTS.pop('Template')                 # Remove the Template folder from test
-ALL_GROUPS = gamer.read_yaml( GAMER_ABS_PATH + "/regression_test/group", 'test_list' )
+# get the config dict of each test
+all_test_name = { direc:test_example_path+'/'+direc for direc in listdir(test_example_path) }
+all_test_name.pop('Template')           # Remove the Template folder from test
 
-TEST_INDEX  = [ t for t in ALL_TESTS  ]   # Set up index of tests
-GROUP_INDEX = [ g for g in ALL_GROUPS ]   # Set up index of groups
+ALL_TEST_CONFIGS, all_type_name = read_test_config( all_test_name )
+NAME_INDEX = [ n for n in all_test_name ]
+TYPE_INDEX = all_type_name
 
 # 3. Logging variable
-STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-15s : %(message)s')
-SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-15s %(message)s')
+STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s')
+SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-20s %(message)s')
 
 # 4. MPI variables
 thread_nums     = os.cpu_count()
@@ -46,6 +60,9 @@ THREAD_PER_CORE = 2
 CORE_PER_RANK   = 8
 core_nums       = thread_nums // THREAD_PER_CORE
 RANK_NUMS       = core_nums   // CORE_PER_RANK
+
+# 5. Priorties
+PRIOR = {"high":3, "medium":2, "low":1}
 
 
 
@@ -67,37 +84,48 @@ def argument_handler():
 
     """
 
-    test_msg = "Extra test index:\n"
-    test_msg += "".join( ["  %2d : %-20s\n"%(i, t) for i, t in enumerate(TEST_INDEX)] )
-    test_msg += "Group index:\n"
-    for g in range(len(ALL_GROUPS)):
-        key, val = list(ALL_GROUPS.items())[g]
-        test_msg += "  %2d : %-20s => %s\n"%( g, key, ", ".join(["%s"%t for t in val["tests"]]) )
+    test_msg = "Test type index:\n"
+    test_msg += "".join( ["  %2d : %-20s\n"%(i, t) for i, t in enumerate(TYPE_INDEX)] )
+
+    table = "%20s (id)"%("test name")
+    for i in range(len(TYPE_INDEX)):
+        table += " | %2d"%i
+    table += "\n"
+    for i, n in enumerate(NAME_INDEX):
+        table += "%20s (%2d)"%(n, i)
+        for j, t in enumerate(TYPE_INDEX):
+            if n in ALL_TEST_CONFIGS:
+                table += " | "
+                if t in ALL_TEST_CONFIGS[n]:
+                    table += "%2s"%(ALL_TEST_CONFIGS[n][t]["priority"][0].upper())
+                else:
+                    table += "  "
+        table += "\n"
 
     parser = argparse.ArgumentParser( description = "Regression test of GAMER.",
                                       formatter_class = argparse.RawTextHelpFormatter,
-                                      epilog = test_msg,
+                                      epilog = test_msg + table,
                                       allow_abbrev=False        # python version must be >= 3.5
                                       )
 
-    parser.add_argument( "--error_level",
+    parser.add_argument( "-e", "--error_level",
                          help="Error allowed in this test. \nDefault: %(default)s",
                          type=str, choices=["level0", "level1", "level2"],
                          default="level0"
                        )
-    parser.add_argument( "-p", "--path",
-                         help="Set the path of the GAMER path. \nDefault: %(default)s",
-                         type=str,
-                         default=GAMER_ABS_PATH
+    parser.add_argument( "-p", "--priority",
+                         help="Priority of the regression test. \nDefault: %(default)s",
+                         type=str, choices=[i for i in PRIOR],
+                         default="high"
                        )
-    parser.add_argument( "-g", "--group",
-                         help="Specify test group to run. \nDefault: %(default)s",
+    parser.add_argument( "-n", "--name",
+                         help="Specify the test name to run. \nDefault: %(default)s",
                          nargs="+",
                          type=int,
                          default=[]
                        )
-    parser.add_argument( "-t", "--test",
-                         help="Specify tests to run. \nDefault: %(default)s",
+    parser.add_argument( "-t", "--type",
+                         help="Specify the test type to run. \nDefault: %(default)s",
                          nargs="+",
                          type=int,
                          default=[]
@@ -108,16 +136,11 @@ def argument_handler():
                          default="test"
                        )
 
-    parser.add_argument("--machine",
-                        help="Select the machine configuration in ../configs. \nDefault: %(default)s",
-                        default="eureka_intel")
+    parser.add_argument( "-m", "--machine",
+                         help="Select the machine configuration in ../configs. \nDefault: %(default)s",
+                         default="eureka_intel")
 
     # MPI arguments
-    parser.add_argument( "--mpi",
-                         help="Force running run with open-mpi for all tests. \nDefault: %(default)s",
-                         action="store_true",
-                         default=False
-                       )
     parser.add_argument( "--mpi_rank", metavar="N_RANK",
                          help="Number of ranks of mpi. \nDefault: %(default)s",
                          type=int,
@@ -130,28 +153,16 @@ def argument_handler():
                        )
 
     # GPU arguments
-    parser.add_argument( "--gpu",
-                         help="Force running run with gpu for all tests. \nDefault: %(default)s",
-                         action="store_true",
-                         default=False
-                       )
     parser.add_argument( "--gpu_arch",
-                         help="Specify the gpu architecture. \nDefault: %(default)s",
+                         help="Specify the GPU architecture. \nDefault: %(default)s",
                          type=str,
                          default=get_gpu_arch()
-                       )
-
-    # Others
-    parser.add_argument( "--hide_make",
-                         help="Hide the make messages. \nDefault: %(default)s",
-                         action="store_true",
-                         default=False
                        )
 
     args, unknown = parser.parse_known_args()
 
     # Print out the unknown arguments
-    if unknown != []: print("Simulation forced or unknown arguments: ", unknown)
+    if unknown != []: print("Simulation forced arguments or unknown arguments: ", unknown)
 
     return args, unknown
 
@@ -198,51 +209,42 @@ def reg_init( input_args ):
     testing_test : list
        A list contains strings of test name which to be tested.
     """
-    global GAMER_ABS_PATH
-
-    testing_groups, group_options = {}, {}
-
-    # 0. Setting the default test group
-    # if nothing input, run group 0 which include all tests
-    if len(input_args["group"]) == 0 and len(input_args["test"]) == 0:
-        input_args["group"] = [0]
+    # 0. Setting the default test type
+    if len(input_args["type"]) == 0: input_args["type"] = [i for i in range(len(TYPE_INDEX))]
+    if len(input_args["name"]) == 0: input_args["name"] = [i for i in range(len(NAME_INDEX))]
 
     # 1. Check if the input arguments are valid.
-    for idx_g in input_args["group"]:
-        if idx_g < 0 or idx_g > len(ALL_GROUPS):
-            print("Unrecognize index of the group: %d"%idx_g)
-            continue
+    for idx_g in input_args["type"]:
+        if idx_g < 0 or idx_g > len(TYPE_INDEX):
+            raise IndexError("Unrecognize index of the test type: %d"%idx_g)
 
-        group_tests = ALL_GROUPS[GROUP_INDEX[idx_g]]["tests"]
-        group_options[GROUP_INDEX[idx_g]] = ALL_GROUPS[GROUP_INDEX[idx_g]]["options"]
-        testing_tests  = {}
-        for test in group_tests:
-            testing_tests[test] = ALL_TESTS[test]
+    for idx_n in input_args["name"]:
+        if idx_n < 0 or idx_n >= len(NAME_INDEX):
+            raise IndexError("Unrecognize index of the test name: %d"%idx_n)
 
-        testing_groups[GROUP_INDEX[idx_g]] = testing_tests
-
-    testing_tests  = {}
-    for idx in input_args["test"]:
-        if idx >= len(TEST_INDEX) or idx < 0:
-            print("Unrecognize index of the test: %d"%idx)
-            continue
-        testing_tests[TEST_INDEX[idx]] = ALL_TESTS[TEST_INDEX[idx]]
-
-    testing_groups["Extra_test"] = testing_tests
-    group_options["Extra_test"] = None
+    test_configs = {}
+    for idx_t in input_args["type"]:
+        for idx_n in input_args["name"]:
+            test_name = NAME_INDEX[idx_n]
+            test_type = TYPE_INDEX[idx_t]
+            try:
+                test_priority = ALL_TEST_CONFIGS[test_name][test_type]["priority"]
+                if PRIOR[test_priority] < PRIOR[input_args["priority"]]: continue
+                test_configs[test_name+"_"+test_type] = ALL_TEST_CONFIGS[test_name][test_type]
+                test_configs[test_name+"_"+test_type]["name"] = test_name
+                test_configs[test_name+"_"+test_type]["type"] = test_type
+            except:
+                pass
 
     # 2. Store to global variables
-    GAMER_ABS_PATH = input_args["path"]
-    gamer.gamer_abs_path = GAMER_ABS_PATH
     input_args["output"] += ".log"
-    input_args["group_options"] = group_options
 
     # 3. Remove the existing log file
     if isfile( input_args["output"] ):
         print('WARNING!!! %s is already exist. The original log file will be removed.'%(input_args["output"]))
         os.remove( input_args["output"] )
 
-    return testing_groups, input_args
+    return test_configs, input_args
 
 
 def log_init( log_file_name ):
@@ -274,37 +276,7 @@ def log_init( log_file_name ):
     return ch, file_handler
 
 
-def set_up_logger( logger_name, ch, file_handler ):
-    """
-    Set up settings to logger object
-
-    Parameters
-    ----------
-
-    logger_name  : string
-       The name of logger.
-    ch           : class logging.StreamHandler
-       Saving the screen output format to the logger.
-    file_handler : class logging.FileHandler
-       Saving the file output format to the logger.
-
-    Returns
-    -------
-
-    logger       : class logger.Logger
-       The logger added the file handler and the stream handler with logger_name.
-
-    """
-    logger = logging.getLogger( logger_name )
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    logger.addHandler(ch)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-def main( groups, ch, file_handler, **kwargs ):
+def main( test_configs, ch, file_handler, **kwargs ):
     """
     Main regression test.
 
@@ -318,85 +290,37 @@ def main( groups, ch, file_handler, **kwargs ):
     file_handler : class logging.FileHandler
        Saving the file output format to the logger.
     """
-    # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    #if gh.download_compare_version_list( logger=gh_logger ) != STATUS.SUCCESS:
     if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) != STATUS.SUCCESS:
         raise BaseException("The download from girder fails.")
 
-    # Loop over all groups
-    group_status = { group_name:{"status":True, "reason":""} for group_name in groups }
-    for group_name in groups:
-        tests = groups[group_name]
-        test_opts = kwargs["group_options"][group_name]
-        test_classes = [ gamer.gamer_test( test_name, tests[test_name], GAMER_ABS_PATH, ch, file_handler ) for test_name in tests ]
-        group_logger = set_up_logger( group_name, ch, file_handler )
-        group_logger.info( 'Group %s start.' %(group_name) )
-        for test in test_classes:
-            test.logger.info( 'Test %s start.' %(test.name) )
+    tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
+    for test in tests:
+        test.logger.info( 'Test %s start.'%(test.name) )
 
-            # 1. Set up gamer make configuration
-            if test_opts != None: test.config += test_opts   # add the group option
-            run_mpi = True  if "mpi=true" in test.config or "mpi" in test.config or kwargs["mpi"] else False
+        if test.run_all_cases( **kwargs )                             != STATUS.SUCCESS: continue
+        if gi.download_data( test, GAMER_ABS_PATH, logger=gh_logger ) != STATUS.SUCCESS: continue
+        if test.make_compare_tool( **kwargs )                         != STATUS.SUCCESS: continue
+        if test.compare_data( **kwargs )                              != STATUS.SUCCESS: continue
+        if test.execute_scripts( 'user_compare_script', **kwargs )    != STATUS.SUCCESS: continue
 
-            # 2. Compile gamer
-            os.chdir( GAMER_ABS_PATH + '/src' )
-            if test.compile_gamer( **kwargs ) != STATUS.SUCCESS: continue
+        test.logger.info( 'Test %s done.'%(test.name) )
 
-            # 3. Run gamer
-            if test.run_all_inputs( run_mpi, **kwargs ) != STATUS.SUCCESS: continue
-
-            # 4. Download compare file
-            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) != STATUS.SUCCESS:
-            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) != STATUS.SUCCESS:
-                raise BaseException("The download from girder fails.")
-
-            # 5. Prepare analysis data (e.g. L1 error)
-            if test.prepare_analysis( **kwargs ) != STATUS.SUCCESS: continue
-
-            # 6. Compare the data
-            # 6.1 Compare the Record__Note
-            # It is not necessary to compare the Record__Note for now
-            if test.compare_note( **kwargs ) != STATUS.SUCCESS: pass
-
-            # 6.2 Prepare GAMER_comapre tool
-            os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
-            if test.make_compare_tool( **kwargs ) != STATUS.SUCCESS: continue
-
-            # 6.2 Compare data
-            if test.compare_data( **kwargs ) != STATUS.SUCCESS: continue
-
-            # 7. User analyze
-            if test.user_analyze( **kwargs ) != STATUS.SUCCESS: continue
-
-            test.logger.info('Test %s end.' %(test.name))
-
-        # Record the test result
-        for test in test_classes:
-            if test.status == STATUS.SUCCESS: continue
-            group_status[group_name]["status"] = False
-            group_status[group_name]["reason"] += test.name + ", "
-        group_status[group_name]["result"] = { test.name:{"status":test.status, "reason":test.reason} for test in test_classes }
-
-        group_logger.info( 'Group %s end.' %(group_name) )
-
-    return group_status
+    return {test.name:{"status":test.status, "reason":test.reason} for test in tests }
 
 
 def write_args_to_log( logger, **kwargs ):
     logger.info("Record all arguments have been set.")
     for arg in kwargs:
-       if arg == 'test':
-           msg = " ".join([ TEST_INDEX[i] for i in kwargs[arg] ])
-           logger.info("%-20s : %s"%("extra_test", msg))
-       elif arg == 'group':
-           msg = " ".join([ GROUP_INDEX[i] for i in kwargs[arg] ])
-           logger.info("%-20s : %s"%(arg, msg))
+       if arg == 'name':
+           msg = " ".join([ NAME_INDEX[i] for i in kwargs[arg] ])
+           logger.info("%-20s : %s"%("test name (name)", msg))
+       elif arg == 'type':
+           msg = " ".join([ TYPE_INDEX[i] for i in kwargs[arg] ])
+           logger.info("%-20s : %s"%("test type (type)", msg))
        elif arg == "force_args":
            msg = " ".join(kwargs[arg])
            logger.info("%-20s : %s"%(arg, msg))
-       elif arg == "group_options":
-           continue
        elif type(kwargs[arg]) == type('str'):  # string
            logger.info("%-20s : %s"%(arg, kwargs[arg]))
        elif type(kwargs[arg]) == type(1):      # integer
@@ -414,30 +338,23 @@ def output_summary( result ):
     TEXT_RED   = "\033[91m"
     TEXT_GREEN = "\033[92m"
     TEXT_RESET = "\033[0m"
-    print("========================================")
+    SEP_LEN    = 50
+    print("="*SEP_LEN)
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
-    print("========================================")
-    print("%-20s: %06s     %-15s  %06s  %s"%("Group name", "Passed", "Included tests", "Passed", "Reason"))
+    print("="*SEP_LEN)
+    print("%-20s: %-15s %s"%("Test name", "Error code", "Reason"))
+
     fail_tests = {}
     summary = ""
     for key, val in result.items():
-        summary += TEXT_GREEN if val["status"] else TEXT_RED
-        summary += "%-20s: %06r     "%(key, val["status"])
+        if val["status"] != STATUS.SUCCESS: fail_tests[key] = val["status"]
+        summary += TEXT_GREEN if val["status"] == STATUS.SUCCESS else TEXT_RED
+        summary += "%-20s: %-15s %s"%(key, STATUS.CODE_TABLE[val["status"]], val["reason"])
+        summary += TEXT_RESET
+        summary += "\n"
 
-        for sub_test, sub_result in val["result"].items():
-            if summary[-1] == "\n":
-                summary += "                                 "
-
-            if sub_result["status"] == STATUS.SUCCESS:
-                summary += TEXT_GREEN # Subtest Passed
-            else:
-                summary += TEXT_RED # Subtest Failed
-                fail_tests[sub_test] = sub_result
-
-            summary += "%-15s  %06r  %s\n"%(sub_test, sub_result["status"], sub_result["reason"])
-    summary += TEXT_RESET
-    print(summary)
-    print("========================================")
+    print(summary, end="")
+    print("="*SEP_LEN)
     print("Please check <%s> for the detail message."%args["output"])
 
     return fail_tests
@@ -474,7 +391,7 @@ if __name__ == '__main__':
     args = vars(args)
 
     # Initialize regression test
-    testing_groups, args = reg_init( args )
+    test_configs, args = reg_init( args )
 
     # Initialize logger
     ch, file_handler = log_init( args["output"] )
@@ -489,11 +406,12 @@ if __name__ == '__main__':
 
     write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
 
+    test_logger.info( 'Test to be run       : %-s'%(" ".join([ name for name in test_configs])) )
+
     # Regression test
     try:
         test_logger.info('Regression test start.')
-        result = main( testing_groups, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
-        #result = {"empty":{"status":True, "reason":"Pass"}}
+        result = main( test_configs, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical( '', exc_info=True )
@@ -502,6 +420,7 @@ if __name__ == '__main__':
     # Print out short summary
     fail_tests = output_summary(result)
 
+    exit() #TODO : the upload is not updated to the latest regession test.
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
     if not fail_tests: exit(0)

@@ -3,10 +3,7 @@ import logging
 import os
 from os.path import isdir,isfile
 import sys
-import yaml
-import six
 import subprocess
-import pandas as pd
 import numpy as np
 import copy
 
@@ -16,7 +13,7 @@ sys.dont_write_bytecode = True
 
 from script.hdf5_file_config import hdf_info_read
 from script.log_pipe import LogPipe
-from script.utilities import check_dict_key, read_yaml, STATUS
+from script.utilities import *
 
 
 
@@ -31,23 +28,49 @@ gamer_abs_path = '/work1/xuanshan/gamer'
 # Classes
 ####################################################################################################
 class gamer_test():
-    def __init__( self, name, folder, gamer_abs_path, ch, file_handler ):
-        self.name = name
-        self.folder = folder
-        self.ref_path = gamer_abs_path + '/regression_test/tests/' + name
-        self.status = STATUS.SUCCESS
-        self.reason = ""
-        self.config, self.inputs = read_yaml( self.ref_path + '/configs', 'config' )
-
-        self.logger = logging.getLogger( name )
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.propagate = False
-        self.logger.addHandler(ch)
-        self.logger.addHandler(file_handler)
+    def __init__( self, name, config, gamer_abs_path, ch, file_handler, err_level ):
+        self.name      = name
+        self.config    = config
+        self.err_level = err_level
+        self.src_path  = gamer_abs_path + '/src'
+        self.bin_path  = gamer_abs_path + '/bin/' + self.name
+        self.ref_path  = gamer_abs_path + '/regression_test/tests/' + config["name"]
+        self.tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data'
+        self.status    = STATUS.SUCCESS
+        self.reason    = ""
+        self.logger    = set_up_logger( name, ch, file_handler )
         return
 
-    def compile_gamer( self, **kwargs ):
-        self.logger.info('Start compiling gamer')
+    def run_all_cases( self, **kwargs ):
+        # 1. make the directory for the test
+        if isdir( self.bin_path ):
+            self.logger.warning('Test folder (%s) exist. ALL the original data and your scripts will be removed!'%(self.bin_path))
+            subprocess.check_call(['rm', '-rf', self.bin_path])
+
+        os.mkdir( self.bin_path )
+
+        for i, case in enumerate(self.config['cases']):
+            self.logger.info('Start running case: %d'%i)
+            os.chdir(self.src_path)
+            # compile
+            if self.compile_gamer( i, **kwargs ) != STATUS.SUCCESS: return self.status
+            # copy
+            if self.copy_case( i, **kwargs ) != STATUS.SUCCESS: return self.status
+            os.chdir(self.bin_path+'/case_%02d'%i)
+            # editing Input__*
+            if self.set_input( i, **kwargs ) != STATUS.SUCCESS: return self.status
+            # pre script
+            if self.execute_scripts( 'pre_script', **kwargs ) != STATUS.SUCCESS: return self.status
+            # run
+            if self.run_gamer( i, **kwargs ) != STATUS.SUCCESS: return self.status
+            # post script
+            if self.execute_scripts( 'post_script', **kwargs ) != STATUS.SUCCESS: return self.status
+            self.logger.info('End of running case: %d'%i)
+
+        return self.status
+
+    def compile_gamer( self, case_num, **kwargs ):
+        self.logger.info('Start compiling GAMER')
         out_log = LogPipe( self.logger, logging.DEBUG )
 
         # 1. Back up the original Makefile
@@ -55,27 +78,24 @@ class gamer_test():
         if keep_makefile: subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
 
         # 2. Get commands to modify Makefile.
-        cmd = generate_modify_command( self.config, **kwargs )
+        cmd = generate_modify_command( self.config['cases'][case_num]['Makefile'], **kwargs )
 
         try:
             self.logger.debug("Generating Makefile using: %s"%(" ".join(cmd)))
             subprocess.check_call(cmd)
         except subprocess.CalledProcessError:
             self.set_fail_test("Error while editing Makefile.", STATUS.EDITING_FAIL)
-            subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
-            subprocess.check_call(['rm', 'Makefile.origin'])
+            if keep_makefile:
+                subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
+                subprocess.check_call(['rm', 'Makefile.origin'])
             out_log.close()
             return self.status
 
         # 3. Compile GAMER
         try:
-            subprocess.check_call( ['make','clean'], stderr=out_log )
-            if kwargs["hide_make"]:
-                subprocess.check_call( ['make -j > make.log'], stderr=out_log, shell=True )
-                subprocess.check_call( ['rm', 'make.log'] )
-            else:
-                subprocess.check_call( ['make','-j'], stderr=out_log )
-
+            subprocess.check_call( ['make', 'clean'], stderr=out_log )
+            subprocess.check_call( ['make -j > make.log'], stderr=out_log, shell=True )
+            subprocess.check_call( ['rm', 'make.log'] )
         except subprocess.CalledProcessError:
             self.set_fail_test("Compiling error.", STATUS.COMPILE_ERR)
             return self.status
@@ -91,40 +111,85 @@ class gamer_test():
             out_log.close()
 
         # 4. Check if gamer exist
-        if file_not_exist('./gamer'): return self.status
+        if self.file_not_exist('./gamer'): return self.status
+
+        self.logger.info('Compiling GAMER done.')
 
         return self.status
 
-    def run_all_inputs( self, run_mpi, **kwargs ):
-        self.logger.info('Start running test.')
-        for input_setting in self.inputs:
-            if copy_example( self.folder, self.name+'_'+str(input_setting), logger=self.logger, **kwargs ) == STATUS.FAIL:
-                self.set_fail_test("Copying error of %s."%input_setting, STATUS.EXTERNAL)
-                return self.status
+    def copy_case( self, case_num, **kwargs ):
+        """
+        Copy input files and GAMER to work directory.
+        """
+        case_dir   = self.bin_path + '/case_%02d'%case_num
+        origin_dir = self.ref_path + '/Inputs'
 
-            if set_input( self.inputs[input_setting], logger=self.logger, **kwargs ) == STATUS.FAIL:
-                self.set_fail_test("Setting error of %s."%input_setting, STATUS.EDITING_FAIL)
-                return self.status
-
-            if run( mpi_test=run_mpi, logger=self.logger, input_name=input_setting, **kwargs ) == STATUS.FAIL:
-                self.set_fail_test("Running error of %s."%input_setting, STATUS.GAMER_FAIL)
-                return self.status
-
-        return
-
-    def prepare_analysis( self, **kwargs ):
-        self.logger.info('Start preparing data.')
-        analyze_filename = 'prepare_analyze_data.sh'
-        analyze_script   = self.ref_path + '/' + analyze_filename
-
-        if not isfile(analyze_script):    return self.status # No need to analyze this test
-
+        self.logger.info('Copying the test folder: %s ---> %s'%(origin_dir, case_dir))
         try:
-            subprocess.check_call(['sh', analyze_script, gamer_abs_path])
-            self.logger.info('Prepare analysis data completed.')
-        except subprocess.CalledProcessError:
-            self.set_fail_test( '%s has errors. (In %s)'%(analyze_script, prepare_analysis.__name__), STATUS.EXTERNAL )
-        self.logger.info('Preparaiton data done.')
+            subprocess.check_call(['cp', '-r', origin_dir, case_dir])
+            subprocess.check_call(['cp', self.src_path+'/gamer', case_dir])
+        except:
+            self.set_fail_test('Error when copying to %s.'%case_dir, STATUS.COPY_FILES)
+        self.logger.info('Copy completed.')
+
+        return self.status
+
+    def set_input( self, case_num, **kwargs ):
+        for input_file, settings in self.config['cases'][case_num].items():
+            cmds = []
+            if input_file == "Makefile": continue
+
+            for key, val in settings.items():
+                cmds.append(['sed', '-i', 's/%-29s/%-29s%-4s #/g'%(key,key,val), input_file])
+
+            self.logger.info('Editing %s.'%input_file)
+            try:
+                for cmd in cmds:
+                    subprocess.check_call(cmd)
+            except:
+                self.set_fail_test('Error on editing %s.'%input_file, STATUS.EDIT_FILE)
+            self.logger.info('Editing completed.')
+
+        return self.status
+
+    def execute_scripts( self, mode, **kwargs ):
+        self.logger.info('Start execute scripts. Mode: %s'%mode)
+        if mode not in ['pre_script', 'post_script', 'user_compare_script']:
+            self.set_fail_test("Wrong mode of executing scripts.", STATUS.FAIL)
+            return self.status
+
+        out_log = LogPipe(self.logger, logging.DEBUG)
+        for script in self.config[mode]:
+            if self.file_not_exist( script ): break
+            try:
+                self.logger.info('Executing: %s'%script)
+                subprocess.check_call(['sh', script, self.bin_path])
+            except:
+                self.set_fail_test("Error while executing %s."%script, STATUS.EXTERNAL)
+                break
+        out_log.close()
+        self.logger.info('Done execute scripts.')
+        return self.status
+
+    def run_gamer( self, case_num, **kwargs ):
+        out_log = LogPipe( self.logger, logging.DEBUG )
+        run_mpi = False
+        if "mpi" in self.config["cases"][case_num]["Makefile"]:
+            run_mpi = self.config["cases"][case_num]["Makefile"]["mpi"]
+
+        run_cmd  = "mpirun -map-by ppr:%d:socket:pe=%d --report-bindings "%(kwargs["mpi_rank"], kwargs["mpi_core_per_rank"]) if run_mpi else ""
+        run_cmd += "./gamer 1>>log 2>&1"
+
+        self.logger.info('Running GAMER.')
+        try:
+            subprocess.check_call( [run_cmd], stderr=out_log, shell=True )
+            if not isfile('./Record__Note'):
+                self.set_fail_test('No Record__Note in %s.'%self.name, STATUS.FAIL)
+        except subprocess.CalledProcessError as err:
+            self.set_fail_test('GAMER error', STATUS.EXTERNAL)
+        finally:
+            out_log.close()
+        self.logger.info('GAMER done.')
 
         return self.status
 
@@ -133,33 +198,40 @@ class gamer_test():
         Make compare data program.
         """
         self.logger.info('Start compiling compare tool.')
-        out_log = LogPipe(self.logger, logging.DEBUG)
+        os.chdir( self.tool_path )
+        out_log = LogPipe( self.logger, logging.DEBUG )
 
         cmds = []
         # 1. Back up makefile
-        os.rename('Makefile','Makefile.origin')
+        os.rename( 'Makefile', 'Makefile.origin' )
         with open('Makefile.origin') as f:
             makefile_content = f.read()
 
         # 2. Check settings in configs
-        #TODO: This part is hard coded cause we use the configure.py to generate the Makefile, but it does not support for the compare tool
+        if len(self.config["cases"]) > 1: self.logger.warning("We will only follow the first case setup of the Makefile.")
+        make_config = self.config["cases"][0]["Makefile"]
+        if "model" in make_config:
+            if make_config["model"] == "HYDRO":
+                makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=HYDRO")
+            elif make_config["model"] == "ELBDM":
+                makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=ELBDM")
+            else:
+                self.set_fail_test( "Unknown model (%s) for compare tool."%make_config["model"], STATUS.FAIL )
 
-        if "model=HYDRO" in self.config:
-            makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=HYDRO")
-        if "model=ELBDM" in self.config:
-            makefile_content = makefile_content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=ELBDM")
-        if "double" in self.config:
-            makefile_content = makefile_content.replace("#SIMU_OPTION += -DFLOAT8", "SIMU_OPTION += -DFLOAT8")
-        if "debug" in self.config:
-            makefile_content = makefile_content.replace("#SIMU_OPTION += -DGAMER_DEBUG", "SIMU_OPTION += -DGAME_DEBUG")
-        if "hdf5" in self.config:
-            makefile_content = makefile_content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
+        if "double" in make_config:
+            if make_config["double"]:
+                makefile_content = makefile_content.replace("#SIMU_OPTION += -DFLOAT8", "SIMU_OPTION += -DFLOAT8")
 
-        #makefile_content = makefile_content.replace('#SIMU_OPTION += -DFLOAT8','SIMU_OPTION += -DFLOAT8')
-        makefile_content = makefile_content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
+        if "debug" in make_config:
+            if make_config["debug"]:
+                makefile_content = makefile_content.replace("#SIMU_OPTION += -DGAMER_DEBUG", "SIMU_OPTION += -DGAMER_DEBUG")
+
+        if "hdf5" in make_config:
+            if make_config["hdf5"]:
+                makefile_content = makefile_content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
 
         # 3. Modify makefile
-        self.logger.info('Modifying the makefile.')
+        self.logger.info('Modifying the Makefile of compare tool.')
         with open('Makefile','w') as f:
             f.write(makefile_content)
         self.logger.info('Modification complete.')
@@ -168,14 +240,9 @@ class gamer_test():
         self.logger.info('Compiling the compare tool.')
         try:
             subprocess.check_call( ['make','clean'], stderr=out_log )
-
-            if kwargs["hide_make"]:
-                subprocess.check_call( ['make > make.log'], stderr=out_log, shell=True )
-                os.remove('make.log')
-            else:
-                subprocess.check_call( ['make'], stderr=out_log )
+            subprocess.check_call( ['make > make.log'], stderr=out_log, shell=True )
+            os.remove('make.log')
             self.logger.info('Compilation complete.')
-
         except:
             self.set_fail_test('Error while compiling the compare tool.', STATUS.COMPILE_ERR)
         finally:
@@ -183,7 +250,7 @@ class gamer_test():
             os.remove('Makefile')
             os.rename('Makefile.origin','Makefile')
 
-            out_log.close()
+        out_log.close()
 
         return self.status
 
@@ -198,108 +265,27 @@ class gamer_test():
            error_level : string
               The error allowed level.
         """
-        self.logger.info('Start Data_compare data consistency.')
-        check_dict_key( 'error_level', kwargs, "kwargs" )
-        level  = kwargs['error_level']
+        self.logger.info('Start comparing data.')
 
         #Get the list of files need to be compare
-        err_comp_f, ident_comp_f = read_compare_list( self.name )
+        for file_dict in self.config["reference"]:
+            current_file   = self.bin_path + "/"           + file_dict["name"]
+            reference_file = self.bin_path + "/reference/" + file_dict["name"]
+            if self.file_not_exist( current_file   ): return self.status
+            if self.file_not_exist( reference_file ): return self.status
 
-        #Start compare data files
-        compare_fails = []
-        if len(err_comp_f) > 0:
-            for err_file in err_comp_f:
-                check_dict_key( ['result', 'expect', 'level0'], err_comp_f[err_file], "err_comp_f[err_file]" )
-                result_file = err_comp_f[err_file]['result']
-                expect_file = err_comp_f[err_file]['expect']
+            if file_dict["file_type"] == "TEXT":
+                fail = compare_text( current_file, reference_file, self.config["levels"][self.err_level], logger=self.logger, **kwargs )
+            elif file_dict["file_type"] == "HDF5":
+                fail = compare_hdf5( current_file, reference_file, self.config["levels"][self.err_level], self.tool_path, logger=self.logger, **kwargs )
+            elif file_dict["file_type"] == "NOTE":
+                fail = compare_note( current_file, reference_file, logger=self.logger, **kwargs )
+            else:
+                print("compare unknow")
 
-                if file_not_exist( result_file ) or file_not_exist( expect_file ): return self.status
+            if fail: self.set_fail_test( "Fail data comparison.", STATUS.COMPARISON )
 
-                self.logger.info('Comparing L1 error: %s <-> %s'%(result_file, expect_file))
-
-                if level not in err_comp_f[err_file]:
-                    self.logger.warning( "Error tolerance of %s is not set. Switch to level0!"%(level, err_file) )
-                    error_allowed = err_comp_f[err_file]['level0']
-                else:
-                    error_allowed = err_comp_f[err_file][level]
-
-                if compare_error( result_file, expect_file, error_allowed=error_allowed, logger=self.logger ):
-                    compare_fails.append([result_file,expect_file])
-                self.logger.info('Comparing L1 error complete.')
-
-        identical_fails = []
-        if len(ident_comp_f) > 0:
-            for ident_file in ident_comp_f:
-                check_dict_key( ['result', 'expect', 'f_type', 'level0'], ident_comp_f[ident_file], "ident_comp_f[ident_file]" )
-                result_file = ident_comp_f[ident_file]['result']
-                expect_file = ident_comp_f[ident_file]['expect']
-                file_type   = ident_comp_f[ident_file]['f_type']
-
-                if file_not_exist( result_file ) or file_not_exist( expect_file ): return
-
-                self.logger.info('Comparing identical: %s <-> %s'%(result_file, expect_file))
-
-                if level not in ident_comp_f[ident_file]:
-                    self.logger.warning( "Error tolerance of %s is not set. Switch to level0!"%(level, ident_file) )
-                    error_allowed = ident_comp_f[ident_file]['level0']
-                else:
-                    error_allowed = ident_comp_f[ident_file][level]
-
-                if compare_identical( result_file, expect_file, data_type=file_type, logger=self.logger, error_allowed=error_allowed ):
-                    identical_fails.append( [result_file, expect_file, file_type] )
-                self.logger.info('Comparing identical complete.')
-
-        if len(identical_fails) > 0 or len(compare_fails) > 0:
-            self.set_fail_test('Comparing to reference data fail.', STATUS.FAIL)
-            return self.status
-
-        return self.status
-
-    def compare_note( self, **kwargs ):
-        """
-        Compare the Record__Note files
-        """
-        for input_setting in self.inputs:
-            run_dir     = self.name + "_" + str(input_setting)
-            result_note = gamer_abs_path + "/bin/" + run_dir + "/Record__Note"
-            expect_note = gamer_abs_path + "/regression_test/tests/" + self.name + "/" + run_dir + "/Record__Note"
-
-            #TODO: replace the file check to file_not_exist() if comparing Record_Note is necessary
-            if not isfile( result_note ):
-                self.logger.error( "Result Record__Note (%s) is not exist!"%result_note )
-                return self.status
-
-            if not isfile( expect_note ):
-                self.logger.error( "Expect Record__Note (%s) is not exist!"%expect_note )
-                return self.status
-
-            self.logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
-
-            para_result = store_note_para( result_note )
-            para_expect = store_note_para( expect_note )
-            diff_para   = compare_para( para_result, para_expect )
-
-            self.logger.debug("%-30s | %40s | %40s |"%("Parameter name", "result parameter", "expect parameter"))
-            for key in diff_para["1"]:
-                self.logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
-            self.logger.info("Comparison of Record__Note done.")
-
-        return self.status
-
-    def user_analyze( self, **kwargs ):
-        self.logger.info('Start user analyze.')
-        #TODO: this function is very similar to prepare_analysis. We should combine them
-        analyze_filename = 'user_analyze.sh'
-        analyze_script   = self.ref_path + '/' + analyze_filename
-
-        if not isfile(analyze_script):    return self.status # No need to analyze this test
-
-        try:
-            subprocess.check_call(['sh', analyze_script, gamer_abs_path])
-            self.logger.info('User analysis completed.')
-        except subprocess.CalledProcessError:
-            self.set_fail_test('%s has errors. (In %s)'%(analyze_script, user_analyze.__name__), STATUS.EXTERNAL)
-
+        self.logger.info('Done comparing data.')
         return self.status
 
     def set_fail_test( self, reason, status_type ):
@@ -313,6 +299,7 @@ class gamer_test():
         reason = "%s does not exist."%filename
         self.set_fail_test( reason, STATUS.MISSING_FILE )
         return True
+
 
 
 ####################################################################################################
@@ -417,379 +404,137 @@ def generate_modify_command( config, **kwargs ):
     cmd    :
         command
     """
-    # initialize the single test mpi status
-    kwargs["mpi_test"] = False
-
     cmd = [kwargs["py_exe"], "configure.py"]
     # 0. machine configuration
     cmd.append("--machine="+kwargs["machine"])
 
     # 1. simulation and miscellaneous options
-    cmd.append("--hdf5=True")  # Enable HDF5 in all test
-    for option in config:
-        if "=" in option:
-            cmd.append("--"+option)
-        else:
-            cmd.append("--"+option+"=True")
+    for key, val in config.items():
+        cmd.append("--%s=%s"%(key, val))
 
-    # 2. parallel options
-    if kwargs['mpi']:    cmd.append("--mpi=True")
-
-    # 3. gpu options
-    if kwargs['gpu']:    cmd.append("--gpu=True")
+    # 2. gpu options
     cmd.append("--gpu_arch="+kwargs["gpu_arch"])
 
-    # 4. user force enable options
-    for arg in kwargs["force_args"]:
-        cmd.append(arg)
+    # 3. user force enable options
+    # cmd.append("--hdf5=True")  # Enable HDF5 in all test
+    #for arg in kwargs["force_args"]:
+    #    cmd.append(arg)
 
     return cmd
 
 
-def copy_example( file_folder, test_folder, **kwargs ):
-    """
-    Copy input files to work directory.
-
-    Parameters
-    ----------
-
-    file_folder : string
-       The folder which to be copied.
-    test_folder : string
-       The folder where running the test.
-    kwargs:
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    status      : 0(success)/1(fail)
-       The copy is success or not.
-    """
-    check_dict_key( 'logger', kwargs, "kwargs" )
-
-    status = STATUS.SUCCESS
-    logger = kwargs['logger']
-
-    run_directory = gamer_abs_path + '/bin'
-
-    logger.info('Copying the test folder: %s ---> %s'%(file_folder, run_directory+'/'+test_folder))
-    try:
-        os.chdir( run_directory )
-
-        if isdir(run_directory+'/'+test_folder):
-            logger.warning('Test folder (%s) exist. ALL the original data (including Input__* and your scripts) will be removed.'%(run_directory+'/'+test_folder))
-            subprocess.check_call(['rm', '-rf', run_directory+'/'+test_folder])
-
-        subprocess.check_call(['cp', '-r', file_folder, test_folder])
-        os.chdir( run_directory+'/'+test_folder )
-        subprocess.check_call(['sh', 'clean.sh'])
-        subprocess.check_call(['cp', '../gamer', '.'])
-        logger.info('Copy completed.')
-    except:
-        status = STATUS.FAIL
-        logger.error('Error when createing running directory.')
-
-    return status
-
-
-def set_input( input_settings, **kwargs ):
-    """
-    Parameters
-    ----------
-
-    input_settings : dict
-       The config of Input__Parameter.
-    kwargs :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    status: 0(success)/1(fail)
-       The setting is success or not.
-
-    """
-    check_dict_key( 'logger', kwargs, "kwargs" )
-
-    status = STATUS.SUCCESS
-    logger = kwargs['logger']
-
-    cmds = []
-    for input_file in input_settings:
-        if input_settings[input_file] == None:
-            continue
-
-        #TODO: this should be a flixable option
-        #Set gamer dump file as hdf5 file
-        cmds.append(['sed','-i','s/OPT__OUTPUT_TOTAL/OPT__OUTPUT_TOTAL%14i #/g'%(1),input_file])
-        #cmds.append(['sed','-i', r's/(OPT__OUTPUT_TOTAL[\s+])([^\s+])/<1>%d #/g'%(1),input_file])
-
-        #Set other input parameter
-        for item in input_settings[input_file]:
-            cmds.append(['sed','-i','s/%-29s/%-29s%-4s #/g'%(item,item,input_settings[input_file][item]),input_file])
-            #cmds.append(['sed','-i', 's/(%s[\s+])([^\s])/<1>%s #/g'%(item,input_settings[input_file][item]),input_file])
-
-    logger.info('Setting the Input__Parameter of test.')
-    try:
-        for cmd in cmds:
-            subprocess.check_call(cmd)
-        logger.info('Setting completed.')
-    except:
-        status = STATUS.FAIL
-        logger.error('Error on editing `Input__Parameter`.')
-
-    return status
-
-
-def run( **kwargs ):
-    """
-    Running GAMER.
-
-    Parameters
-    ----------
-
-    kwargs :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-
-    Returns
-    -------
-
-    run_status: 0(success)/1(fail)
-       The setting is success or not.
-
-    """
-    check_dict_key( 'logger', kwargs, "kwargs" )
-
-    logger  = kwargs['logger']
-    out_log = LogPipe( logger, logging.DEBUG )
-
-    #Store the simulation output under test directory
-    run_cmd = ["./gamer 1>>log 2>&1"]
-    if kwargs["mpi_test"]:
-        run_cmd = ['mpirun -map-by ppr:%d:socket:pe=%d --report-bindings ./gamer 1>>log 2>&1'%(kwargs["mpi_rank"], kwargs["mpi_core_per_rank"])]
-
-    #run gamer
-    run_status = STATUS.SUCCESS
-    try:
-        logger.info('Running GAMER.')
-        subprocess.check_call( run_cmd, stderr=out_log, shell=True )
-        logger.info('GAMER OVER.')
-
-    except subprocess.CalledProcessError as err:
-        kwargs['logger'].error('running error in %s'%(kwargs['input_name']))
-        run_status = STATUS.FAIL
-
-    finally:
-        out_log.close()
-
-    if not isfile('./Record__Note'):
-        kwargs['logger'].error('No Record__Note in %s'%(kwargs['input_name']))
-        run_status = STATUS.FAIL
-
-    return run_status
-
-
-def read_compare_list( test_name ):
-    """
-
-    Parameters
-    ----------
-
-    test_name : string
-        The name of the test.
-
-    Returns
-    -------
-
-    L1_err_compare  : dict
-        Storing the data paths need to do the L1 error compare.
-    ident_data_comp : dict
-        Storing the data paths need to compare as identical.
-    """
-    L1_err_compare, ident_data_comp = {}, {}
-    compare_list_file = gamer_abs_path + '/regression_test/tests/' + test_name + '/' + 'compare_results'
-    compare_list      = read_yaml( compare_list_file, "compare_list" )
-
-    if compare_list == None:    return L1_err_compare, ident_data_comp
-
-    if 'compare' in compare_list:
-        L1_err_compare = compare_list['compare']
-    if 'identical' in compare_list:
-        ident_data_comp = compare_list['identical']
-
-    if L1_err_compare != {}:
-        for item in L1_err_compare:
-            L1_err_compare[item]['expect'] = gamer_abs_path + '/' + compare_list['compare'][item]['expect']
-            L1_err_compare[item]['result'] = gamer_abs_path + '/' + compare_list['compare'][item]['result']
-    if ident_data_comp != {}:
-        for item in ident_data_comp:
-            ident_data_comp[item]['expect'] = gamer_abs_path + '/' + compare_list['identical'][item]['expect']
-            ident_data_comp[item]['result'] = gamer_abs_path + '/' + compare_list['identical'][item]['result']
-
-    return L1_err_compare, ident_data_comp
-
-
-def compare_identical( result_file, expect_file, data_type='HDF5', **kwargs ):
-    """
-    Parameters
-    ----------
-
-    result_file : string
-       Directory of the test data.
-    expect_file : string
-       Directory of the reference data.
-    level       : string ( level[0/1/2] )
-       The error level allowed.
-    data_type   : string ( HDF5 / text )
-       The data type of the compare files.
-    kwargs      :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    fail_or_not : bool
-       Fail the comparision or not.
-
-    """
-    check_dict_key( ['logger', 'error_allowed'], kwargs, "kwargs" )
-
-    error_allowed = kwargs['error_allowed']
-    logger        = kwargs['logger']
-    # TODO: related to the step 2 in this function
-    out_log       = LogPipe( logger, logging.DEBUG )
-
-    fail_or_not  = False
-    compare_fail = False
-
-    if data_type == 'HDF5':
-        #1. Load result informations and expect informations
-        compare_program = gamer_abs_path + '/tool/analysis/gamer_compare_data/GAMER_CompareData'
-        compare_result  = gamer_abs_path + '/regression_test/compare_result'
-
-        result_info = hdf_info_read(result_file)
-        expect_info = hdf_info_read(expect_file)
-
-        #2. Run data compare program
-        cmd = [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',str(error_allowed),'-c','-m']
-        try:
-            with open('compare.log', 'w') as out_file:
-                subprocess.check_call( cmd, stderr=out_log, stdout=out_file )
-        except:
-            subprocess.check_call( ['rm', 'compare.log'] )
-            if not os.path.isfile(compare_result): comapre_fail = True
-            fail_or_not = True
-
-        #2.1 execution error of compare tool
-        if compare_fail:
-            logger.error( "The execution of '[%s]' is fail."%(" ".join(cmd)) )
-
-        #3. Check if result equal to expect by reading compare_result
-        with open( compare_result, 'r' ) as f:
-            lines = f.readlines()
-            for line in lines:
-                if line[0] in ['#', '\n']:    continue      # comment and empty line
-                fail_or_not = True
-                break
-
-        if fail_or_not:
-            logger.debug('Result data is not identical to expect data')
-            logger.debug('Error is greater than expect.')
-            #logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(float(error_allowed), err))
-            str_len = str(max( len(expect_file), len(result_file), 50 ))
-            str_format = "%-"+str_len+"s %-"+str_len+"s"
-            logger.debug( 'Type      : '+str_format%("Expect",              "Result"             ) )
-            logger.debug( 'File name : '+str_format%(expect_file,           result_file          ) )
-            logger.debug( 'Git Branch: '+str_format%(expect_info.gitBranch, result_info.gitBranch) )
-            logger.debug( 'Git Commit: '+str_format%(expect_info.gitCommit, result_info.gitCommit) )
-            logger.debug( 'Unique ID : '+str_format%(expect_info.DataID,    result_info.DataID   ) )
-
-    elif data_type == 'TEXT':
-        #1. Load result and expect files
-        a = np.loadtxt( result_file )
-        b = np.loadtxt( expect_file )
-
-        if a.shape != b.shape:
-            fail_or_not = True
-            logger.error('Data compare : data shapes are different.')
-            out_log.close()
-            return fail_or_not
-
-        #err = np.abs(1 - a/b) # there is an issue of devided by zero
-        err = np.max(np.abs(a - b))
-        if err > float(error_allowed): fail_or_not = True
-
-        if fail_or_not:
-            logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(float(error_allowed), err))
-
-    else:
-        fail_or_not = True
-        logger.error('Not supported data type: %s.'%(data_type))
-
-    out_log.close()
-
-    return fail_or_not
-
-
-def compare_error( result_file, expect_file, **kwargs ):
-    """
-    Compare error from the reference file.
-
-    Parameters
-    ----------
-
-    result_file : string
-       Directory of the test data.
-    expect_file : string
-       Directory of the reference data.
-    kwargs      :
-       logger : class logger.Logger
-          The logger of the test problem.
-
-    Returns
-    -------
-
-    fail_or_not : bool
-       Fail the comparision or not.
-    """
-    check_dict_key( ['logger', 'error_allowed'], kwargs, "kwargs" )
-
-    logger        = kwargs['logger']
-    error_allowed = kwargs['error_allowed']
-
-    a = pd.read_csv( result_file, delimiter=r'\s+', dtype={'Error':np.float64} )
-    b = pd.read_csv( expect_file, delimiter=r'\s+', dtype={'Error':np.float64} )
-
-    fail_or_not, greater = False, False
+# TODO: support the user compare range(data)
+def compare_text( result_file, expect_file, err_allowed, **kwargs ):
+    check_dict_key( ['logger'], kwargs, "kwargs" )
+    logger       = kwargs['logger']
+    fail_compare = False
+
+    logger.info("Comparing TEXT: %s <--> %s"%(result_file, expect_file))
+
+    a = np.loadtxt( result_file )
+    b = np.loadtxt( expect_file )
 
     if a.shape != b.shape:
-        fail_or_not = True
+        fail_compare = True
         logger.error('Data compare : data shapes are different.')
         return fail_or_not
 
-    # print out the errors and store to log
-    for key in a:
-        if key == "NGrid":
-            logger.debug("%-5s: %16s %16s"%("NGrid", "result err", "expect err"))
-            continue
-        for j in range(a.shape[0]):
-            if a[key][j] > b[key][j] + error_allowed:
-                greater = True
-                logger.debug("%-5d: %+16e %+16e => Unaccepted error!"%(a["NGrid"][j], a[key][j], b[key][j]))
-            else:
-                logger.debug("%-5d: %+16e %+16e"%(a["NGrid"][j], a[key][j], b[key][j]))
+    #err = np.abs(1 - a/b) # there is an issue of devided by zero
+    err = np.max(np.abs(a - b))
 
-    if greater:
-        fail_or_not = True
-        logger.debug('Test Error is greater than expected.')
+    if err > err_allowed:
+        fail_compare = True
+        logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.'%(err_allowed, err))
 
-    return fail_or_not
+    logger.info("Comparing TEXT done.")
+
+    return fail_compare
+
+
+def compare_hdf5( result_file, expect_file, err_allowed, tool_path, **kwargs ):
+    check_dict_key( ['logger'], kwargs, "kwargs" )
+    logger       = kwargs['logger']
+    out_log      = LogPipe( logger, logging.DEBUG )
+    fail_compare = False
+
+    logger.info("Comparing HDF5: %s <--> %s"%(result_file, expect_file))
+
+    # 1. Load result informations and expect informations
+    compare_program = tool_path + '/GAMER_CompareData'
+    #TODO: fix the result path
+    compare_result  = tool_path + '/compare_result'
+
+    result_info = hdf_info_read( result_file )
+    expect_info = hdf_info_read( expect_file )
+
+    # 2. Run data compare program
+    cmd = [compare_program,'-i',result_file,'-j',expect_file,'-o',compare_result,'-e',str(err_allowed),'-c','-m']
+    try:
+        with open('compare.log', 'w') as out_file:
+            subprocess.check_call( cmd, stderr=out_log, stdout=out_file )
+    except:
+        subprocess.check_call( ['rm', 'compare.log'] )
+        if not os.path.isfile(compare_result): fail_compare = True
+        logger.error( "The execution of '[%s]' fails."%(" ".join(cmd)) )
+        out_log.close()
+        return fail_compare
+
+    # 2. Check if result equal to expect by reading compare_result
+    with open( compare_result, 'r' ) as f:
+        lines = f.readlines()
+        for line in lines:
+            if line[0] in ['#', '\n']:    continue      # comment and empty line
+            fail_compare = True
+            break
+
+    if fail_compare:
+        logger.error('Result data is not identical to expect data')
+        logger.error('Error is greater than expected.')
+        str_len = str(max( len(expect_file), len(result_file), 50 ))
+        str_format = "%-"+str_len+"s %-"+str_len+"s"
+        logger.error( 'Type      : '+str_format%("Expect",              "Result"             ) )
+        logger.error( 'File name : '+str_format%(expect_file,           result_file          ) )
+        logger.error( 'Git Branch: '+str_format%(expect_info.gitBranch, result_info.gitBranch) )
+        logger.error( 'Git Commit: '+str_format%(expect_info.gitCommit, result_info.gitCommit) )
+        logger.error( 'Unique ID : '+str_format%(expect_info.DataID,    result_info.DataID   ) )
+
+    logger.info("Comparing HDF5 done.")
+
+    out_log.close()
+
+    return fail_compare
+
+
+def compare_note( result_note, expect_note, **kwargs ):
+    """
+    Compare the Record__Note files
+    """
+    logger       = kwargs['logger']
+    fail_compare = False
+
+    #TODO: return fail if comparing Record_Note is necessary
+    if not isfile( result_note ):
+        logger.error( "Result Record__Note (%s) does not exist!"%result_note )
+        #fail_compare = True
+        return fail_compare
+
+    if not isfile( expect_note ):
+        logger.error( "Expect Record__Note (%s) does not exist!"%expect_note )
+        #fail_compare = True
+        return fail_compare
+
+    logger.info( "Comparing Record__Note: %s <-> %s"%(result_note, expect_note) )
+
+    para_result = store_note_para( result_note )
+    para_expect = store_note_para( expect_note )
+    diff_para   = compare_para( para_result, para_expect )
+
+    logger.debug("%-30s | %40s | %40s |"%("Parameter name", "result parameter", "expect parameter"))
+    for key in diff_para["1"]:
+        logger.debug("%-30s | %40s | %40s |"%(key, diff_para["1"][key], diff_para["2"][key]))
+    logger.info("Comparison of Record__Note done.")
+
+    return fail_compare
 
 
 
