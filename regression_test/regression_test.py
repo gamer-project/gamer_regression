@@ -16,23 +16,13 @@ sys.dont_write_bytecode = True
 #import script.girder_handler as gh
 import script.girder_inscript as gi
 import script.run_gamer as gamer
+from   script.utilities import STATUS
 
 
 
 ####################################################################################################
 # Global variables
 ####################################################################################################
-# 0. Variables
-STATUS_SUCCESS      = 0
-STATUS_FAIL         = 1
-STATUS_MISSING_FILE = 2
-STATUS_COMPILE_ERR  = 3
-STATUS_EDITING_FAIL = 4
-STATUS_EXTERNAL     = 5
-STATUS_GAMER_FAIL   = 6
-STATUS_DOWNLOAD     = 7
-STATUS_UPLOAD       = 8
-
 # 1. Paths
 CURRENT_ABS_PATH     = os.getcwd()
 GAMER_ABS_PATH       = os.path.dirname( CURRENT_ABS_PATH )
@@ -404,8 +394,8 @@ def main( groups, ch, file_handler, **kwargs ):
     """
     # Download compare list for tests
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    #if gh.download_compare_version_list( logger=gh_logger ) != STATUS_SUCCESS:
-    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) != STATUS_SUCCESS:
+    #if gh.download_compare_version_list( logger=gh_logger ) != STATUS.SUCCESS:
+    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) != STATUS.SUCCESS:
         raise BaseException("The download from girder fails.")
 
     # Loop over all groups
@@ -425,39 +415,39 @@ def main( groups, ch, file_handler, **kwargs ):
 
             # 2. Compile gamer
             os.chdir( GAMER_ABS_PATH + '/src' )
-            if test.compile_gamer( **kwargs ) != STATUS_SUCCESS: continue
+            if test.compile_gamer( **kwargs ) != STATUS.SUCCESS: continue
 
             # 3. Run gamer
-            if test.run_all_inputs( run_mpi, **kwargs ) != STATUS_SUCCESS: continue
+            if test.run_all_inputs( run_mpi, **kwargs ) != STATUS.SUCCESS: continue
 
             # 4. Download compare file
-            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) != STATUS_SUCCESS:
-            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) != STATUS_SUCCESS:
+            #if gh.download_test_compare_data( test.name, test.ref_path, logger=gh_logger ) != STATUS.SUCCESS:
+            if gi.download_data( test.name, GAMER_ABS_PATH, test.ref_path, logger=gh_logger ) != STATUS.SUCCESS:
                 raise BaseException("The download from girder fails.")
 
             # 5. Prepare analysis data (e.g. L1 error)
-            if test.prepare_analysis( **kwargs ) != STATUS_SUCCESS: continue
+            if test.prepare_analysis( **kwargs ) != STATUS.SUCCESS: continue
 
             # 6. Compare the data
             # 6.1 Compare the Record__Note
             # It is not necessary to compare the Record__Note for now
-            if test.compare_note( **kwargs ) != STATUS_SUCCESS: pass
+            if test.compare_note( **kwargs ) != STATUS.SUCCESS: pass
 
             # 6.2 Prepare GAMER_comapre tool
             os.chdir( GAMER_ABS_PATH + '/tool/analysis/gamer_compare_data/' )
-            if test.make_compare_tool( **kwargs ) != STATUS_SUCCESS: continue
+            if test.make_compare_tool( **kwargs ) != STATUS.SUCCESS: continue
 
             # 6.2 Compare data
-            if test.compare_data( **kwargs ) != STATUS_SUCCESS: continue
+            if test.compare_data( **kwargs ) != STATUS.SUCCESS: continue
 
             # 7. User analyze
-            if test.user_analyze( **kwargs ) != STATUS_SUCCESS: continue
+            if test.user_analyze( **kwargs ) != STATUS.SUCCESS: continue
 
             test.logger.info('Test %s end.' %(test.name))
 
         # Record the test result
         for test in test_classes:
-            if test.status == STATUS_SUCCESS: continue
+            if test.status == STATUS.SUCCESS: continue
             group_status[group_name]["status"] = False
             group_status[group_name]["reason"] += test.name + ", "
         group_status[group_name]["result"] = { test.name:{"status":test.status, "reason":test.reason} for test in test_classes }
@@ -512,7 +502,7 @@ def output_summary( result ):
             if summary[-1] == "\n":
                 summary += "                                 "
 
-            if sub_result["status"]:
+            if sub_result["status"] == STATUS.SUCCESS:
                 summary += TEXT_GREEN # Subtest Passed
             else:
                 summary += TEXT_RED # Subtest Failed

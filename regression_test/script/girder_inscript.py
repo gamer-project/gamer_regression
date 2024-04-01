@@ -14,23 +14,13 @@ import getpass
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
-from script.utilities import check_dict_key, read_yaml, gen2dict
+from script.utilities import check_dict_key, read_yaml, gen2dict, STATUS
 
 
 
 ####################################################################################################
 # Global variables
 ####################################################################################################
-STATUS_SUCCESS      = 0
-STATUS_FAIL         = 1
-STATUS_MISSING_FILE = 2
-STATUS_COMPILE_ERR  = 3
-STATUS_EDITING_FAIL = 4
-STATUS_EXTERNAL     = 5
-STATUS_GAMER_FAIL   = 6
-STATUS_DOWNLOAD     = 7
-STATUS_UPLOAD       = 8
-
 API_URL       = 'https://girder.hub.yt/api/v1'
 API_KEY       = 'REMOVED_API_KEY'
 REG_FOLDER_ID = '6123170168085e0001634586'       # ID of /user/xuanweishan/gamer_regression_test
@@ -127,7 +117,7 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
                 test_folder_dict[d_folder] = gen2dict( GC.listItem( HOME_FOLDER_DICT[d_folder]['_id']) )
             except:
                 logger.error( "Can not get the info of (name: %s, id: %s)!"%(d_folder, HOME_FOLDER_DICT[d_folder]['_id']) )
-                return STATUS_FAIL
+                return STATUS.FAIL
 
         file_id = test_folder_dict[d_folder][d_file]['_id']
 
@@ -141,7 +131,7 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
             logger.info( "Finish Downloading" )
         except:
             logger.error( "Download (name: %s/%s, id: %s) fail!"%(d_folder, d_file, file_id) )
-            return STATUS_DOWNLOAD
+            return STATUS.DOWNLOAD
 
     # 2. Download the Record__*
     for sub_test_folder in test_folder_dict:
@@ -161,9 +151,9 @@ def download_data( test_name, gamer_path, test_folder, **kwargs ):
                 logger.info( "Finish Downloading" )
             except:
                 logger.error( "Download (name: %s/%s, id: %s) fail!"%(sub_test_folder, file_name, file_id) )
-                return STATUS_DOWNLOAD
+                return STATUS.DOWNLOAD
 
-    return STATUS_SUCCESS
+    return STATUS.SUCCESS
 
 
 def download_compare_version_list( gamer_path, **kwargs ):
@@ -181,9 +171,9 @@ def download_compare_version_list( gamer_path, **kwargs ):
         logger.info( "Finish Downloading" )
     except:
         logger.error( "Download compare_version_list fail! id: %s"%(folder_id) )
-        return STATUS_DOWNLOAD
+        return STATUS.DOWNLOAD
 
-    return STATUS_SUCCESS
+    return STATUS.SUCCESS
 
 
 def upload_data( test_name, gamer_path, test_folder, **kwargs ):
@@ -230,7 +220,7 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
                     logger.error('Copying error. Stop upload process.')
                     logger.error('Please check the source: %s and target: %s'%(files[file_name]['expect'],folder_to_upload))
                     subprocess.check_call(['rm','-rf',folder_to_upload])
-                    return STATUS_FAIL
+                    return STATUS.FAIL
             else: continue
 
         # 4. Upload folder to hub.yt
@@ -239,7 +229,7 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
             gc.upload(folder_to_upload, REG_FOLDER_ID)
         except:
             logger.error("Upload new answer fail.")
-            return STATUS_UPLOAD
+            return STATUS.UPLOAD
 
     # 5. Update compare_list
     logger.info("Update the compare_list")
@@ -253,10 +243,10 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
 
     # 6. Upload compare_list
     logger.info("Upload new compare_list")
-    if upload_compare_version_list(gc, gamer_path, **kwargs) != STATUS_SUCCESS:
+    if upload_compare_version_list(gc, gamer_path, **kwargs) != STATUS.SUCCESS:
         logger.error("Error while uploading the compare_list")
-        return STATUS_UPLOAD
-    return STATUS_SUCCESS
+        return STATUS.UPLOAD
+    return STATUS.SUCCESS
 
 
 def upload_compare_version_list( gc, gamer_path, **kwargs ):
@@ -276,7 +266,7 @@ def upload_compare_version_list( gc, gamer_path, **kwargs ):
         parent_id = target_dict_id
         gc.uploadFileToFolder(parent_id, local_file)
     logger.info("Upload compare_list finish")
-    return STATUS_SUCCESS
+    return STATUS.SUCCESS
 
 
 
