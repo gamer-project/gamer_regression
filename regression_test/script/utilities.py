@@ -1,6 +1,10 @@
+"""
+Please arrange the functions and classes alphabetically.
+"""
 import os
 import yaml
 import six
+import ctypes
 
 
 
@@ -45,6 +49,107 @@ def check_dict_key( check_list, check_dict, dict_name ):
     return
 
 
+def gen2dict( gen ):
+    """
+    Transform generator to dictionary.
+
+    Inputs
+    ------
+
+    gen      : generator
+       Generator store dictionarys information.
+
+    Return
+    ------
+
+    dict_out : dict
+       Dictionary store the generator informaiton.
+
+    """
+    dict_out = {}
+    while True:
+        try:
+            temp = next(gen)
+            dict_out[temp['name']] = temp
+        except:
+            break
+
+    return dict_out
+
+
+def get_gpu_arch():
+    """
+    Outputs some information on CUDA-enabled devices on your computer, including current memory usage.
+
+    It's a port of https://gist.github.com/f0k/0d6431e3faa60bffc788f8b4daa029b1
+    from C to Python with ctypes, so it can run without compiling anything. Note
+    that this is a direct translation with no attempt to make the code Pythonic.
+    It's meant as a general demonstration on how to obtain CUDA device information
+    from Python without resorting to nvidia-smi or a compiled Python extension.
+
+    Author: Jan Schluter
+    License: MIT (https://gist.github.com/f0k/63a664160d016a491b2cbea15913d549#gistcomment-3870498)
+    """
+    CUDA_SUCCESS = 0
+    libnames = ('libcuda.so', 'libcuda.dylib', 'cuda.dll')
+    for libname in libnames:
+        try:
+            cuda = ctypes.CDLL(libname)
+        except OSError:
+            continue
+        else:
+            break
+    else:
+        raise OSError("could not load any of: " + ' '.join(libnames))
+
+    nGpus, cc_major, cc_minor, device = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
+
+    def cuda_check_error( result ):
+        if result == CUDA_SUCCESS: return
+
+        error_str = ctypes.c_char_p()
+
+        cuda.cuGetErrorString(result, ctypes.byref(error_str))
+        raise BaseException( "CUDA failed with error code %d: %s"%( result, error_str.value.decode() ) )
+
+        return
+
+    cuda_check_error( cuda.cuInit(0) )
+    cuda_check_error( cuda.cuDeviceGetCount(ctypes.byref(nGpus)) )
+
+    arch = ""
+    if nGpus.value > 1: print("WARNING: More than one GPU. Selecting the last GPU architecture.")
+    for i in range(nGpus.value):
+        cuda_check_error( cuda.cuDeviceGet(ctypes.byref(device), i) )
+        cuda_check_error( cuda.cuDeviceComputeCapability(ctypes.byref(cc_major), ctypes.byref(cc_minor), device) )
+
+        # https://en.wikipedia.org/wiki/CUDA#GPUs_supported
+        if cc_major.value == 1:
+            arch = "TESLA"
+        elif cc_major.value == 2:
+            arch = "FERMI"
+        elif cc_major.value == 3:
+            arch = "KEPLER"
+        elif cc_major.value == 5:
+            arch = "MAXWELL"
+        elif cc_major.value == 6:
+            arch = "PASCAL"
+        elif cc_major.value == 7 and cc_minor.value in [0, 2]:
+            arch = "VOLTA"
+        elif cc_major.value == 7 and cc_minor.value == 5:
+            arch = "TURING"
+        elif cc_major.value == 8 and cc_minor.value in [0, 6, 7]:
+            arch = "AMPERE"
+        elif cc_major.value == 8 and cc_minor.value == 9:
+            arch = "ADA"
+        elif cc_major.value == 9 and cc_minor.value == 0:
+            arch = "HOPPER"
+        else:
+            raise BaseException("Undefined architecture in the script.")
+
+    return arch
+
+
 def read_yaml( file_name, read_type=None ):
     """
     Read the yaml file.
@@ -78,33 +183,3 @@ def read_yaml( file_name, read_type=None ):
         return data
     else:
         return data
-
-
-def gen2dict( gen ):
-    """
-    Transform generator to dictionary.
-
-    Inputs
-    ------
-
-    gen      : generator
-       Generator store dictionarys information.
-
-    Return
-    ------
-
-    dict_out : dict
-       Dictionary store the generator informaiton.
-
-    """
-    dict_out = {}
-    while True:
-        try:
-            temp = next(gen)
-            dict_out[temp['name']] = temp
-        except:
-            break
-
-    return dict_out
-
-
