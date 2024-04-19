@@ -10,7 +10,6 @@ Hydro:
   cases:
   - Makefile:
       model : HYDRO
-      timing : true
       hdf5 : true
     Input__Parameter: {}
     Input__TestProb: {}
@@ -37,7 +36,6 @@ MHD:
   - Makefile:
       model : HYDRO
       mhd : true
-      timing : true
       hdf5 : true
     Input__Parameter: {}
     Input__TestProb: {}

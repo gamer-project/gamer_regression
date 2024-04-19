@@ -11,8 +11,9 @@ MHD:
   - Makefile:
       model : HYDRO
       mhd : true
-      timing : true
       hdf5 : true
+      gpu : true
+      mpi : true
     Input__Parameter: {}
     Input__TestProb: {}
 
