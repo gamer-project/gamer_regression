@@ -128,6 +128,7 @@ class gamer_test():
         try:
             subprocess.check_call(['cp', '-r', origin_dir, case_dir])
             subprocess.check_call(['cp', self.src_path+'/gamer', case_dir])
+            subprocess.check_call(['cp', self.src_path+'/Makefile.log', case_dir])
         except:
             self.set_fail_test('Error when copying to %s.'%case_dir, STATUS.COPY_FILES)
         self.logger.info('Copy completed.')
@@ -269,8 +270,15 @@ class gamer_test():
 
         #Get the list of files need to be compare
         for file_dict in self.config["reference"]:
+            #TODO: check the file path
+            temp = file_dict["name"].split('/')
+            case = "" if len(temp) == 1 else temp[0]
+
+            file_where, ref_path_to_file = file_dict["loc"].split(":")
+            ref_name = ref_path_to_file.split('/')[-1]
+
             current_file   = self.bin_path + "/"           + file_dict["name"]
-            reference_file = self.bin_path + "/reference/" + file_dict["name"]
+            reference_file = self.bin_path + "/reference/" + case + '/' + ref_name
             if self.file_not_exist( current_file   ): return self.status
             if self.file_not_exist( reference_file ): return self.status
 
@@ -437,7 +445,7 @@ def compare_text( result_file, expect_file, err_allowed, **kwargs ):
     if a.shape != b.shape:
         fail_compare = True
         logger.error('Data compare : data shapes are different.')
-        return fail_or_not
+        return fail_compare
 
     #err = np.abs(1 - a/b) # there is an issue of devided by zero
     err = np.max(np.abs(a - b))

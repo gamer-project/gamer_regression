@@ -95,7 +95,7 @@ SRHD:
     loc: "local:/work1/chunyenc/Develop/gamer_regression/bin/Riemann_SRHD/case_00/Record__Note"
     file_type: NOTE
   - name: case_00/Xline_y0.000_z0.000_000001
-    loc: "cloud:/case_00/Xline_y0.000_z0.000_000001"
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000003"
     file_type: TEXT
 
   user_compare_script: []

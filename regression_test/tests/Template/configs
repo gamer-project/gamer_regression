@@ -29,7 +29,7 @@ test_type:
     loc: "local:/somewhere/local"       # local or cloud, local has higher priority
     file_type: TEXT                     # HDF5, TEXT, NOTE
   - name: file_name_2
-    loc: "cloud:/on/hub.yt"             # TODO: write a doc of this, the path of cloud is meanless for now
+    loc: "cloud:on/hub.yt"             # TODO: write a doc of this, care about the path format
     file_type: HDF5
 
 # the scripts to be executed to comapre data

@@ -15,6 +15,7 @@ import getpass
 sys.dont_write_bytecode = True
 
 from script.utilities import *
+#from utilities import *
 
 
 
@@ -100,48 +101,58 @@ def download_data( test, gamer_path, **kwargs ):
 
     # TODO: the path here is confusing
     for file_dict in download_list:
-        file_where, ref_path = file_dict["loc"].split(":")
+        file_where, ref_path_to_file = file_dict["loc"].split(":")
+        ref_path = ref_path_to_file.split('/')[:-1]
+        ref_name = ref_path_to_file.split('/')[-1]
+
         temp = file_dict["name"].split('/')
-        case = "/".join(temp[:-1])
-        ref_name = temp[-1]
+        case = "" if len(temp) == 1 else temp[0]
 
         target_folder = test.bin_path + "/" + "reference" + "/" + case
         if not os.path.isdir(target_folder): os.makedirs(target_folder)
 
         if file_where == "local":
-            logger.info( "Linking %s --> %s"%(ref_path, target_folder+'/'+ref_name) )
+            logger.info( "Linking %s --> %s"%(ref_path_to_file, target_folder+'/'+ref_name) )
             try:
-                subprocess.check_call(['ln', '-s', ref_path, target_folder+'/'+ref_name])
+                subprocess.check_call(['ln', '-s', ref_path_to_file, target_folder+'/'+ref_name])
             except:
-                logger.error("Can not link file %s"%ref_path)
-                return STATUS.EXTERNAL
+                logger.error("Can not link file %s."%ref_path_to_file)
+                test.status = STATUS.EXTERNAL
+                return test.status
         # TODO: change the name of cloud
         elif file_where == "cloud":
             ver_latest = get_latest_version( test.name, gamer_path )
             time       = ver_latest['time']
             ref_folder = test.name + "-" + str(time)
 
-            file_id = HOME_FOLDER_DICT[ref_folder][case][ref_name]['_id']
+            file_id = HOME_FOLDER_DICT[ref_folder]
+            for path in ref_path:
+                file_id = file_id[path]
+            file_id = file_id[ref_name]['_id']
+            #file_id = HOME_FOLDER_DICT[ref_folder][case][ref_name]['_id']
 
-            logger.info( "Downloading (name: %s/%s/%s, id: %s) --> %s"%(ref_folder, case, ref_name, file_id, target_folder) )
+            logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%( ref_folder, ref_path_to_file, file_id, target_folder) )
             try:
                 GC.downloadItem( file_id, target_folder ) # Download a single file
                 logger.info( "Finish Downloading" )
             except:
-                logger.error( "Download (name: %s/%s/%s, id: %s) fail!"%(ref_folder, case, ref_name, file_id) )
-                return STATUS.DOWNLOAD
+                logger.error( "Download (name: %s/%s, id: %s) fails!"%(ref_folder, ref_path_to_file, file_id) )
+                test.status = STATUS.DOWNLOAD
+                return test.status
         elif file_where == "url":
             logger.error( "Download from url is not supported yet." )
             continue
-            # TODO: test download from url
+            # TODO: test download from url, the `-o` name should be wrong
             try:
-                subprocess.check_call( ["curl", ref_path, "-o", target_folder+'/'+ref_name] )
+                subprocess.check_call( ["curl", ref_path_to_file, "-o", target_folder+'/'+ref_name] )
             except:
-                logger.error( "Download from %s fail!"%(ref_path) )
-                return STATUS.DOWNLOAD
+                logger.error( "Download from %s fail!"%(ref_path_to_file) )
+                test.status = STATUS.DOWNLOAD
+                return test.status
         else:
             logger.error("Unknown file location %s"%file_where)
-            return STATUS.DOWNLOAD
+            test.status = STATUS.DOWNLOAD
+            return test.status
 
     return STATUS.SUCCESS
 
