@@ -355,7 +355,7 @@ def output_summary( result ):
 
     print(summary, end="")
     print("="*SEP_LEN)
-    print("Please check <%s> for the detail message."%args["output"])
+    print("Please check <%s> for the detailed message."%args["output"])
 
     return fail_tests
 

@@ -32,5 +32,5 @@ test_type:
     loc: "cloud:on/hub.yt"             # TODO: write a doc of this, care about the path format
     file_type: HDF5
 
-# the scripts to be executed to comapre data
+# the scripts to be executed to compare data
   user_compare_script: []

@@ -23,7 +23,16 @@ Gravity:
 
   post_script: []
 
-  reference: []
+  reference:
+  - name : "case_00/Data_000000"
+    loc : "cloud:case_00/Data_000000"
+    file_type : HDF5
+  - name : "case_00/Data_000019"
+    loc : "cloud:case_00/Data_000019"
+    file_type : HDF5
+  - name: "case_00/Record__Note"
+    loc: "cloud:case_00/Record__Note"
+    file_type : NOTE
 
   user_compare_script: []
 
@@ -53,6 +62,21 @@ Particle:
 
   post_script: []
 
-  reference: []
+  reference:
+  - name : "case_00/Data_000000"
+    loc : "cloud:case_00/Data_000000"
+    file_type : HDF5
+  - name : "case_00/Data_000019"
+    loc : "cloud:case_00/Data_000019"
+    file_type : HDF5
+  - name : "case_00/Particle_000000.txt"
+    loc : "cloud:case_00/Particle_000000.txt"
+    file_type : TEXT
+  - name : "case_00/Particle_000019.txt"
+    loc : "cloud:case_00/Particle_000019.txt"
+    file_type : TEXT
+  - name: "case_00/Record__Note"
+    loc: "cloud:case_00/Record__Note"
+    file_type : NOTE
 
   user_compare_script: []

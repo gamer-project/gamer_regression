@@ -23,7 +23,25 @@ Hydro:
 
   post_script: []
 
-  reference: []
+  reference:
+  - name: case_00/Xline_y0.000_z0.000_000000
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_00/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000010"
+    file_type: TEXT
+  - name: case_00/Record__Note
+    loc: "cloud:case_00/Record__Note"
+    file_type: NOTE
+  - name: case_01/Xline_y0.000_z0.000_000000
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_01/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000010"
+    file_type: TEXT
+  - name: case_01/Record__Note
+    loc: "cloud:case_01/Record__Note"
+    file_type: NOTE
 
   user_compare_script: []
 
@@ -53,7 +71,25 @@ MHD:
 
   post_script: []
 
-  reference: []
+  reference:
+  - name: case_00/Xline_y0.000_z0.000_000000
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_00/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000010"
+    file_type: TEXT
+  - name: case_00/Record__Note
+    loc: "cloud:case_00/Record__Note"
+    file_type: NOTE
+  - name: case_01/Xline_y0.000_z0.000_000000
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_01/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000010"
+    file_type: TEXT
+  - name: case_01/Record__Note
+    loc: "cloud:case_01/Record__Note"
+    file_type: NOTE
 
   user_compare_script: []
 
@@ -89,13 +125,22 @@ SRHD:
 
   reference:
   - name: case_00/Xline_y0.000_z0.000_000000
-    loc: "local:/work1/chunyenc/Develop/gamer_regression/bin/Riemann_SRHD/case_00/Xline_y0.000_z0.000_000000"
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000000"
+    file_type: TEXT
+  - name: case_00/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_00/Xline_y0.000_z0.000_000010"
     file_type: TEXT
   - name: case_00/Record__Note
-    loc: "local:/work1/chunyenc/Develop/gamer_regression/bin/Riemann_SRHD/case_00/Record__Note"
+    loc: "cloud:case_00/Record__Note"
     file_type: NOTE
-  - name: case_00/Xline_y0.000_z0.000_000001
-    loc: "cloud:case_00/Xline_y0.000_z0.000_000003"
+  - name: case_01/Xline_y0.000_z0.000_000000
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000000"
     file_type: TEXT
+  - name: case_01/Xline_y0.000_z0.000_000010
+    loc: "cloud:case_01/Xline_y0.000_z0.000_000010"
+    file_type: TEXT
+  - name: case_01/Record__Note
+    loc: "cloud:case_01/Record__Note"
+    file_type: NOTE
 
   user_compare_script: []

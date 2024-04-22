@@ -1,5 +1,39 @@
+Hydro:
+  priority: high
+
+  levels:
+    level0: 1.0e-30
+    level1: 1.0e-15
+    level2: 1.0e-7
+    level3: 1.0e+10
+
+  cases:
+  - Makefile:
+      model : HYDRO
+      double : true
+    Input__Parameter: {}
+    Input__TestProb: {}
+
+  pre_script:
+  - "clean.sh"
+
+  post_script: []
+
+  reference:
+  - name: "case_00/AcousticWave_Dens_000000"
+    loc: "cloud:case_00/AcousticWave_Dens_000000"
+    file_type : TEXT
+  - name: "case_00/AcousticWave_Dens_000010"
+    loc: "cloud:case_00/AcousticWave_Dens_000010"
+    file_type : TEXT
+  - name: "case_00/Record__Note"
+    loc: "cloud:case_00/Record__Note"
+    file_type : NOTE
+
+  user_compare_script: []
+
 L1Error:
-  priority: Low
+  priority: low
 
   levels:
     level0: 1.0e-30
@@ -42,31 +76,6 @@ L1Error:
       NX0_TOT_Z: 256
       OPT_OUTPUT_MODE: 2
       OUTPUT_DT: 0.1
-    Input__TestProb: {}
-
-  pre_script:
-  - "clean.sh"
-
-  post_script: []
-
-  reference: []
-
-  user_compare_script: []
-
-Hydro:
-  priority: High
-
-  levels:
-    level0: 1.0e-30
-    level1: 1.0e-15
-    level2: 1.0e-7
-    level3: 1.0e+10
-
-  cases:
-  - Makefile:
-      model : HYDRO
-      double : true
-    Input__Parameter: {}
     Input__TestProb: {}
 
   pre_script:
