@@ -196,7 +196,7 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
         gc.authenticate( apiKey=api_key )
     except:
         logger.error("Upload authentication fail.")
-        return
+        return STAUS.UPLOAD
 
     logger.info("Upload new answer for test %s" %(test_name))
 
@@ -237,10 +237,8 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
     # 5. Update compare_list
     logger.info("Update the compare_list")
     version_name = 'version_%i' %(next_version_n)
-    compare_list[test_name][version_name] = {
-        'members' : inputs.copy(),
-        'time'    : current_time,
-    }
+    compare_list[test_name][version_name] = current_time
+
     with open(compare_list_path,'w') as stream:
         yaml.dump(compare_list, stream, default_flow_style=False)
 

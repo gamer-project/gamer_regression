@@ -296,6 +296,7 @@ def main( test_configs, ch, file_handler, **kwargs ):
 
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
     for test in tests:
+        continue
         test.logger.info( 'Test %s start.'%(test.name) )
 
         if test.run_all_cases( **kwargs )                             != STATUS.SUCCESS: continue
@@ -339,17 +340,18 @@ def output_summary( result ):
     TEXT_GREEN = "\033[92m"
     TEXT_RESET = "\033[0m"
     SEP_LEN    = 50
+    OUT_FORMAT = "%-20s: %-15s %s"
     print("="*SEP_LEN)
     print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
     print("="*SEP_LEN)
-    print("%-20s: %-15s %s"%("Test name", "Error code", "Reason"))
+    print(OUT_FORMAT%("Test name", "Error code", "Reason"))
 
     fail_tests = {}
     summary = ""
     for key, val in result.items():
         if val["status"] != STATUS.SUCCESS: fail_tests[key] = val["status"]
         summary += TEXT_GREEN if val["status"] == STATUS.SUCCESS else TEXT_RED
-        summary += "%-20s: %-15s %s"%(key, STATUS.CODE_TABLE[val["status"]], val["reason"])
+        summary += OUT_FORMAT%(key, STATUS.CODE_TABLE[val["status"]], val["reason"])
         summary += TEXT_RESET
         summary += "\n"
 
@@ -360,27 +362,28 @@ def output_summary( result ):
     return fail_tests
 
 
-def upload_process(testing_groups, **kwargs):
+def upload_process( test_configs, **kwargs ):
     tests_to_upload = input("Enter tests you'd like to update result. ")
     tests_upload = tests_to_upload.split()
 
-    run_test = {key for inner_dict in testing_groups.values() for key in inner_dict.keys()}
     reask = False
     for test_upload in tests_upload:
-        if test_upload not in ALL_TESTS:
+        if test_upload not in ALL_TEST_CONFIGS:
             print("'%s' no such test.")
             reask = True
-        elif test_upload not in run_test:
+        elif test_upload not in test_configs:
             print("%s is not included in the tests you have ran.")
             reask = True
     if reask:
-        upload_process(testing_groups, logger=kwargs['logger'])
+        upload_process( test_configs, logger=kwargs['logger'] )
         return
 
     for test in tests_upload:
         print("Uploading test %s" %test)
         test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
-        gi.upload_data(test, GAMER_ABS_PATH, test_folder, logger=kwargs['logger'])
+        gi.upload_data( test, GAMER_ABS_PATH, test_folder, logger=kwargs['logger'] )
+
+    return
 
 
 ####################################################################################################
@@ -419,16 +422,18 @@ if __name__ == '__main__':
 
     # Print out short summary
     fail_tests = output_summary(result)
+    for test in result:
+        result[test] = {"status": 1, "reason":"Test fail"}
+    fail_tests = output_summary(result)
 
-    exit() #TODO : the upload is not updated to the latest regession test.
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
-    if not fail_tests: exit(0)
+    if fail_tests == {}: exit(0)
 
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y','y','yes']:
         upload_logger = set_up_logger( 'upload', ch, file_handler )
-        upload_process(testing_groups, logger=upload_logger)
+        upload_process( test_configs, logger=upload_logger )
     else:
         exit(1)
