@@ -422,9 +422,6 @@ if __name__ == '__main__':
 
     # Print out short summary
     fail_tests = output_summary(result)
-    for test in result:
-        result[test] = {"status": 1, "reason":"Test fail"}
-    fail_tests = output_summary(result)
 
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
