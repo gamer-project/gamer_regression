@@ -321,13 +321,13 @@ def write_args_to_log( logger, **kwargs ):
        elif arg == "force_args":
            msg = " ".join(kwargs[arg])
            logger.info("%-20s : %s"%(arg, msg))
-       elif type(kwargs[arg]) == type('str'):  # string
+       elif type(kwargs[arg]) == str:   # string
            logger.info("%-20s : %s"%(arg, kwargs[arg]))
-       elif type(kwargs[arg]) == type(1):      # integer
+       elif type(kwargs[arg]) == int:   # integer
            logger.info("%-20s : %d"%(arg, kwargs[arg]))
-       elif type(kwargs[arg]) == type(1.):     # float
+       elif type(kwargs[arg]) == float: # float
            logger.info("%-20s : %f"%(arg, kwargs[arg]))
-       elif type(kwargs[arg]) == type(True):   # boolean
+       elif type(kwargs[arg]) == bool:  # boolean
            logger.info("%-20s : %r"%(arg, kwargs[arg]))
        else:
            logger.info("Unknown type: %s"%(arg))
