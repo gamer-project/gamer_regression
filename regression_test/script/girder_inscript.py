@@ -28,12 +28,240 @@ API_URL       = 'https://girder.hub.yt/api/v1'
 API_KEY       = 'REMOVED_API_KEY'
 REG_FOLDER_ID = "64f1b5cd5545e01fe3479259"       # ID of /user/chunyenchen2019/regression_test
 
-# Girder client
-GC = girder_client.GirderClient( apiUrl=API_URL )
-GC.authenticate( apiKey=API_KEY )
 
-HOME_FOLDER_DICT = get_folder_tree( GC, REG_FOLDER_ID )
+####################################################################################################
+# Class
+####################################################################################################
+class girder_handler():
+    def __init__( self, gamer_path, logger ):
+        self.logger     = logger
+        self.gamer_path = gamer_path
+        self.gc         = girder_client.GirderClient( apiUrl=API_URL )
 
+        self.gc.authenticate( apiKey=API_KEY )
+        self.home_folder_dict = self.__get_folder_tree( REG_FOLDER_ID )
+
+
+    def download_data( self, test ):
+        """
+        Download the data from hub.yt
+
+        Inputs
+        ------
+
+        Returns
+        -------
+        """
+
+        download_list = test.config["reference"]
+
+        # TODO: the path here is confusing
+        for file_dict in download_list:
+            file_where, ref_path_to_file = file_dict["loc"].split(":")
+            ref_path = ref_path_to_file.split('/')[:-1]
+            ref_name = ref_path_to_file.split('/')[-1]
+
+            temp = file_dict["name"].split('/')
+            case = "" if len(temp) == 1 else temp[0]
+
+            target_folder = test.bin_path + "/" + "reference" + "/" + case
+            if not os.path.isdir(target_folder): os.makedirs(target_folder)
+
+            if file_where == "local":
+                self.logger.info( "Linking %s --> %s"%(ref_path_to_file, target_folder+'/'+ref_name) )
+                try:
+                    subprocess.check_call(['ln', '-s', ref_path_to_file, target_folder+'/'+ref_name])
+                except:
+                    self.logger.error("Can not link file %s."%ref_path_to_file)
+                    test.status = STATUS.EXTERNAL
+                    return test.status
+            # TODO: change the name of cloud
+            elif file_where == "cloud":
+                ver_latest = self.__get_latest_version( test.name )
+                time       = ver_latest['time']
+                ref_folder = test.name + "-" + str(time)
+
+                file_id = self.home_folder_dict[ref_folder]
+                for path in ref_path:
+                    file_id = file_id[path]
+                file_id = file_id[ref_name]['_id']
+
+                self.logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%( ref_folder, ref_path_to_file, file_id, target_folder) )
+                try:
+                    self.gc.downloadItem( file_id, target_folder ) # Download a single file
+                    self.logger.info( "Finish Downloading" )
+                except:
+                    self.logger.error( "Download (name: %s/%s, id: %s) fails!"%(ref_folder, ref_path_to_file, file_id) )
+                    test.status = STATUS.DOWNLOAD
+                    return test.status
+            elif file_where == "url":
+                self.logger.error( "Download from url is not supported yet." )
+                continue
+                # TODO: test download from url, the `-o` name should be wrong
+                try:
+                    subprocess.check_call( ["curl", ref_path_to_file, "-o", target_folder+'/'+ref_name] )
+                except:
+                    self.logger.error( "Download from %s fail!"%(ref_path_to_file) )
+                    test.status = STATUS.DOWNLOAD
+                    return test.status
+            else:
+                self.logger.error("Unknown file location %s"%file_where)
+                test.status = STATUS.DOWNLOAD
+                return test.status
+
+        return STATUS.SUCCESS
+
+
+    def download_compare_version_list( self ):
+
+        folder_id = self.home_folder_dict['compare_version_list']['_id']
+        target_folder = self.gamer_path + '/regression_test/compare_version_list'
+
+        if not os.path.isdir(target_folder): os.makedirs(target_folder)
+
+        self.logger.info( "Downloading compare_version_list" )
+        try:
+            self.gc.downloadFolderRecursive( folder_id, target_folder ) # This only download the files inside the folder
+            self.logger.info( "Finish Downloading" )
+        except:
+            self.logger.error( "Download compare_version_list fail! id: %s"%(folder_id) )
+            return STATUS.DOWNLOAD
+
+        return STATUS.SUCCESS
+
+
+    def upload_data( self, test_name, test_folder ):
+
+        item = os.path.basename(test_folder)
+        compare_result_path = test_folder + '/compare_results'
+        compare_list_path = self.gamer_path + '/regression_test/compare_version_list/compare_list'
+
+        current_time = datetime.datetime.now().strftime('%Y%m%d%H%M')
+
+        # 0. Set up gc for upload files
+        api_key = getpass.getpass("Enter the api key:")
+        try:
+            self.gc.authenticate( apiKey=api_key )
+        except:
+            self.logger.error("Upload authentication fail.")
+            return STAUS.UPLOAD
+
+        self.logger.info("Upload new answer for test %s" %(test_name))
+
+        # 1. Read the compare_list to get files to be upload
+        compare_list = read_yaml(compare_list_path)
+        latest_version_n = len(compare_list[test_name])
+        next_version_n = latest_version_n + 1
+        inputs = compare_list[test_name]['version_%i' %(latest_version_n)]['members']
+
+        for n_input in inputs:
+            # 2. Create folder with name connect to date and test name
+            folder_to_upload = "%s/%s_%s-%s" %(test_folder, test_name, n_input, current_time)
+            os.mkdir(folder_to_upload)
+
+            # 3. Copy the data form source to prepared folder
+            files = read_yaml(compare_result_path)['identical']
+            for file_name in files:
+                source_file = "%s/%s" %(self.gamer_path, files[file_name]['result'])
+                if n_input == files[file_name]['result'].split('/')[1].split('_')[-1]:
+                    self.logger.info('Copying the file to be upload: %s ---> %s'%(source_file, folder_to_upload))
+                    try:
+                        subprocess.check_call(['cp', source_file, folder_to_upload])
+                    except:
+                        self.logger.error('Copying error. Stop upload process.')
+                        self.logger.error('Please check the source: %s and target: %s'%(files[file_name]['expect'],folder_to_upload))
+                        subprocess.check_call(['rm','-rf',folder_to_upload])
+                        return STATUS.FAIL
+                else: continue
+
+            # 4. Upload folder to hub.yt
+            try:
+                self.logger.info('Start upload the folder %s' %folder_to_upload)
+                gc.upload(folder_to_upload, REG_FOLDER_ID)
+            except:
+                self.logger.error("Upload new answer fail.")
+                return STATUS.UPLOAD
+
+        # 5. Update compare_list
+        self.logger.info("Update the compare_list")
+        version_name = 'version_%i' %(next_version_n)
+        compare_list[test_name][version_name] = current_time
+
+        with open(compare_list_path,'w') as stream:
+            yaml.dump(compare_list, stream, default_flow_style=False)
+
+        # 6. Upload compare_list
+        self.logger.info("Upload new compare_list")
+        if self.__upload_compare_version_list( self.gamer_path ) != STATUS.SUCCESS:
+            self.logger.error("Error while uploading the compare_list")
+            return STATUS.UPLOAD
+        return STATUS.SUCCESS
+
+
+    def __get_latest_version( self, test_name ):
+        """
+        Get the latest upload time of the latest reference data.
+
+        Parameters
+        ----------
+
+        test_name      : string
+           The name of the test problem.
+
+        Returns
+        -------
+
+        ver['time']    : int
+        The upload time of the latest version.
+        """
+        comp_list_file = self.gamer_path + '/regression_test/compare_version_list/compare_list'
+        ver_list = read_yaml( comp_list_file )
+
+        time_out = 0
+        for version in ver_list[test_name]:
+            cur_time = int( ver_list[test_name][version] )
+            if cur_time <= time_out:    continue
+            time_out = cur_time
+
+        return {"time":time_out}
+
+
+    def __upload_compare_version_list( self ):
+
+        local_file = self.gamer_path + '/regression_test/compare_version_list/compare_list'
+        item = os.path.basename(local_file)
+        target_dict_id = "6124affa68085e0001634618"
+        target_dict = gen2dict(self.gc.listItem(target_dict_id))
+        if item in target_dict:
+            self.logger.debug("File 'compare_list' is already exist, old one will be covered.")
+            parent_id = target_dict[item]['_id']
+            self.gc.uploadFileToItem(parent_id, local_file)
+        else:
+            self.logger.debug("File 'compare_list' not exist, upload to the folder.")
+            parent_id = target_dict_id
+            self.gc.uploadFileToFolder(parent_id, local_file)
+        self.logger.info("Upload compare_list finish")
+        return STATUS.SUCCESS
+
+
+    def __get_folder_tree( self, folder_id ):
+        """
+        get the folder tree from yt.hub
+        """
+        #TODO: describe more about the function
+        dict_tree = {}
+        leaf_folder = gen2dict( self.gc.listFolder( folder_id ) )
+        leaf_item   = gen2dict( self.gc.listItem( folder_id ) )
+
+        for item in leaf_item:
+            dict_tree[item] = {"_id":leaf_item[item]["_id"]}
+
+        for folder in leaf_folder:
+            leaf_id = leaf_folder[folder]["_id"]
+            dict_tree[folder] = {"_id":leaf_id}
+            dict_tree[folder].update(self.__get_folder_tree( leaf_id ))
+
+        return dict_tree
 
 
 ####################################################################################################
@@ -54,129 +282,6 @@ def item_id_list( girder_dict ):
         id_list[key] = girder_dict[key]['_id']
 
     return id_list
-
-
-def get_latest_version( test_name, gamer_abs_path ):
-    """
-    Get the latest upload time of the latest reference data.
-
-    Parameters
-    ----------
-
-    test_name      : string
-       The name of the test problem.
-    gamer_abs_path : string
-       The absoulte path of gemer directory.
-
-    Returns
-    -------
-
-    ver['time']    : int
-       The upload time of the latest version.
-    """
-    comp_list_file = gamer_abs_path + '/regression_test/compare_version_list/compare_list'
-    ver_list = read_yaml( comp_list_file )
-
-    time_out = 0
-    for version in ver_list[test_name]:
-        cur_time = int( ver_list[test_name][version] )
-        if cur_time <= time_out:    continue
-        time_out = cur_time
-
-    return {"time":time_out}
-
-
-def download_data( test, gamer_path, **kwargs ):
-    """
-    Download the data from hub.yt
-
-    Inputs
-    ------
-
-    Returns
-    -------
-    """
-    check_dict_key( 'logger', kwargs, 'kwargs' )
-    logger = kwargs['logger']
-
-    download_list = test.config["reference"]
-
-    # TODO: the path here is confusing
-    for file_dict in download_list:
-        file_where, ref_path_to_file = file_dict["loc"].split(":")
-        ref_path = ref_path_to_file.split('/')[:-1]
-        ref_name = ref_path_to_file.split('/')[-1]
-
-        temp = file_dict["name"].split('/')
-        case = "" if len(temp) == 1 else temp[0]
-
-        target_folder = test.bin_path + "/" + "reference" + "/" + case
-        if not os.path.isdir(target_folder): os.makedirs(target_folder)
-
-        if file_where == "local":
-            logger.info( "Linking %s --> %s"%(ref_path_to_file, target_folder+'/'+ref_name) )
-            try:
-                subprocess.check_call(['ln', '-s', ref_path_to_file, target_folder+'/'+ref_name])
-            except:
-                logger.error("Can not link file %s."%ref_path_to_file)
-                test.status = STATUS.EXTERNAL
-                return test.status
-        # TODO: change the name of cloud
-        elif file_where == "cloud":
-            ver_latest = get_latest_version( test.name, gamer_path )
-            time       = ver_latest['time']
-            ref_folder = test.name + "-" + str(time)
-
-            file_id = HOME_FOLDER_DICT[ref_folder]
-            for path in ref_path:
-                file_id = file_id[path]
-            file_id = file_id[ref_name]['_id']
-            #file_id = HOME_FOLDER_DICT[ref_folder][case][ref_name]['_id']
-
-            logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%( ref_folder, ref_path_to_file, file_id, target_folder) )
-            try:
-                GC.downloadItem( file_id, target_folder ) # Download a single file
-                logger.info( "Finish Downloading" )
-            except:
-                logger.error( "Download (name: %s/%s, id: %s) fails!"%(ref_folder, ref_path_to_file, file_id) )
-                test.status = STATUS.DOWNLOAD
-                return test.status
-        elif file_where == "url":
-            logger.error( "Download from url is not supported yet." )
-            continue
-            # TODO: test download from url, the `-o` name should be wrong
-            try:
-                subprocess.check_call( ["curl", ref_path_to_file, "-o", target_folder+'/'+ref_name] )
-            except:
-                logger.error( "Download from %s fail!"%(ref_path_to_file) )
-                test.status = STATUS.DOWNLOAD
-                return test.status
-        else:
-            logger.error("Unknown file location %s"%file_where)
-            test.status = STATUS.DOWNLOAD
-            return test.status
-
-    return STATUS.SUCCESS
-
-
-def download_compare_version_list( gamer_path, **kwargs ):
-    check_dict_key( 'logger', kwargs, 'kwargs' )
-    logger = kwargs['logger']
-
-    folder_id = HOME_FOLDER_DICT['compare_version_list']['_id']
-    target_folder = gamer_path + '/regression_test/compare_version_list'
-
-    if not os.path.isdir(target_folder): os.makedirs(target_folder)
-
-    logger.info( "Downloading compare_version_list" )
-    try:
-        GC.downloadFolderRecursive( folder_id, target_folder ) # This only download the files inside the folder
-        logger.info( "Finish Downloading" )
-    except:
-        logger.error( "Download compare_version_list fail! id: %s"%(folder_id) )
-        return STATUS.DOWNLOAD
-
-    return STATUS.SUCCESS
 
 
 def upload_data( test_name, gamer_path, test_folder, **kwargs ):

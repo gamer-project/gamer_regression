@@ -88,26 +88,6 @@ def gen2dict( gen ):
     return dict_out
 
 
-def get_folder_tree( gc, folder_id ):
-    """
-    get the folder tree from yt.hub
-    """
-    #TODO: describe more about the function
-    dict_tree = {}
-    leaf_folder = gen2dict( gc.listFolder( folder_id ) )
-    leaf_item   = gen2dict( gc.listItem( folder_id ) )
-
-    for item in leaf_item:
-        dict_tree[item] = {"_id":leaf_item[item]["_id"]}
-
-    for folder in leaf_folder:
-        leaf_id = leaf_folder[folder]["_id"]
-        dict_tree[folder] = {"_id":leaf_id}
-        dict_tree[folder].update(get_folder_tree(gc, leaf_id))
-
-    return dict_tree
-
-
 def get_gpu_arch():
     """
     Outputs some information on CUDA-enabled devices on your computer, including current memory usage.

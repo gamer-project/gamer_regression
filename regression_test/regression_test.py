@@ -291,7 +291,8 @@ def main( test_configs, ch, file_handler, **kwargs ):
        Saving the file output format to the logger.
     """
     gh_logger = set_up_logger( 'girder', ch, file_handler )
-    if gi.download_compare_version_list( GAMER_ABS_PATH, logger=gh_logger ) != STATUS.SUCCESS:
+    gh = gi.girder_handler( GAMER_ABS_PATH, gh_logger )
+    if gh.download_compare_version_list() != STATUS.SUCCESS:
         raise BaseException("The download from girder fails.")
 
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
@@ -299,7 +300,7 @@ def main( test_configs, ch, file_handler, **kwargs ):
         test.logger.info( 'Test %s start.'%(test.name) )
 
         if test.run_all_cases( **kwargs )                             != STATUS.SUCCESS: continue
-        if gi.download_data( test, GAMER_ABS_PATH, logger=gh_logger ) != STATUS.SUCCESS: continue
+        if gh.download_data( test )                                   != STATUS.SUCCESS: continue
         if test.make_compare_tool( **kwargs )                         != STATUS.SUCCESS: continue
         if test.compare_data( **kwargs )                              != STATUS.SUCCESS: continue
         if test.execute_scripts( 'user_compare_script', **kwargs )    != STATUS.SUCCESS: continue
