@@ -130,74 +130,6 @@ class girder_handler():
         return STATUS.SUCCESS
 
 
-    def upload_data( self, test_name, test_folder ):
-
-        item = os.path.basename(test_folder)
-        compare_result_path = test_folder + '/compare_results'
-        compare_list_path = self.gamer_path + '/regression_test/compare_version_list/compare_list'
-
-        current_time = datetime.datetime.now().strftime('%Y%m%d%H%M')
-
-        # 0. Set up gc for upload files
-        api_key = getpass.getpass("Enter the api key:")
-        try:
-            self.gc.authenticate( apiKey=api_key )
-        except:
-            self.logger.error("Upload authentication fail.")
-            return STAUS.UPLOAD
-
-        self.logger.info("Upload new answer for test %s" %(test_name))
-
-        # 1. Read the compare_list to get files to be upload
-        compare_list = read_yaml(compare_list_path)
-        latest_version_n = len(compare_list[test_name])
-        next_version_n = latest_version_n + 1
-        inputs = compare_list[test_name]['version_%i' %(latest_version_n)]['members']
-
-        for n_input in inputs:
-            # 2. Create folder with name connect to date and test name
-            folder_to_upload = "%s/%s_%s-%s" %(test_folder, test_name, n_input, current_time)
-            os.mkdir(folder_to_upload)
-
-            # 3. Copy the data form source to prepared folder
-            files = read_yaml(compare_result_path)['identical']
-            for file_name in files:
-                source_file = "%s/%s" %(self.gamer_path, files[file_name]['result'])
-                if n_input == files[file_name]['result'].split('/')[1].split('_')[-1]:
-                    self.logger.info('Copying the file to be upload: %s ---> %s'%(source_file, folder_to_upload))
-                    try:
-                        subprocess.check_call(['cp', source_file, folder_to_upload])
-                    except:
-                        self.logger.error('Copying error. Stop upload process.')
-                        self.logger.error('Please check the source: %s and target: %s'%(files[file_name]['expect'],folder_to_upload))
-                        subprocess.check_call(['rm','-rf',folder_to_upload])
-                        return STATUS.FAIL
-                else: continue
-
-            # 4. Upload folder to hub.yt
-            try:
-                self.logger.info('Start upload the folder %s' %folder_to_upload)
-                gc.upload(folder_to_upload, REG_FOLDER_ID)
-            except:
-                self.logger.error("Upload new answer fail.")
-                return STATUS.UPLOAD
-
-        # 5. Update compare_list
-        self.logger.info("Update the compare_list")
-        version_name = 'version_%i' %(next_version_n)
-        compare_list[test_name][version_name] = current_time
-
-        with open(compare_list_path,'w') as stream:
-            yaml.dump(compare_list, stream, default_flow_style=False)
-
-        # 6. Upload compare_list
-        self.logger.info("Upload new compare_list")
-        if self.__upload_compare_version_list( self.gamer_path ) != STATUS.SUCCESS:
-            self.logger.error("Error while uploading the compare_list")
-            return STATUS.UPLOAD
-        return STATUS.SUCCESS
-
-
     def __get_latest_version( self, test_name ):
         """
         Get the latest upload time of the latest reference data.
@@ -224,24 +156,6 @@ class girder_handler():
             time_out = cur_time
 
         return {"time":time_out}
-
-
-    def __upload_compare_version_list( self ):
-
-        local_file = self.gamer_path + '/regression_test/compare_version_list/compare_list'
-        item = os.path.basename(local_file)
-        target_dict_id = "6124affa68085e0001634618"
-        target_dict = gen2dict(self.gc.listItem(target_dict_id))
-        if item in target_dict:
-            self.logger.debug("File 'compare_list' is already exist, old one will be covered.")
-            parent_id = target_dict[item]['_id']
-            self.gc.uploadFileToItem(parent_id, local_file)
-        else:
-            self.logger.debug("File 'compare_list' not exist, upload to the folder.")
-            parent_id = target_dict_id
-            self.gc.uploadFileToFolder(parent_id, local_file)
-        self.logger.info("Upload compare_list finish")
-        return STATUS.SUCCESS
 
 
     def __get_folder_tree( self, folder_id ):
@@ -349,13 +263,13 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
 
     # 6. Upload compare_list
     logger.info("Upload new compare_list")
-    if upload_compare_version_list(gc, gamer_path, **kwargs) != STATUS.SUCCESS:
+    if _upload_compare_version_list(gc, gamer_path, **kwargs) != STATUS.SUCCESS:
         logger.error("Error while uploading the compare_list")
         return STATUS.UPLOAD
     return STATUS.SUCCESS
 
 
-def upload_compare_version_list( gc, gamer_path, **kwargs ):
+def _upload_compare_version_list( gc, gamer_path, **kwargs ):
     check_dict_key('logger', kwargs, 'kwargs')
     logger = kwargs['logger']
 
