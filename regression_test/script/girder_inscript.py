@@ -105,7 +105,7 @@ class girder_handler():
                     test.status = STATUS.DOWNLOAD
                     return test.status
             else:
-                self.logger.error("Unknown file location %s"%file_where)
+                self.logger.error( "Unknown file location %s"%file_where )
                 test.status = STATUS.DOWNLOAD
                 return test.status
 
@@ -209,12 +209,12 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
     current_time = datetime.datetime.now().strftime('%Y%m%d%H%M')
 
     # 0. Set up gc for upload files
-    api_key = getpass.getpass("Enter the api key:")
+    api_key = getpass.getpass( "Enter the api key:" )
     try:
         gc = girder_client.GirderClient( apiUrl=API_URL )
         gc.authenticate( apiKey=api_key )
     except:
-        logger.error("Upload authentication fail.")
+        logger.error( "Upload authentication fail." )
         return STAUS.UPLOAD
 
     logger.info("Upload new answer for test %s" %(test_name))
@@ -235,36 +235,36 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
         for file_name in files:
             source_file = "%s/%s" %(gamer_path, files[file_name]['result'])
             if n_input == files[file_name]['result'].split('/')[1].split('_')[-1]:
-                logger.info('Copying the file to be upload: %s ---> %s'%(source_file, folder_to_upload))
+                logger.info( "Copying the file to be upload: %s ---> %s"%(source_file, folder_to_upload) )
                 try:
-                    subprocess.check_call(['cp', source_file, folder_to_upload])
+                    subprocess.check_call( ['cp', source_file, folder_to_upload] )
                 except:
-                    logger.error('Copying error. Stop upload process.')
-                    logger.error('Please check the source: %s and target: %s'%(files[file_name]['expect'],folder_to_upload))
+                    logger.error( "Copying error. Stop upload process." )
+                    logger.error( "Please check the source: %s and target: %s"%(files[file_name]['expect'],folder_to_upload) )
                     subprocess.check_call(['rm','-rf',folder_to_upload])
                     return STATUS.FAIL
             else: continue
 
         # 4. Upload folder to hub.yt
         try:
-            logger.info('Start upload the folder %s' %folder_to_upload)
-            gc.upload(folder_to_upload, REG_FOLDER_ID)
+            logger.info( "Start upload the folder %s" %folder_to_upload )
+            gc.upload( folder_to_upload, REG_FOLDER_ID )
         except:
-            logger.error("Upload new answer fail.")
+            logger.error( "Upload new answer fail." )
             return STATUS.UPLOAD
 
     # 5. Update compare_list
-    logger.info("Update the compare_list")
+    logger.info( "Update the compare_list" )
     version_name = 'version_%i' %(next_version_n)
     compare_list[test_name][version_name] = current_time
 
     with open(compare_list_path,'w') as stream:
-        yaml.dump(compare_list, stream, default_flow_style=False)
+        yaml.dump( compare_list, stream, default_flow_style=False )
 
     # 6. Upload compare_list
     logger.info("Upload new compare_list")
-    if _upload_compare_version_list(gc, gamer_path, **kwargs) != STATUS.SUCCESS:
-        logger.error("Error while uploading the compare_list")
+    if _upload_compare_version_list( gc, gamer_path, **kwargs ) != STATUS.SUCCESS:
+        logger.error( "Error while uploading the compare_list" )
         return STATUS.UPLOAD
     return STATUS.SUCCESS
 

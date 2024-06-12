@@ -44,15 +44,15 @@ gamer.gamer_abs_path = GAMER_ABS_PATH
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'
 # get the config dict of each test
 all_test_name = { direc:test_example_path+'/'+direc for direc in listdir(test_example_path) }
-all_test_name.pop('Template')           # Remove the Template folder from test
+all_test_name.pop( 'Template' )           # Remove the Template folder from test
 
 ALL_TEST_CONFIGS, all_type_name = read_test_config( all_test_name )
 NAME_INDEX = [ n for n in all_test_name ]
 TYPE_INDEX = all_type_name
 
 # 3. Logging variable
-STD_FORMATTER  = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s')
-SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-20s %(message)s')
+STD_FORMATTER  = logging.Formatter( '%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s' )
+SAVE_FORMATTER = logging.Formatter( '%(levelname)-8s %(name)-20s %(message)s' )
 
 # 4. MPI variables
 thread_nums     = os.cpu_count()
@@ -62,7 +62,7 @@ core_nums       = thread_nums // THREAD_PER_CORE
 RANK_NUMS       = core_nums   // CORE_PER_RANK
 
 # 5. Priorties
-PRIOR = {"high":3, "medium":2, "low":1}
+PRIOR = { "high":3, "medium":2, "low":1 }
 
 
 
@@ -210,17 +210,17 @@ def reg_init( input_args ):
        A list contains strings of test name which to be tested.
     """
     # 0. Setting the default test type
-    if len(input_args["type"]) == 0: input_args["type"] = [i for i in range(len(TYPE_INDEX))]
-    if len(input_args["name"]) == 0: input_args["name"] = [i for i in range(len(NAME_INDEX))]
+    if len(input_args["type"]) == 0: input_args["type"] = [ i for i in range(len(TYPE_INDEX)) ]
+    if len(input_args["name"]) == 0: input_args["name"] = [ i for i in range(len(NAME_INDEX)) ]
 
     # 1. Check if the input arguments are valid.
     for idx_g in input_args["type"]:
         if idx_g < 0 or idx_g > len(TYPE_INDEX):
-            raise IndexError("Unrecognize index of the test type: %d"%idx_g)
+            raise IndexError( "Unrecognize index of the test type: %d"%idx_g )
 
     for idx_n in input_args["name"]:
         if idx_n < 0 or idx_n >= len(NAME_INDEX):
-            raise IndexError("Unrecognize index of the test name: %d"%idx_n)
+            raise IndexError( "Unrecognize index of the test name: %d"%idx_n )
 
     test_configs = {}
     for idx_t in input_args["type"]:
@@ -241,7 +241,7 @@ def reg_init( input_args ):
 
     # 3. Remove the existing log file
     if isfile( input_args["output"] ):
-        print('WARNING!!! %s is already exist. The original log file will be removed.'%(input_args["output"]))
+        print( 'WARNING!!! %s is already exist. The original log file will be removed.'%(input_args["output"]) )
         os.remove( input_args["output"] )
 
     return test_configs, input_args
@@ -260,17 +260,17 @@ def log_init( log_file_name ):
        Saving the file output format to the logger.
     """
     # 1. Set up log config
-    logging.basicConfig(level=0)
+    logging.basicConfig( level=0 )
 
     ch           = logging.StreamHandler()
     file_handler = logging.FileHandler( log_file_name )
 
     # 2. Add log config into std output
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel( logging.DEBUG )
     ch.setFormatter( STD_FORMATTER )
 
     # 3. Add log config into file
-    file_handler.setLevel(0)
+    file_handler.setLevel( 0 )
     file_handler.setFormatter( SAVE_FORMATTER )
 
     return ch, file_handler
@@ -293,7 +293,7 @@ def main( test_configs, ch, file_handler, **kwargs ):
     gh_logger = set_up_logger( 'girder', ch, file_handler )
     gh = gi.girder_handler( GAMER_ABS_PATH, gh_logger )
     if gh.download_compare_version_list() != STATUS.SUCCESS:
-        raise BaseException("The download from girder fails.")
+        raise BaseException( "The download from girder fails." )
 
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
     for test in tests:
@@ -307,31 +307,31 @@ def main( test_configs, ch, file_handler, **kwargs ):
 
         test.logger.info( 'Test %s done.'%(test.name) )
 
-    return {test.name:{"status":test.status, "reason":test.reason} for test in tests }
+    return { test.name:{"status":test.status, "reason":test.reason} for test in tests }
 
 
 def write_args_to_log( logger, **kwargs ):
-    logger.info("Record all arguments have been set.")
+    logger.info( "Record all arguments have been set." )
     for arg in kwargs:
        if arg == 'name':
            msg = " ".join([ NAME_INDEX[i] for i in kwargs[arg] ])
-           logger.info("%-20s : %s"%("test name (name)", msg))
+           logger.info( "%-20s : %s"%("test name (name)", msg) )
        elif arg == 'type':
            msg = " ".join([ TYPE_INDEX[i] for i in kwargs[arg] ])
-           logger.info("%-20s : %s"%("test type (type)", msg))
+           logger.info( "%-20s : %s"%("test type (type)", msg) )
        elif arg == "force_args":
            msg = " ".join(kwargs[arg])
-           logger.info("%-20s : %s"%(arg, msg))
+           logger.info( "%-20s : %s"%(arg, msg) )
        elif type(kwargs[arg]) == str:   # string
-           logger.info("%-20s : %s"%(arg, kwargs[arg]))
+           logger.info( "%-20s : %s"%(arg, kwargs[arg]) )
        elif type(kwargs[arg]) == int:   # integer
-           logger.info("%-20s : %d"%(arg, kwargs[arg]))
+           logger.info( "%-20s : %d"%(arg, kwargs[arg]) )
        elif type(kwargs[arg]) == float: # float
-           logger.info("%-20s : %f"%(arg, kwargs[arg]))
+           logger.info( "%-20s : %f"%(arg, kwargs[arg]) )
        elif type(kwargs[arg]) == bool:  # boolean
-           logger.info("%-20s : %r"%(arg, kwargs[arg]))
+           logger.info( "%-20s : %r"%(arg, kwargs[arg]) )
        else:
-           logger.info("Unknown type: %s"%(arg))
+           logger.info( "Unknown type: %s"%(arg) )
     return
 
 
@@ -341,10 +341,10 @@ def output_summary( result ):
     TEXT_RESET = "\033[0m"
     SEP_LEN    = 50
     OUT_FORMAT = "%-20s: %-15s %s"
-    print("="*SEP_LEN)
-    print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
-    print("="*SEP_LEN)
-    print(OUT_FORMAT%("Test name", "Error code", "Reason"))
+    print( "="*SEP_LEN )
+    print( "Short summary: (Fail will be colored as red, passed will be colored as green.)" )
+    print( "="*SEP_LEN )
+    print( OUT_FORMAT%("Test name", "Error code", "Reason") )
 
     fail_tests = {}
     summary = ""
@@ -355,31 +355,31 @@ def output_summary( result ):
         summary += TEXT_RESET
         summary += "\n"
 
-    print(summary, end="")
-    print("="*SEP_LEN)
-    print("Please check <%s> for the detailed message."%args["output"])
+    print( summary, end="" )
+    print( "="*SEP_LEN )
+    print( "Please check <%s> for the detailed message."%args["output"] )
 
     return fail_tests
 
 
 def upload_process( test_configs, **kwargs ):
-    tests_to_upload = input("Enter tests you'd like to update result. ")
+    tests_to_upload = input( "Enter tests you'd like to update result. " )
     tests_upload = tests_to_upload.split()
 
     reask = False
     for test_upload in tests_upload:
         if test_upload not in ALL_TEST_CONFIGS:
-            print("'%s' no such test.")
+            print( "'%s' no such test." )
             reask = True
         elif test_upload not in test_configs:
-            print("%s is not included in the tests you have ran.")
+            print( "%s is not included in the tests you have ran." )
             reask = True
     if reask:
         upload_process( test_configs, logger=kwargs['logger'] )
         return
 
     for test in tests_upload:
-        print("Uploading test %s" %test)
+        print( "Uploading test %s" %test )
         test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
         gi.upload_data( test, GAMER_ABS_PATH, test_folder, logger=kwargs['logger'] )
 
@@ -413,15 +413,15 @@ if __name__ == '__main__':
 
     # Regression test
     try:
-        test_logger.info('Regression test start.')
+        test_logger.info( 'Regression test start.' )
         result = main( test_configs, ch, file_handler, force_args=unknown_args, py_exe=sys.executable, **args )
-        test_logger.info('Regression test done.')
+        test_logger.info( 'Regression test done.' )
     except Exception:
         test_logger.critical( '', exc_info=True )
         raise
 
     # Print out short summary
-    fail_tests = output_summary(result)
+    fail_tests = output_summary( result )
 
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
