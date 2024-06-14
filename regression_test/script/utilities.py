@@ -1,6 +1,8 @@
 """
 Please arrange the functions and classes alphabetically.
 """
+import os
+import subprocess
 import yaml
 import six
 import ctypes
@@ -86,6 +88,33 @@ def gen2dict( gen ):
             break
 
     return dict_out
+
+
+def get_git_info( path ):
+    """
+    Get the git folder HEAD hash.
+
+    Inputs
+    ------
+    path        :
+       path to git folder
+
+    Returns
+    -------
+
+    commit_hash : str
+       git folder HEAD hash
+    """
+    current_abs_path = os.getcwd()
+
+    os.chdir( path )
+    try:
+        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+    except:
+        commit_hash = "UNKNOWN"
+    os.chdir( current_abs_path )
+
+    return commit_hash
 
 
 def read_yaml( file_name, read_type=None ):

@@ -63,6 +63,11 @@ RANK_NUMS       = core_nums   // CORE_PER_RANK
 # 5. Priorties
 PRIOR = { "high":3, "medium":2, "low":1 }
 
+# 6. Supported gamer commit
+GAMER_EXPECT_COMMIT       = "13409ab33b12d84780076b6a9beb07317ca145f1"
+GAMER_CURRENT_COMMIT      = get_git_info( GAMER_ABS_PATH   )
+REGRESSION_CURRENT_COMMIT = get_git_info( CURRENT_ABS_PATH )
+
 
 
 ####################################################################################################
@@ -101,7 +106,7 @@ def argument_handler():
                     table += "  "
         table += "\n"
 
-    parser = argparse.ArgumentParser( description = "Regression test of GAMER.",
+    parser = argparse.ArgumentParser( description = "Regression test of GAMER (commit %s)."%GAMER_EXPECT_COMMIT,
                                       formatter_class = argparse.RawTextHelpFormatter,
                                       epilog = test_msg + table,
                                       allow_abbrev=False        # python version must be >= 3.5
@@ -130,7 +135,7 @@ def argument_handler():
                          default=[]
                        )
     parser.add_argument( "-o", "--output",
-                         help="Set the file name of the test log. The output file will add a suffix '.log' automatically. \nDefault: %(default)s",
+                         help="Set the file name of the test log. The output file will be added a suffix '.log' automatically. \nDefault: %(default)s",
                          type=str,
                          default="test"
                        )
@@ -393,11 +398,12 @@ if __name__ == '__main__':
 
     test_logger = set_up_logger( 'regression_test', ch, file_handler )
 
-    gamer_commit, reg_commit = get_git_info()
-
     test_logger.info( 'Recording the commit version.')
-    test_logger.info( 'GAMER      version   : %-s'%(gamer_commit) )
-    test_logger.info( 'Regression version   : %-s'%(reg_commit)   )
+    test_logger.info( 'GAMER      version   : %-s'%(GAMER_CURRENT_COMMIT     ) )
+    test_logger.info( 'Regression version   : %-s'%(REGRESSION_CURRENT_COMMIT) )
+
+    if GAMER_CURRENT_COMMIT != GAMER_EXPECT_COMMIT:
+        test_logger.warning( 'Regression test may not fully support this GAMER version!' )
 
     write_args_to_log( test_logger, force_args=unknown_args, py_exe=sys.executable, **args )
 
