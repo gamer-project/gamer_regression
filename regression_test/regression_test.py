@@ -152,13 +152,6 @@ def argument_handler():
                          default=CORE_PER_RANK
                        )
 
-    # GPU arguments
-    parser.add_argument( "--gpu_arch",
-                         help="Specify the GPU architecture. \nDefault: %(default)s",
-                         type=str,
-                         default=get_gpu_arch()
-                       )
-
     args, unknown = parser.parse_known_args()
 
     # Print out the unknown arguments

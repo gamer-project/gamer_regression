@@ -420,10 +420,7 @@ def generate_modify_command( config, **kwargs ):
     for key, val in config.items():
         cmd.append("--%s=%s"%(key, val))
 
-    # 2. gpu options
-    cmd.append("--gpu_arch="+kwargs["gpu_arch"])
-
-    # 3. user force enable options
+    # 2. user force enable options
     # cmd.append("--hdf5=True")  # Enable HDF5 in all test
     #for arg in kwargs["force_args"]:
     #    cmd.append(arg)
