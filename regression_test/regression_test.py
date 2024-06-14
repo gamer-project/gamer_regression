@@ -3,16 +3,15 @@ import argparse
 import os
 import sys
 import logging
-import logging.config
 import subprocess
 from os import listdir
-from os.path import isfile, isdir, join
+from os.path import isfile
 
 # Prevent generation of .pyc files
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
-#import script.girder_handler as gh
+
 import script.girder_inscript as gi
 import script.run_gamer as gamer
 from   script.utilities import *
@@ -384,7 +383,7 @@ def upload_process( test_configs, **kwargs ):
 ####################################################################################################
 if __name__ == '__main__':
     args, unknown_args = argument_handler()
-    args = vars(args)
+    args = vars( args )
 
     # Initialize regression test
     test_configs, args = reg_init( args )

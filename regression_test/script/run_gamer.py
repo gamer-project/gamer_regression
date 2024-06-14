@@ -164,7 +164,7 @@ class gamer_test():
             if self.file_not_exist( script ): break
             try:
                 self.logger.info('Executing: %s'%script)
-                subprocess.check_call(['sh', script, self.bin_path])
+                subprocess.check_call( ['sh', script, self.bin_path], stderr=out_log )
             except:
                 self.set_fail_test("Error while executing %s."%script, STATUS.EXTERNAL)
                 break

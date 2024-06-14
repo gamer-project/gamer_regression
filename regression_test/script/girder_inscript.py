@@ -3,7 +3,6 @@
 ####################################################################################################
 import girder_client
 import yaml
-import six
 import os
 import sys
 import datetime
@@ -181,23 +180,6 @@ class girder_handler():
 ####################################################################################################
 # Functions
 ####################################################################################################
-def item_id_list( girder_dict ):
-    """
-    Convert the girder dict to cleaner version
-
-    Returns
-    -------
-
-    id_list : dict
-       A dictionary of id access with file name.
-    """
-    id_list = {}
-    for key in girder_dict:
-        id_list[key] = girder_dict[key]['_id']
-
-    return id_list
-
-
 def upload_data( test_name, gamer_path, test_folder, **kwargs ):
     check_dict_key( 'logger', kwargs, 'kwargs' )
     logger = kwargs['logger']
@@ -217,7 +199,7 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
         logger.error( "Upload authentication fail." )
         return STAUS.UPLOAD
 
-    logger.info("Upload new answer for test %s" %(test_name))
+    logger.info( "Upload new answer for test %s" %(test_name) )
 
     # 1. Read the compare_list to get files to be upload
     compare_list = read_yaml(compare_list_path)
@@ -241,7 +223,7 @@ def upload_data( test_name, gamer_path, test_folder, **kwargs ):
                 except:
                     logger.error( "Copying error. Stop upload process." )
                     logger.error( "Please check the source: %s and target: %s"%(files[file_name]['expect'],folder_to_upload) )
-                    subprocess.check_call(['rm','-rf',folder_to_upload])
+                    subprocess.check_call( ['rm','-rf',folder_to_upload] )
                     return STATUS.FAIL
             else: continue
 
@@ -278,14 +260,14 @@ def _upload_compare_version_list( gc, gamer_path, **kwargs ):
     target_dict_id = "6124affa68085e0001634618"
     target_dict = gen2dict(gc.listItem(target_dict_id))
     if item in target_dict:
-        logger.debug("File 'compare_list' is already exist, old one will be covered.")
+        logger.debug( "File 'compare_list' is already exist, old one will be covered." )
         parent_id = target_dict[item]['_id']
         gc.uploadFileToItem(parent_id, local_file)
     else:
-        logger.debug("File 'compare_list' not exist, upload to the folder.")
+        logger.debug( "File 'compare_list' not exist, upload to the folder." )
         parent_id = target_dict_id
         gc.uploadFileToFolder(parent_id, local_file)
-    logger.info("Upload compare_list finish")
+    logger.info( "Upload compare_list finish" )
     return STATUS.SUCCESS
 
 
