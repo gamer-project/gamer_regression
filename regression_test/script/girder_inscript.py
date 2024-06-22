@@ -41,73 +41,12 @@ class girder_handler():
         self.home_folder_dict = self.__get_folder_tree( REG_FOLDER_ID )
 
 
-    def download_data( self, test ):
-        """
-        Download the data from hub.yt
-
-        Inputs
-        ------
-
-        Returns
-        -------
-        """
-
-        download_list = test.config["reference"]
-
-        # TODO: the path here is confusing
-        for file_dict in download_list:
-            file_where, ref_path_to_file = file_dict["loc"].split(":")
-            ref_path = ref_path_to_file.split('/')[:-1]
-            ref_name = ref_path_to_file.split('/')[-1]
-
-            temp = file_dict["name"].split('/')
-            case = "" if len(temp) == 1 else temp[0]
-
-            target_folder = test.bin_path + "/" + "reference" + "/" + case
-            if not os.path.isdir(target_folder): os.makedirs(target_folder)
-
-            if file_where == "local":
-                self.logger.info( "Linking %s --> %s"%(ref_path_to_file, target_folder+'/'+ref_name) )
-                try:
-                    subprocess.check_call(['ln', '-s', ref_path_to_file, target_folder+'/'+ref_name])
-                except:
-                    self.logger.error("Can not link file %s."%ref_path_to_file)
-                    test.status = STATUS.EXTERNAL
-                    return test.status
-            # TODO: change the name of cloud
-            elif file_where == "cloud":
-                ver_latest = self.__get_latest_version( test.name )
-                time       = ver_latest['time']
-                ref_folder = test.name + "-" + str(time)
-
-                file_id = self.home_folder_dict[ref_folder]
-                for path in ref_path:
-                    file_id = file_id[path]
-                file_id = file_id[ref_name]['_id']
-
-                self.logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%( ref_folder, ref_path_to_file, file_id, target_folder) )
-                try:
-                    self.gc.downloadItem( file_id, target_folder ) # Download a single file
-                    self.logger.info( "Finish Downloading" )
-                except:
-                    self.logger.error( "Download (name: %s/%s, id: %s) fails!"%(ref_folder, ref_path_to_file, file_id) )
-                    test.status = STATUS.DOWNLOAD
-                    return test.status
-            elif file_where == "url":
-                self.logger.error( "Download from url is not supported yet." )
-                continue
-                # TODO: test download from url, the `-o` name should be wrong
-                try:
-                    subprocess.check_call( ["curl", ref_path_to_file, "-o", target_folder+'/'+ref_name] )
-                except:
-                    self.logger.error( "Download from %s fail!"%(ref_path_to_file) )
-                    test.status = STATUS.DOWNLOAD
-                    return test.status
-            else:
-                self.logger.error( "Unknown file location %s"%file_where )
-                test.status = STATUS.DOWNLOAD
-                return test.status
-
+    def download_file_by_id( self, file_id, target_folder ):
+        try:
+            self.gc.downloadItem( file_id, target_folder )
+        except:
+            self.logger.error( "Download id: %s to %s fail!"%(file_id, target_folder) )
+            return STATUS.DOWNLOAD
         return STATUS.SUCCESS
 
 
@@ -129,7 +68,7 @@ class girder_handler():
         return STATUS.SUCCESS
 
 
-    def __get_latest_version( self, test_name ):
+    def get_latest_version( self, test_name ):
         """
         Get the latest upload time of the latest reference data.
 

@@ -11,6 +11,7 @@ import copy
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
+import script.girder_inscript as gi
 from script.hdf5_file_config import hdf_info_read
 from script.log_pipe import LogPipe
 from script.utilities import *
@@ -29,16 +30,20 @@ gamer_abs_path = '/work1/xuanshan/gamer'
 ####################################################################################################
 class gamer_test():
     def __init__( self, name, config, gamer_abs_path, ch, file_handler, err_level ):
-        self.name      = name
-        self.config    = config
-        self.err_level = err_level
-        self.src_path  = gamer_abs_path + '/src'
-        self.bin_path  = gamer_abs_path + '/bin/' + self.name
-        self.ref_path  = gamer_abs_path + '/regression_test/tests/' + config["name"]
-        self.tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data'
-        self.status    = STATUS.SUCCESS
-        self.reason    = ""
-        self.logger    = set_up_logger( name, ch, file_handler )
+        self.name           = name
+        self.config         = config
+        self.err_level      = err_level
+        self.gamer_abs_path = gamer_abs_path
+        self.src_path       = gamer_abs_path + '/src'
+        self.bin_path       = gamer_abs_path + '/bin/' + self.name
+        self.ref_path       = gamer_abs_path + '/regression_test/tests/' + config["name"]
+        self.tool_path      = gamer_abs_path + '/tool/analysis/gamer_compare_data'
+        self.status         = STATUS.SUCCESS
+        self.reason         = ""
+        self.logger         = set_up_logger( name, ch, file_handler )
+        self.gh             = None
+        self.gh_logger      = set_up_logger( 'girder', ch, file_handler )
+        self.gh_has_list    = False
         return
 
     def run_all_cases( self, **kwargs ):
@@ -51,20 +56,16 @@ class gamer_test():
 
         for i, case in enumerate(self.config['cases']):
             self.logger.info('Start running case: %d'%i)
+
             os.chdir(self.src_path)
-            # compile
-            if self.compile_gamer( i, **kwargs ) != STATUS.SUCCESS: return self.status
-            # copy
-            if self.copy_case( i, **kwargs ) != STATUS.SUCCESS: return self.status
+            if self.compile_gamer( i, **kwargs )               != STATUS.SUCCESS: return self.status
+            if self.copy_case( i, **kwargs )                   != STATUS.SUCCESS: return self.status
             os.chdir(self.bin_path+'/case_%02d'%i)
-            # editing Input__*
-            if self.set_input( i, **kwargs ) != STATUS.SUCCESS: return self.status
-            # pre script
-            if self.execute_scripts( 'pre_script', **kwargs ) != STATUS.SUCCESS: return self.status
-            # run
-            if self.run_gamer( i, **kwargs ) != STATUS.SUCCESS: return self.status
-            # post script
+            if self.set_input( i, **kwargs )                   != STATUS.SUCCESS: return self.status
+            if self.execute_scripts( 'pre_script', **kwargs )  != STATUS.SUCCESS: return self.status
+            if self.run_gamer( i, **kwargs )                   != STATUS.SUCCESS: return self.status
             if self.execute_scripts( 'post_script', **kwargs ) != STATUS.SUCCESS: return self.status
+
             self.logger.info('End of running case: %d'%i)
 
         return self.status
@@ -191,6 +192,67 @@ class gamer_test():
         finally:
             out_log.close()
         self.logger.info('GAMER done.')
+
+        return self.status
+
+    def get_reference_data( self, **kwargs ):
+        # TODO: the path here is confusing
+        for file_dict in self.config["reference"]:
+            file_where, ref_path_to_file = file_dict["loc"].split(":")
+            ref_path = ref_path_to_file.split('/')[:-1]
+            ref_name = ref_path_to_file.split('/')[-1]
+
+            temp = file_dict["name"].split('/')
+            case = "" if len(temp) == 1 else temp[0]
+
+            target_folder = self.bin_path + "/" + "reference" + "/" + case
+            if not os.path.isdir(target_folder): os.makedirs(target_folder)
+
+            if file_where == "local":
+                self.logger.info( "Linking %s --> %s"%(ref_path_to_file, target_folder+'/'+ref_name) )
+                try:
+                    subprocess.check_call( ['ln', '-s', ref_path_to_file, target_folder+'/'+ref_name] )
+                except:
+                    self.set_fail_test( "Can not link file %s."%ref_path_to_file, STATUS.EXTERNAL )
+            # TODO: change the name of cloud
+            elif file_where == "cloud":
+                # Init if girder is not used before
+                if self.gh == None:
+                    self.gh = gi.girder_handler( self.gamer_abs_path, self.gh_logger )
+
+                if not self.gh_has_list:
+                    self.status = self.gh.download_compare_version_list()
+                    if self.status != STATUS.SUCCESS:
+                        self.set_fail_test( 'Download from girder fails', self.status )
+                    else:
+                        self.gh_has_list = True
+
+                ver_latest = self.gh.get_latest_version( self.name )
+                time       = ver_latest['time']
+                ref_folder = self.name + "-" + str(time)
+
+                file_id = self.gh.home_folder_dict[ref_folder]
+                for path in ref_path:
+                    file_id = file_id[path]
+                file_id = file_id[ref_name]['_id']
+
+                self.logger.info( "Downloading (name: %s/%s, id: %s) --> %s"%(ref_folder, ref_path_to_file, file_id, target_folder) )
+                self.status = self.gh.download_file_by_id( file_id, target_folder )
+                if self.status != STATUS.SUCCESS:
+                    self.logger.error( "Download (name: %s/%s, id: %s) fails!"%(ref_folder, ref_path_to_file, file_id) )
+            elif file_where == "url":
+                self.set_fail_test( "Download from url is not supported yet.", STATUS.FAIL )
+                return self.status
+                # TODO: test download from url, the `-o` name should be wrong
+                try:
+                    subprocess.check_call( ["curl", ref_path_to_file, "-o", target_folder+'/'+ref_name] )
+                except:
+                    self.set_fail_test( "Download from %s fail!"%(ref_path_to_file), STATUS.DOWNLOAD )
+            else:
+                self.set_fail_test( "Unknown file location %s"%file_where, STATUS.DOWNLOAD )
+
+            # exit if fail test
+            if self.status != STATUS.SUCCESS: return self.status
 
         return self.status
 

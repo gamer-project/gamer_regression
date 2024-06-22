@@ -11,8 +11,6 @@ from os.path import isfile
 # This should be set before importing any user modules
 sys.dont_write_bytecode = True
 
-
-import script.girder_inscript as gi
 import script.run_gamer as gamer
 from   script.utilities import *
 
@@ -287,20 +285,21 @@ def main( test_configs, ch, file_handler, **kwargs ):
     file_handler : class logging.FileHandler
        Saving the file output format to the logger.
     """
-    gh_logger = set_up_logger( 'girder', ch, file_handler )
-    gh = gi.girder_handler( GAMER_ABS_PATH, gh_logger )
-    if gh.download_compare_version_list() != STATUS.SUCCESS:
-        raise BaseException( "The download from girder fails." )
 
+    has_version_list = False
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
     for test in tests:
         test.logger.info( 'Test %s start.'%(test.name) )
 
+        test.gh_has_list = has_version_list
+
         if test.run_all_cases( **kwargs )                             != STATUS.SUCCESS: continue
-        if gh.download_data( test )                                   != STATUS.SUCCESS: continue
+        if test.get_reference_data( **kwargs )                        != STATUS.SUCCESS: continue
         if test.make_compare_tool( **kwargs )                         != STATUS.SUCCESS: continue
         if test.compare_data( **kwargs )                              != STATUS.SUCCESS: continue
         if test.execute_scripts( 'user_compare_script', **kwargs )    != STATUS.SUCCESS: continue
+
+        has_version_list = test.gh_has_list
 
         test.logger.info( 'Test %s done.'%(test.name) )
 
