@@ -44,7 +44,7 @@ class gamer_test():
         self.gh             = None
         self.gh_logger      = set_up_logger( 'girder', ch, file_handler )
         self.gh_has_list    = False
-        self.yh_folder_dict = None
+        self.yh_folder_dict = {}
         return
 
     def run_all_cases( self, **kwargs ):

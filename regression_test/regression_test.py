@@ -287,7 +287,7 @@ def main( test_configs, ch, file_handler, **kwargs ):
     """
 
     has_version_list = False
-    ythub_folder_dict = None
+    ythub_folder_dict = {}
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
     for test in tests:
         test.logger.info( 'Test %s start.'%(test.name) )
