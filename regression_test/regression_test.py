@@ -287,11 +287,13 @@ def main( test_configs, ch, file_handler, **kwargs ):
     """
 
     has_version_list = False
+    ythub_folder_dict = None
     tests = [ gamer.gamer_test( test_name, test_config, GAMER_ABS_PATH, ch, file_handler, kwargs["error_level"] ) for test_name, test_config in test_configs.items() ]
     for test in tests:
         test.logger.info( 'Test %s start.'%(test.name) )
 
         test.gh_has_list = has_version_list
+        test.yh_folder_dict = ythub_folder_dict
 
         if test.run_all_cases( **kwargs )                             != STATUS.SUCCESS: continue
         if test.get_reference_data( **kwargs )                        != STATUS.SUCCESS: continue
@@ -300,6 +302,7 @@ def main( test_configs, ch, file_handler, **kwargs ):
         if test.execute_scripts( 'user_compare_script', **kwargs )    != STATUS.SUCCESS: continue
 
         has_version_list = test.gh_has_list
+        ythub_folder_dict = test.yh_folder_dict
 
         test.logger.info( 'Test %s done.'%(test.name) )
 

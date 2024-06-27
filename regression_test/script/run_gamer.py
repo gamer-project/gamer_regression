@@ -44,6 +44,7 @@ class gamer_test():
         self.gh             = None
         self.gh_logger      = set_up_logger( 'girder', ch, file_handler )
         self.gh_has_list    = False
+        self.yh_folder_dict = None
         return
 
     def run_all_cases( self, **kwargs ):
@@ -218,7 +219,8 @@ class gamer_test():
             elif file_where == "cloud":
                 # Init if girder is not used before
                 if self.gh == None:
-                    self.gh = gi.girder_handler( self.gamer_abs_path, self.gh_logger )
+                    self.gh = gi.girder_handler( self.gamer_abs_path, self.gh_logger, self.yh_folder_dict )
+                    self.yh_folder_dict = self.gh.home_folder_dict
 
                 if not self.gh_has_list:
                     self.status = self.gh.download_compare_version_list()

@@ -32,13 +32,14 @@ REG_FOLDER_ID = "64f1b5cd5545e01fe3479259"       # ID of /user/chunyenchen2019/r
 # Class
 ####################################################################################################
 class girder_handler():
-    def __init__( self, gamer_path, logger ):
+    def __init__( self, gamer_path, logger, home_folder_dict=None ):
         self.logger     = logger
         self.gamer_path = gamer_path
         self.gc         = girder_client.GirderClient( apiUrl=API_URL )
 
         self.gc.authenticate( apiKey=API_KEY )
-        self.home_folder_dict = self.__get_folder_tree( REG_FOLDER_ID )
+
+        self.home_folder_dict = self.__get_folder_tree( REG_FOLDER_ID ) if home_folder_dict is None else home_folder_dict
 
 
     def download_file_by_id( self, file_id, target_folder ):
