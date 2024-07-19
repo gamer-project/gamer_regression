@@ -6,6 +6,7 @@ import sys
 import subprocess
 import numpy as np
 import copy
+import re
 
 # Prevent generation of .pyc files
 # This should be set before importing any user modules
@@ -258,6 +259,27 @@ class gamer_test():
 
         return self.status
 
+    def get_machine_path( self, **kwargs ):
+        """
+        Get package paths from the config file
+        """
+        config_file = '%s/configs/%s.config'%(self.gamer_abs_path, kwargs['machine'])
+        paths = {}
+
+        # 1. Read necessary information from config file
+        with open( config_file, 'r' ) as f:
+            lines = f.readlines()
+
+        for line in lines:
+            if 'PATH' not in line: continue
+
+            temp = list( filter( None, re.split(" |:=|\n", line) ) )
+            try:
+                paths[temp[0]] = temp[1]
+            except:
+                paths[temp[0]] = ''
+        return paths
+
     def make_compare_tool( self, **kwargs ):
         """
         Make compare data program.
@@ -273,6 +295,10 @@ class gamer_test():
             makefile_content = f.read()
 
         # 2. Check settings in configs
+        paths = self.get_machine_path( **kwargs )
+        for package_name, package_path in paths.items():
+            makefile_content = makefile_content.replace(package_name + " :=" , package_name + " := " + package_path + "\n#")
+
         if len(self.config["cases"]) > 1: self.logger.warning("We will only follow the first case setup of the Makefile.")
         make_config = self.config["cases"][0]["Makefile"]
         if "model" in make_config:
@@ -604,7 +630,6 @@ def compare_note( result_note, expect_note, **kwargs ):
     logger.info("Comparison of Record__Note done.")
 
     return fail_compare
-
 
 
 ####################################################################################################
