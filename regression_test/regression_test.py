@@ -35,7 +35,6 @@ Documents:
 # 1. Paths
 CURRENT_ABS_PATH     = os.getcwd()
 GAMER_ABS_PATH       = os.path.dirname( CURRENT_ABS_PATH )
-gamer.gamer_abs_path = GAMER_ABS_PATH
 
 # 2. Test problem
 test_example_path = GAMER_ABS_PATH + '/regression_test/tests'

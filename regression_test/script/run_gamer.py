@@ -18,14 +18,6 @@ from script.log_pipe import LogPipe
 from script.utilities import *
 
 
-
-####################################################################################################
-# Global variables
-####################################################################################################
-gamer_abs_path = '/work1/xuanshan/gamer'
-
-
-
 ####################################################################################################
 # Classes
 ####################################################################################################
@@ -647,6 +639,7 @@ if __name__ == '__main__':
     test_logger.propagate = False
     test_logger.addHandler(ch)
 
+    gamer_abs_path = '/work1/xuanshan/gamer'
     config_path    = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
     config, input_settings = read_yaml(config_path, 'config')
     os.chdir('../src')
