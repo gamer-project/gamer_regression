@@ -372,6 +372,7 @@ class gamer_test():
                 fail = compare_note( current_file, reference_file, logger=self.logger, **kwargs )
             else:
                 print("compare unknow")
+                fail = True
 
             if fail: self.set_fail_test( "Fail data comparison.", STATUS.COMPARISON )
 
@@ -639,7 +640,7 @@ if __name__ == '__main__':
     test_logger.propagate = False
     test_logger.addHandler(ch)
 
-    gamer_abs_path = '/work1/xuanshan/gamer'
+    gamer_abs_path = os.getcwd()
     config_path    = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
     config, input_settings = read_yaml(config_path, 'config')
     os.chdir('../src')
@@ -650,12 +651,12 @@ if __name__ == '__main__':
     #read_compare_list('Riemann',{})
     #os.chdir('/work1/xuanshan/gamer/bin/Riemann')
     #for sets in input_settings:
-    #    set_input(input_settings[sets])
-#    make(config)
+    #set_input(input_settings[sets])
+    #make(config)
     input_folder   = gamer_abs_path + '/example/test_problem/Hydro/'
-#    copy_example(input_folder)
-#    run()
-#    print check_answer([1],[1])
-#    analyze('AcousticWave')
-#    check_answer('AcousticWave',logger=test_logger)
+    #copy_example(input_folder)
+    #run()
+    #print check_answer([1],[1])
+    #analyze('AcousticWave')
+    #check_answer('AcousticWave',logger=test_logger)
     print('end')

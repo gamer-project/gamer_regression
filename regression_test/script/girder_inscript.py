@@ -99,9 +99,16 @@ class girder_handler():
 
     def __get_folder_tree( self, folder_id ):
         """
-        get the folder tree from yt.hub
+        Get the folder tree from yt.hub
+        Parameters
+        ----------
+        folder_id      : string
+            The ID correspond to the target folder.
+        Returns
+        -------
+        dict_tree      : dict
+            The dict described folder tree.
         """
-        #TODO: describe more about the function
         dict_tree = {}
         leaf_folder = gen2dict( self.gc.listFolder( folder_id ) )
         leaf_item   = gen2dict( self.gc.listItem( folder_id ) )

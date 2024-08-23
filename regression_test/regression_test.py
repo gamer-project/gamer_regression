@@ -136,6 +136,10 @@ def argument_handler():
                          type=str,
                          default="test"
                        )
+    parser.add_argument( "-u", "--no-upload", 
+                         help="Do not ask if needs to upload new answer to cloud.",
+                         action="store_true"
+                       )
 
     parser.add_argument( "-m", "--machine",
                          help="Select the machine configuration in ../configs. \nDefault: %(default)s",
@@ -425,11 +429,14 @@ if __name__ == '__main__':
     # Further process for fail tests
     # TODO: add further process such as do nothing or accept new result and upload to hub.yt
     if fail_tests == {}: exit(0)
+    if args['no-upload']: exit(1)
 
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y','y','yes']:
         upload_logger = set_up_logger( 'upload', ch, file_handler )
         upload_process( test_configs, logger=upload_logger )
-    else:
+    elif upload_or_not in ['N','n','no']:
         exit(1)
+    else:
+        raise ValueError("Invalid input: %s"%(upload_or_not))

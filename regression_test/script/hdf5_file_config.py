@@ -8,16 +8,16 @@ class hdf_info_read:
         self.gitCommit    = hdf_file['Info']['KeyInfo']['GitCommit']
         self.DataID       = hdf_file['Info']['KeyInfo']['UniqueDataID']
 
-        self.GridData     = self.loadGridData(hdf_file)
-        self.ParticleData = self.loadParticleData(hdf_file)
+        self.GridData     = self.__loadGridData(hdf_file)
+        self.ParticleData = self.__loadParticleData(hdf_file)
 
-    def loadGridData(self, hdf_file):
+    def __loadGridData(self, hdf_file):
         if 'GridData' in hdf_file.keys():
             return hdf_file['GridData']
         else:
             return None
 
-    def loadParticleData(self, hdf_file):
+    def __loadParticleData(self, hdf_file):
         if 'Particle' in hdf_file.keys():
             return hdf_file['Particle']
         else:
