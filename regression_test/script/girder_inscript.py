@@ -22,9 +22,7 @@ from script.utilities import *
 # Global variables
 ####################################################################################################
 API_URL       = 'https://girder.hub.yt/api/v1'
-#API_KEY       = 'REMOVED_API_KEY'
-#REG_FOLDER_ID = '6123170168085e0001634586'       # ID of /user/xuanweishan/gamer_regression_test
-API_KEY       = 'REMOVED_API_KEY'
+API_KEY       = os.environ.get("GAMER_API_KEY")
 REG_FOLDER_ID = "64f1b5cd5545e01fe3479259"       # ID of /user/chunyenchen2019/regression_test
 
 
