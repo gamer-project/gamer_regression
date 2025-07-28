@@ -5,7 +5,6 @@ import os
 import subprocess
 import yaml
 import six
-import ctypes
 import logging
 
 

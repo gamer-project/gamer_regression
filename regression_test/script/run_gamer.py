@@ -1,20 +1,14 @@
-from __future__ import print_function
-from script.utilities import *
+from script.utilities import STATUS, check_dict_key, read_yaml, set_up_logger
 from script.log_pipe import LogPipe
 from script.hdf5_file_config import hdf_info_read
 import script.girder_inscript as gi
 import logging
 import os
 from os.path import isdir, isfile
-import sys
 import subprocess
 import numpy as np
 import copy
 import re
-
-# Prevent generation of .pyc files
-# This should be set before importing any user modules
-sys.dont_write_bytecode = True
 
 
 ####################################################################################################
@@ -678,8 +672,8 @@ if __name__ == '__main__':
     config_path = gamer_abs_path + '/regression_test/tests/AGORA_IsolatedGalaxy/configs'
     config, input_settings = read_yaml(config_path, 'config')
     os.chdir('../src')
-    Fail = make(config, logger=test_logger)
-    print(Fail)
+    # Fail = make(config, logger=test_logger)
+    # print(Fail)
     # print(config)
     # print(input_settings)
     # read_compare_list('Riemann',{})

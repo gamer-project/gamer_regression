@@ -1,6 +1,7 @@
 from __future__ import print_function
-from script.utilities import *
+from script.utilities import STATUS, get_git_info, read_test_config, set_up_logger
 import script.run_gamer as gamer
+import script.girder_inscript as gi
 import argparse
 import os
 import sys
@@ -8,10 +9,6 @@ import logging
 import subprocess
 from os import listdir
 from os.path import isfile
-
-# Prevent generation of .pyc files
-# This should be set before importing any user modules
-sys.dont_write_bytecode = True
 
 
 """

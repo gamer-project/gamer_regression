@@ -1,20 +1,13 @@
 ####################################################################################################
 # Imports
 ####################################################################################################
-from script.utilities import *
+from script.utilities import STATUS, check_dict_key, gen2dict, read_yaml
 import girder_client
 import yaml
 import os
-import sys
 import datetime
 import subprocess
 import getpass
-
-# Prevent generation of .pyc files
-# This should be set before importing any user modules
-sys.dont_write_bytecode = True
-
-# from utilities import *
 
 
 ####################################################################################################
@@ -139,7 +132,7 @@ def upload_data(test_name, gamer_path, test_folder, **kwargs):
         gc.authenticate(apiKey=api_key)
     except:
         logger.error("Upload authentication fail.")
-        return STAUS.UPLOAD
+        return STATUS.UPLOAD
 
     logger.info("Upload new answer for test %s" % (test_name))
 
@@ -221,6 +214,7 @@ def _upload_compare_version_list(gc, gamer_path, **kwargs):
 if __name__ == '__main__':
     import logging
 
+    GC = girder_client.GirderClient(apiUrl=API_URL)
     HOME_FOLDER_DICT = gen2dict(GC.listFolder(REG_FOLDER_ID))
     gen = GC.listFolder(REG_FOLDER_ID)
     home_folder = gen2dict(gen)
