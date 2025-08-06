@@ -21,7 +21,7 @@ class gamer_test():
         self.err_level = err_level
         self.gamer_abs_path = gamer_abs_path
         self.src_path = gamer_abs_path + '/src'
-        self.bin_path = gamer_abs_path + '/bin/' + self.name
+        self.bin_path = gamer_abs_path + '/regression_test/run/' + self.name
         self.ref_path = gamer_abs_path + '/regression_test/tests/' + config["name"]
         self.tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data'
         self.status = STATUS.SUCCESS

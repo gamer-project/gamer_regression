@@ -16,5 +16,8 @@ src/Makefile
 src/Makefile.log
 src/.local_settings
 
+# Regression test
+regression_test/run/**
+
 # Python
 __pycache__
