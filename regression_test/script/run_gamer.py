@@ -2,6 +2,7 @@ from script.utilities import STATUS, check_dict_key, read_yaml, set_up_logger
 from script.log_pipe import LogPipe
 from script.hdf5_file_config import hdf_info_read
 import script.girder_inscript as gi
+from .runtime_vars import RuntimeVariables
 import logging
 import os
 from os.path import isdir, isfile
@@ -15,10 +16,11 @@ import re
 # Classes
 ####################################################################################################
 class gamer_test():
-    def __init__(self, name, config, gamer_abs_path, ch, file_handler, err_level):
+
+    def __init__(self, rtvars: RuntimeVariables, name, config, gamer_abs_path, ch, file_handler):
         self.name = name
         self.config = config
-        self.err_level = err_level
+        self.err_level = rtvars.error_level
         self.gamer_abs_path = gamer_abs_path
         self.src_path = gamer_abs_path + '/src'
         self.bin_path = gamer_abs_path + '/regression_test/run/' + self.name
@@ -31,9 +33,10 @@ class gamer_test():
         self.gh_logger = set_up_logger('girder', ch, file_handler)
         self.gh_has_list = False
         self.yh_folder_dict = {}
+        self.rtvar: RuntimeVariables = rtvars
         return
 
-    def run_all_cases(self, **kwargs):
+    def run_all_cases(self):
         # 1. make the directory for the test
         if isdir(self.bin_path):
             self.logger.warning(
@@ -46,25 +49,25 @@ class gamer_test():
             self.logger.info('Start running case: %d' % i)
 
             os.chdir(self.src_path)
-            if self.compile_gamer(i, **kwargs) != STATUS.SUCCESS:
+            if self.compile_gamer(i) != STATUS.SUCCESS:
                 return self.status
-            if self.copy_case(i, **kwargs) != STATUS.SUCCESS:
+            if self.copy_case(i) != STATUS.SUCCESS:
                 return self.status
             os.chdir(self.bin_path+'/case_%02d' % i)
-            if self.set_input(i, **kwargs) != STATUS.SUCCESS:
+            if self.set_input(i) != STATUS.SUCCESS:
                 return self.status
-            if self.execute_scripts('pre_script', **kwargs) != STATUS.SUCCESS:
+            if self.execute_scripts('pre_script') != STATUS.SUCCESS:
                 return self.status
-            if self.run_gamer(i, **kwargs) != STATUS.SUCCESS:
+            if self.run_gamer(i) != STATUS.SUCCESS:
                 return self.status
-            if self.execute_scripts('post_script', **kwargs) != STATUS.SUCCESS:
+            if self.execute_scripts('post_script') != STATUS.SUCCESS:
                 return self.status
 
             self.logger.info('End of running case: %d' % i)
 
         return self.status
 
-    def compile_gamer(self, case_num, **kwargs):
+    def compile_gamer(self, case_num):
         self.logger.info('Start compiling GAMER')
         out_log = LogPipe(self.logger, logging.DEBUG)
 
@@ -74,7 +77,7 @@ class gamer_test():
             subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
 
         # 2. Get commands to modify Makefile.
-        cmd = generate_modify_command(self.config['cases'][case_num]['Makefile'], **kwargs)
+        cmd = generate_modify_command(self.config['cases'][case_num]['Makefile'], self.rtvar)
 
         try:
             self.logger.debug("Generating Makefile using: %s" % (" ".join(cmd)))
@@ -114,7 +117,7 @@ class gamer_test():
 
         return self.status
 
-    def copy_case(self, case_num, **kwargs):
+    def copy_case(self, case_num):
         """
         Copy input files and GAMER to work directory.
         """
@@ -132,7 +135,7 @@ class gamer_test():
 
         return self.status
 
-    def set_input(self, case_num, **kwargs):
+    def set_input(self, case_num):
         for input_file, settings in self.config['cases'][case_num].items():
             cmds = []
             if input_file == "Makefile":
@@ -151,7 +154,7 @@ class gamer_test():
 
         return self.status
 
-    def execute_scripts(self, mode, **kwargs):
+    def execute_scripts(self, mode):
         self.logger.info('Start execute scripts. Mode: %s' % mode)
         if mode not in ['pre_script', 'post_script', 'user_compare_script']:
             self.set_fail_test("Wrong mode of executing scripts.", STATUS.FAIL)
@@ -171,14 +174,14 @@ class gamer_test():
         self.logger.info('Done execute scripts.')
         return self.status
 
-    def run_gamer(self, case_num, **kwargs):
+    def run_gamer(self, case_num):
         out_log = LogPipe(self.logger, logging.DEBUG)
         run_mpi = False
         if "mpi" in self.config["cases"][case_num]["Makefile"]:
             run_mpi = self.config["cases"][case_num]["Makefile"]["mpi"]
 
         run_cmd = "mpirun -map-by ppr:%d:socket:pe=%d --report-bindings " % (
-            kwargs["mpi_rank"], kwargs["mpi_core_per_rank"]) if run_mpi else ""
+            self.rtvar.mpi_rank, self.rtvar.mpi_core_per_rank) if run_mpi else ""
         run_cmd += "./gamer 1>>log 2>&1"
 
         self.logger.info('Running GAMER.')
@@ -194,7 +197,7 @@ class gamer_test():
 
         return self.status
 
-    def get_reference_data(self, **kwargs):
+    def get_reference_data(self):
         # TODO: the path here is confusing
         for file_dict in self.config["reference"]:
             file_where, ref_path_to_file = file_dict["loc"].split(":")
@@ -259,11 +262,11 @@ class gamer_test():
 
         return self.status
 
-    def get_machine_path(self, **kwargs):
+    def get_machine_path(self):
         """
         Get package paths from the config file
         """
-        config_file = '%s/configs/%s.config' % (self.gamer_abs_path, kwargs['machine'])
+        config_file = '%s/configs/%s.config' % (self.gamer_abs_path, self.rtvar.machine)
         paths = {}
 
         # 1. Read necessary information from config file
@@ -281,7 +284,7 @@ class gamer_test():
                 paths[temp[0]] = ''
         return paths
 
-    def make_compare_tool(self, **kwargs):
+    def make_compare_tool(self):
         """
         Make compare data program.
         """
@@ -296,7 +299,7 @@ class gamer_test():
             makefile_content = f.read()
 
         # 2. Check settings in configs
-        paths = self.get_machine_path(**kwargs)
+        paths = self.get_machine_path()
         for package_name, package_path in paths.items():
             makefile_content = makefile_content.replace(
                 package_name + " :=", package_name + " := " + package_path + "\n#")
@@ -352,7 +355,7 @@ class gamer_test():
 
         return self.status
 
-    def compare_data(self, **kwargs):
+    def compare_data(self):
         """
         Check the answer of test result.
 
@@ -383,12 +386,12 @@ class gamer_test():
 
             if file_dict["file_type"] == "TEXT":
                 fail = compare_text(current_file, reference_file,
-                                    self.config["levels"][self.err_level], logger=self.logger, **kwargs)
+                                    self.config["levels"][self.err_level], logger=self.logger)
             elif file_dict["file_type"] == "HDF5":
                 fail = compare_hdf5(current_file, reference_file,
-                                    self.config["levels"][self.err_level], self.tool_path, logger=self.logger, **kwargs)
+                                    self.config["levels"][self.err_level], self.tool_path, logger=self.logger)
             elif file_dict["file_type"] == "NOTE":
-                fail = compare_note(current_file, reference_file, logger=self.logger, **kwargs)
+                fail = compare_note(current_file, reference_file, logger=self.logger)
             else:
                 print("compare unknow")
                 fail = True
@@ -504,7 +507,7 @@ def compare_para(para_1, para_2):
     return diff_para
 
 
-def generate_modify_command(config, **kwargs):
+def generate_modify_command(config, rtvars: RuntimeVariables):
     """
     Edit gamer configuration settings.
 
@@ -520,9 +523,9 @@ def generate_modify_command(config, **kwargs):
     cmd    :
         command
     """
-    cmd = [kwargs["py_exe"], "configure.py"]
+    cmd = [rtvars.py_exe, "configure.py"]
     # 0. machine configuration
-    cmd.append("--machine="+kwargs["machine"])
+    cmd.append("--machine="+rtvars.machine)
 
     # 1. simulation and miscellaneous options
     for key, val in config.items():
@@ -537,9 +540,7 @@ def generate_modify_command(config, **kwargs):
 
 
 # TODO: support the user compare range(data)
-def compare_text(result_file, expect_file, err_allowed, **kwargs):
-    check_dict_key(['logger'], kwargs, "kwargs")
-    logger = kwargs['logger']
+def compare_text(result_file, expect_file, err_allowed, logger):
     fail_compare = False
 
     logger.info("Comparing TEXT: %s <--> %s" % (result_file, expect_file))
@@ -564,9 +565,7 @@ def compare_text(result_file, expect_file, err_allowed, **kwargs):
     return fail_compare
 
 
-def compare_hdf5(result_file, expect_file, err_allowed, tool_path, **kwargs):
-    check_dict_key(['logger'], kwargs, "kwargs")
-    logger = kwargs['logger']
+def compare_hdf5(result_file, expect_file, err_allowed, tool_path, logger):
     out_log = LogPipe(logger, logging.DEBUG)
     fail_compare = False
 
@@ -621,11 +620,10 @@ def compare_hdf5(result_file, expect_file, err_allowed, tool_path, **kwargs):
     return fail_compare
 
 
-def compare_note(result_note, expect_note, **kwargs):
+def compare_note(result_note, expect_note, logger):
     """
     Compare the Record__Note files
     """
-    logger = kwargs['logger']
     fail_compare = False
 
     # TODO: return fail if comparing Record_Note is necessary

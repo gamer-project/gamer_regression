@@ -9,15 +9,15 @@ class TestExplorer:
     A class for detecting Tests and return a list of tests satisfying the query.
     """
 
-    def __init__(self, rtvars: RuntimeVariables, input_args):
+    def __init__(self, rtvars: RuntimeVariables):
         """
         Initialize the regression test.
 
         Inputs
         ------
 
-        input_args   : dict
-        A dictionary contains the regression parameters.
+        rtvars   : RuntimeVariables
+        A dataclass containing the regression parameters.
 
         Returns
         -------
@@ -52,28 +52,28 @@ class TestExplorer:
         PRIOR = {"high": 3, "medium": 2, "low": 1}
 
         # 0. Setting the default test type
-        if len(input_args["type"]) == 0:
-            input_args["type"] = [i for i in range(len(TYPE_INDEX))]
-        if len(input_args["name"]) == 0:
-            input_args["name"] = [i for i in range(len(NAME_INDEX))]
+        if len(rtvars.type) == 0:
+            rtvars.type = [i for i in range(len(TYPE_INDEX))]
+        if len(rtvars.name) == 0:
+            rtvars.name = [i for i in range(len(NAME_INDEX))]
 
         # 1. Check if the input arguments are valid.
-        for idx_g in input_args["type"]:
+        for idx_g in rtvars.type:
             if idx_g < 0 or idx_g > len(TYPE_INDEX):
                 raise IndexError("Unrecognize index of the test type: %d" % idx_g)
 
-        for idx_n in input_args["name"]:
+        for idx_n in rtvars.name:
             if idx_n < 0 or idx_n >= len(NAME_INDEX):
                 raise IndexError("Unrecognize index of the test name: %d" % idx_n)
 
         test_configs = {}
-        for idx_t in input_args["type"]:
-            for idx_n in input_args["name"]:
+        for idx_t in rtvars.type:
+            for idx_n in rtvars.name:
                 test_name = NAME_INDEX[idx_n]
                 test_type = TYPE_INDEX[idx_t]
                 try:
                     test_priority = ALL_TEST_CONFIGS[test_name][test_type]["priority"]
-                    if PRIOR[test_priority] < PRIOR[input_args["priority"]]:
+                    if PRIOR[test_priority] < PRIOR[rtvars.priority]:
                         continue
                     test_configs[test_name+"_"+test_type] = ALL_TEST_CONFIGS[test_name][test_type]
                     test_configs[test_name+"_"+test_type]["name"] = test_name
@@ -81,13 +81,4 @@ class TestExplorer:
                 except:
                     pass
 
-        # 2. Store to global variables
-        input_args["output"] += ".log"
-
-        # 3. Remove the existing log file
-        if isfile(input_args["output"]):
-            print('WARNING!!! %s is already exist. The original log file will be removed.' % (input_args["output"]))
-            os.remove(input_args["output"])
-
-        self.test_configs = test_configs  # The dict contains "Problem_sub-problem"
-        self.input_args = input_args
+        self.test_configs: dict = test_configs  # The dict contains "Problem_sub-problem"
