@@ -1,84 +1,86 @@
 import os
-from os.path import isfile
 from .utilities import read_yaml
 from .runtime_vars import RuntimeVariables
+from .models import TestProblem, TestType, TestCase, TestReference
+
+
+PRIOR = {"high": 3, "medium": 2, "low": 1}
 
 
 class TestExplorer:
-    """
-    A class for detecting Tests and return a list of tests satisfying the query.
-    """
+    """Discover tests and expand to a flat list of TestCase units."""
 
     def __init__(self, rtvars: RuntimeVariables):
-        """
-        Initialize the regression test.
+        TESTS_ROOT = os.path.join(rtvars.gamer_path, 'regression_test', 'tests')
 
-        Inputs
-        ------
+        # Collect problem directories (exclude Template)
+        problems = [d for d in os.listdir(TESTS_ROOT) if d != 'Template']
 
-        rtvars   : RuntimeVariables
-        A dataclass containing the regression parameters.
+        # Build indices then honor CLI filters (by ordinal index)
+        name_index = problems
 
-        Returns
-        -------
+        # Aggregate all type names to index map by scanning configs
+        type_order: list[str] = []
+        configs_by_problem: dict[str, dict] = {}
+        for pname in problems:
+            cfg = read_yaml(os.path.join(TESTS_ROOT, pname, 'configs'))
+            configs_by_problem[pname] = cfg
+            for tname in cfg.keys():
+                if tname not in type_order:
+                    type_order.append(tname)
 
-        testing_test : list
-        A list contains strings of test name which to be tested.
-        """
-
-        # 2. Test problem
-        TEST_EXAMPLE_PATH = os.path.join(rtvars.gamer_path, 'regression_test', 'tests')
-        # get the config dict of each test
-        all_test_name = {direc: os.path.join(TEST_EXAMPLE_PATH, direc) for direc in os.listdir(TEST_EXAMPLE_PATH)}
-        all_test_name.pop('Template')           # Remove the Template folder from test
-
-        def read_test_config(test_names: dict):
-            all_test_name_configs = {}
-            all_test_types = []
-            for name, path in test_names.items():
-                config = read_yaml(path + '/configs')
-                all_test_name_configs[name] = config
-                for t_type in config:
-                    if t_type in all_test_types:
-                        continue
-                    all_test_types.append(t_type)
-
-            return all_test_name_configs, all_test_types
-
-        ALL_TEST_CONFIGS, all_type_name = read_test_config(all_test_name)
-        NAME_INDEX = [n for n in all_test_name]
-        TYPE_INDEX = all_type_name
-
-        PRIOR = {"high": 3, "medium": 2, "low": 1}
-
-        # 0. Setting the default test type
+        # Defaults if CLI did not specify
         if len(rtvars.type) == 0:
-            rtvars.type = [i for i in range(len(TYPE_INDEX))]
+            rtvars.type = list(range(len(type_order)))
         if len(rtvars.name) == 0:
-            rtvars.name = [i for i in range(len(NAME_INDEX))]
+            rtvars.name = list(range(len(name_index)))
 
-        # 1. Check if the input arguments are valid.
-        for idx_g in rtvars.type:
-            if idx_g < 0 or idx_g > len(TYPE_INDEX):
-                raise IndexError("Unrecognize index of the test type: %d" % idx_g)
-
-        for idx_n in rtvars.name:
-            if idx_n < 0 or idx_n >= len(NAME_INDEX):
-                raise IndexError("Unrecognize index of the test name: %d" % idx_n)
-
-        test_configs = {}
+        # Validate indices
         for idx_t in rtvars.type:
-            for idx_n in rtvars.name:
-                test_name = NAME_INDEX[idx_n]
-                test_type = TYPE_INDEX[idx_t]
-                try:
-                    test_priority = ALL_TEST_CONFIGS[test_name][test_type]["priority"]
-                    if PRIOR[test_priority] < PRIOR[rtvars.priority]:
-                        continue
-                    test_configs[test_name+"_"+test_type] = ALL_TEST_CONFIGS[test_name][test_type]
-                    test_configs[test_name+"_"+test_type]["name"] = test_name
-                    test_configs[test_name+"_"+test_type]["type"] = test_type
-                except:
-                    pass
+            if idx_t < 0 or idx_t >= len(type_order):
+                raise IndexError(f"Unrecognize index of the test type: {idx_t}")
+        for idx_n in rtvars.name:
+            if idx_n < 0 or idx_n >= len(name_index):
+                raise IndexError(f"Unrecognize index of the test problem: {idx_n}")
 
-        self.test_configs: dict = test_configs  # The dict contains "Problem_sub-problem"
+        cases: list[TestCase] = []
+
+        for idx_t in rtvars.type:
+            type_name = type_order[idx_t]
+            for idx_n in rtvars.name:
+                problem_name = name_index[idx_n]
+                cfg = configs_by_problem[problem_name]
+                if type_name not in cfg:
+                    continue
+                t_cfg = cfg[type_name]
+                # Priority gating
+                if PRIOR.get(t_cfg.get('priority', 'high'), 1) < PRIOR.get(rtvars.priority, 1):
+                    continue
+
+                levels = t_cfg.get('levels', {})
+                pre_scripts = t_cfg.get('pre_script', [])
+                post_scripts = t_cfg.get('post_script', [])
+                user_cmp = t_cfg.get('user_compare_script', [])
+
+                # References: shared at type level; attached to each case
+                refs_cfg = t_cfg.get('reference', [])
+                refs = [TestReference(name=r['name'], loc=r['loc'], file_type=r['file_type']) for r in refs_cfg]
+
+                for case_idx, case_cfg in enumerate(t_cfg.get('cases', [])):
+                    test_case = TestCase(
+                        problem_name=problem_name,
+                        type_name=type_name,
+                        case_index=case_idx,
+                        makefile_cfg=case_cfg.get('Makefile', {}),
+                        input_parameter=case_cfg.get('Input__Parameter', {}),
+                        input_testprob=case_cfg.get('Input__TestProb', {}),
+                        pre_scripts=pre_scripts.copy(),
+                        post_scripts=post_scripts.copy(),
+                        user_compare_scripts=user_cmp.copy(),
+                        references=refs.copy(),
+                        levels=levels.copy(),
+                    )
+                    cases.append(test_case)
+
+        # Flat list of per-case units
+        self.test_cases: list[TestCase] = cases

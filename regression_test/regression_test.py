@@ -12,6 +12,8 @@ from os.path import isfile
 
 from script.argparse import argument_handler
 from script.test_explorer import TestExplorer
+from script.models import TestCase
+from typing import List
 from script.runtime_vars import RuntimeVariables
 
 
@@ -87,7 +89,7 @@ def log_init(log_file_name):
     return ch, file_handler
 
 
-def main(rtvars: RuntimeVariables, test_configs, ch, file_handler):
+def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler):
     """
     Main regression test.
 
@@ -104,8 +106,30 @@ def main(rtvars: RuntimeVariables, test_configs, ch, file_handler):
 
     has_version_list = False
     ythub_folder_dict = {}
-    tests = [gamer.gamer_test(rtvars, test_name, test_config, rtvars.gamer_path, ch, file_handler)
-             for test_name, test_config in test_configs.items()]
+    # Group flat cases back into legacy structure per <TestName>_<Type>
+    grouped = {}
+    for tc in test_cases:
+        key = tc.test_key  # <TestName>_<Type>
+        if key not in grouped:
+            grouped[key] = {
+                "name": tc.problem_name,
+                "pre_script": tc.pre_scripts,
+                "post_script": tc.post_scripts,
+                "user_compare_script": tc.user_compare_scripts,
+                "reference": [
+                    {"name": r.name, "loc": r.loc, "file_type": r.file_type} for r in tc.references
+                ],
+                "levels": tc.levels,
+                "cases": [],
+            }
+        grouped[key]["cases"].append({
+            "Makefile": tc.makefile_cfg,
+            "Input__Parameter": tc.input_parameter,
+            "Input__TestProb": tc.input_testprob,
+        })
+
+    tests = [gamer.gamer_test(rtvars, name, cfg, rtvars.gamer_path, ch, file_handler)
+             for name, cfg in grouped.items()]
     for test in tests:
         test.logger.info('Test %s start.' % (test.name))
 
@@ -235,7 +259,8 @@ if __name__ == '__main__':
     GAMER_CURRENT_COMMIT = get_git_info()
 
     # Initialize regression test
-    test_configs = test_explorer.test_configs
+    # Use new flat list of cases produced by TestExplorer
+    test_cases = test_explorer.test_cases
 
     # Initialize logger
     ch, file_handler = log_init(rtvars.output)
@@ -250,12 +275,13 @@ if __name__ == '__main__':
 
     write_args_to_log(test_logger, rtvars, force_args=unknown_args)
 
-    test_logger.info('Test to be run       : %-s' % (" ".join([name for name in test_configs])))
+    keys = sorted(set(tc.test_key for tc in test_cases))
+    test_logger.info('Test to be run       : %-s' % (" ".join(keys)))
 
     # Regression test
     try:
         test_logger.info('Regression test start.')
-        result = main(rtvars, test_configs, ch, file_handler)
+        result = main(rtvars, test_cases, ch, file_handler)
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical('', exc_info=True)
@@ -275,7 +301,7 @@ if __name__ == '__main__':
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y', 'y', 'yes']:
         upload_logger = set_up_logger('upload', ch, file_handler)
-        upload_process(test_configs, upload_logger)
+        upload_process({}, upload_logger)
     elif upload_or_not in ['N', 'n', 'no']:
         exit(1)
     else:
