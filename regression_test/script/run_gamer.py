@@ -3,6 +3,7 @@ from script.log_pipe import LogPipe
 from script.hdf5_file_config import hdf_info_read
 import script.girder_inscript as gi
 from .runtime_vars import RuntimeVariables
+from .models import TestCase, TestReference
 import logging
 import os
 from os.path import isdir, isfile
@@ -15,59 +16,28 @@ import re
 ####################################################################################################
 # Classes
 ####################################################################################################
-class gamer_test():
+class TestRunner:
+    """Run a single TestCase (compile, copy, set inputs, pre/post, run GAMER)."""
 
-    def __init__(self, rtvars: RuntimeVariables, name, config, gamer_abs_path, ch, file_handler):
-        self.name = name
-        self.config = config
+    def __init__(self, rtvars: RuntimeVariables, case: TestCase, gamer_abs_path: str, ch, file_handler):
+        self.case = case
         self.err_level = rtvars.error_level
         self.gamer_abs_path = gamer_abs_path
         self.src_path = gamer_abs_path + '/src'
-        self.bin_path = gamer_abs_path + '/regression_test/run/' + self.name
-        self.ref_path = gamer_abs_path + '/regression_test/tests/' + config["name"]
-        self.tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data'
+        # group_dir provided via case.run_group_dir
+        self.group_dir = case.run_group_dir
+        self.case_dir = os.path.join(self.group_dir, case.case_name)
+        self.ref_path = os.path.join(gamer_abs_path, 'regression_test', 'tests', case.problem_name)
+        self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
-        self.logger = set_up_logger(name, ch, file_handler)
-        self.gh = None
-        self.gh_logger = set_up_logger('girder', ch, file_handler)
-        self.gh_has_list = False
-        self.yh_folder_dict = {}
+        self.logger = set_up_logger(f"{case.test_key}:{case.case_name}", ch, file_handler)
         self.rtvar: RuntimeVariables = rtvars
         return
 
-    def run_all_cases(self):
-        # 1. make the directory for the test
-        if isdir(self.bin_path):
-            self.logger.warning(
-                'Test folder (%s) exist. ALL the original data and your scripts will be removed!' % (self.bin_path))
-            subprocess.check_call(['rm', '-rf', self.bin_path])
+    # Intentionally no run_all_cases here; orchestration happens in gamer_test
 
-        os.mkdir(self.bin_path)
-
-        for i, case in enumerate(self.config['cases']):
-            self.logger.info('Start running case: %d' % i)
-
-            os.chdir(self.src_path)
-            if self.compile_gamer(i) != STATUS.SUCCESS:
-                return self.status
-            if self.copy_case(i) != STATUS.SUCCESS:
-                return self.status
-            os.chdir(self.bin_path+'/case_%02d' % i)
-            if self.set_input(i) != STATUS.SUCCESS:
-                return self.status
-            if self.execute_scripts('pre_script') != STATUS.SUCCESS:
-                return self.status
-            if self.run_gamer(i) != STATUS.SUCCESS:
-                return self.status
-            if self.execute_scripts('post_script') != STATUS.SUCCESS:
-                return self.status
-
-            self.logger.info('End of running case: %d' % i)
-
-        return self.status
-
-    def compile_gamer(self, case_num):
+    def compile_gamer(self):
         self.logger.info('Start compiling GAMER')
         out_log = LogPipe(self.logger, logging.DEBUG)
 
@@ -77,7 +47,7 @@ class gamer_test():
             subprocess.check_call(['cp', 'Makefile', 'Makefile.origin'])
 
         # 2. Get commands to modify Makefile.
-        cmd = generate_modify_command(self.config['cases'][case_num]['Makefile'], self.rtvar)
+        cmd = generate_modify_command(self.case.makefile_cfg, self.rtvar)
 
         try:
             self.logger.debug("Generating Makefile using: %s" % (" ".join(cmd)))
@@ -117,29 +87,32 @@ class gamer_test():
 
         return self.status
 
-    def copy_case(self, case_num):
+    def copy_case(self):
         """
         Copy input files and GAMER to work directory.
         """
-        case_dir = self.bin_path + '/case_%02d' % case_num
-        origin_dir = self.ref_path + '/Inputs'
+        case_dir = self.case_dir
+        origin_dir = os.path.join(self.ref_path, 'Inputs')
 
         self.logger.info('Copying the test folder: %s ---> %s' % (origin_dir, case_dir))
         try:
             subprocess.check_call(['cp', '-r', origin_dir, case_dir])
-            subprocess.check_call(['cp', self.src_path+'/gamer', case_dir])
-            subprocess.check_call(['cp', self.src_path+'/Makefile.log', case_dir])
-        except:
+            subprocess.check_call(['cp', os.path.join(self.src_path, 'gamer'), case_dir])
+            subprocess.check_call(['cp', os.path.join(self.src_path, 'Makefile.log'), case_dir])
+        except Exception:
             self.set_fail_test('Error when copying to %s.' % case_dir, STATUS.COPY_FILES)
         self.logger.info('Copy completed.')
 
         return self.status
 
-    def set_input(self, case_num):
-        for input_file, settings in self.config['cases'][case_num].items():
+    def set_input(self):
+        # Merge only non-Makefile settings from the case model
+        per_file_settings = {
+            'Input__Parameter': self.case.input_parameter,
+            'Input__TestProb': self.case.input_testprob,
+        }
+        for input_file, settings in per_file_settings.items():
             cmds = []
-            if input_file == "Makefile":
-                continue
 
             for key, val in settings.items():
                 cmds.append(['sed', '-i', 's/%-29s/%-29s%-4s #/g' % (key, key, val), input_file])
@@ -161,12 +134,17 @@ class gamer_test():
             return self.status
 
         out_log = LogPipe(self.logger, logging.DEBUG)
-        for script in self.config[mode]:
+        scripts = {
+            'pre_script': self.case.pre_scripts,
+            'post_script': self.case.post_scripts,
+            'user_compare_script': self.case.user_compare_scripts,
+        }[mode]
+        for script in scripts:
             if self.file_not_exist(script):
                 break
             try:
                 self.logger.info('Executing: %s' % script)
-                subprocess.check_call(['sh', script, self.bin_path], stderr=out_log)
+                subprocess.check_call(['sh', script, self.group_dir], stderr=out_log)
             except:
                 self.set_fail_test("Error while executing %s." % script, STATUS.EXTERNAL)
                 break
@@ -174,11 +152,11 @@ class gamer_test():
         self.logger.info('Done execute scripts.')
         return self.status
 
-    def run_gamer(self, case_num):
+    def run_gamer(self):
         out_log = LogPipe(self.logger, logging.DEBUG)
         run_mpi = False
-        if "mpi" in self.config["cases"][case_num]["Makefile"]:
-            run_mpi = self.config["cases"][case_num]["Makefile"]["mpi"]
+        if "mpi" in self.case.makefile_cfg:
+            run_mpi = self.case.makefile_cfg["mpi"]
 
         run_cmd = "mpirun -map-by ppr:%d:socket:pe=%d --report-bindings " % (
             self.rtvar.mpi_rank, self.rtvar.mpi_core_per_rank) if run_mpi else ""
@@ -188,7 +166,7 @@ class gamer_test():
         try:
             subprocess.check_call([run_cmd], stderr=out_log, shell=True)
             if not isfile('./Record__Note'):
-                self.set_fail_test('No Record__Note in %s.' % self.name, STATUS.FAIL)
+                self.set_fail_test('No Record__Note in %s.' % self.case.test_key, STATUS.FAIL)
         except subprocess.CalledProcessError as err:
             self.set_fail_test('GAMER error', STATUS.EXTERNAL)
         finally:
@@ -196,6 +174,47 @@ class gamer_test():
         self.logger.info('GAMER done.')
 
         return self.status
+
+    def set_fail_test(self, reason, status_type):
+        self.status = status_type
+        self.reason = reason
+        self.logger.error(reason)
+        return
+
+    def file_not_exist(self, filename):
+        if isfile(filename):
+            return False
+        reason = "%s does not exist." % filename
+        self.set_fail_test(reason, STATUS.MISSING_FILE)
+        return True
+
+
+class gamer_test():
+    """
+    Legacy per-<TestName>_<Type> operations (reference download, tool build, compare).
+    Will be split later; for now used by regression_test.py after running cases via TestRunner.
+    """
+
+    def __init__(self, rtvars: RuntimeVariables, name, config, gamer_abs_path, ch, file_handler):
+        self.name = name
+        self.config = config
+        self.err_level = rtvars.error_level
+        self.gamer_abs_path = gamer_abs_path
+        self.src_path = gamer_abs_path + '/src'
+        self.bin_path = gamer_abs_path + '/regression_test/run/' + self.name
+        self.ref_path = gamer_abs_path + '/regression_test/tests/' + config["name"]
+        self.tool_path = gamer_abs_path + '/tool/analysis/gamer_compare_data'
+        self.status = STATUS.SUCCESS
+        self.reason = ""
+        self.logger = set_up_logger(name, ch, file_handler)
+        self._ch = ch
+        self._fh = file_handler
+        self.gh = None
+        self.gh_logger = set_up_logger('girder', ch, file_handler)
+        self.gh_has_list = False
+        self.yh_folder_dict = {}
+        self.rtvar: RuntimeVariables = rtvars
+        return
 
     def get_reference_data(self):
         # TODO: the path here is confusing
@@ -221,13 +240,21 @@ class gamer_test():
             elif file_where == "cloud":
                 # Init if girder is not used before
                 if self.gh == None:
-                    self.gh = gi.girder_handler(self.gamer_abs_path, self.gh_logger, self.yh_folder_dict)
-                    self.yh_folder_dict = self.gh.home_folder_dict
+                    try:
+                        self.gh = gi.girder_handler(self.gamer_abs_path, self.gh_logger, self.yh_folder_dict)
+                        self.yh_folder_dict = self.gh.home_folder_dict
+                    except Exception as e:
+                        self.set_fail_test('Download from girder fails', STATUS.DOWNLOAD)
+                        return self.status
 
                 if not self.gh_has_list:
-                    self.status = self.gh.download_compare_version_list()
+                    try:
+                        self.status = self.gh.download_compare_version_list()
+                    except Exception:
+                        self.status = STATUS.DOWNLOAD
                     if self.status != STATUS.SUCCESS:
                         self.set_fail_test('Download from girder fails', self.status)
+                        return self.status
                     else:
                         self.gh_has_list = True
 
@@ -355,34 +382,31 @@ class gamer_test():
 
         return self.status
 
+    def execute_scripts(self, mode):
+        """Execute group-level scripts in the run group directory."""
+        self.logger.info('Start execute scripts. Mode: %s' % mode)
+        if mode not in ['pre_script', 'post_script', 'user_compare_script']:
+            self.set_fail_test("Wrong mode of executing scripts.", STATUS.FAIL)
+            return self.status
+        out_log = LogPipe(self.logger, logging.DEBUG)
+        for script in self.config.get(mode, []):
+            if self.file_not_exist(script):
+                break
+            try:
+                self.logger.info('Executing: %s' % script)
+                subprocess.check_call(['sh', script, self.bin_path], stderr=out_log)
+            except:
+                self.set_fail_test("Error while executing %s." % script, STATUS.EXTERNAL)
+                break
+        out_log.close()
+        self.logger.info('Done execute scripts.')
+        return self.status
+
     def compare_data(self):
-        """
-        Check the answer of test result.
-
-        Parameters
-        ----------
-
-        kwargs    :
-           error_level : string
-              The error allowed level.
-        """
         self.logger.info('Start comparing data.')
-
-        # Get the list of files need to be compare
         for file_dict in self.config["reference"]:
-            # TODO: check the file path
-            temp = file_dict["name"].split('/')
-            case = "" if len(temp) == 1 else temp[0]
-
-            file_where, ref_path_to_file = file_dict["loc"].split(":")
-            ref_name = ref_path_to_file.split('/')[-1]
-
-            current_file = self.bin_path + "/" + file_dict["name"]
-            reference_file = self.bin_path + "/reference/" + case + '/' + ref_name
-            if self.file_not_exist(current_file):
-                return self.status
-            if self.file_not_exist(reference_file):
-                return self.status
+            current_file = os.path.join(self.bin_path, file_dict["name"])  # under run dir
+            reference_file = os.path.join(self.bin_path, 'reference', file_dict["name"])  # linked/downloaded
 
             if file_dict["file_type"] == "TEXT":
                 fail = compare_text(current_file, reference_file,
@@ -393,7 +417,7 @@ class gamer_test():
             elif file_dict["file_type"] == "NOTE":
                 fail = compare_note(current_file, reference_file, logger=self.logger)
             else:
-                print("compare unknow")
+                self.logger.error("Unknown compare file type: %s" % file_dict["file_type"])
                 fail = True
 
             if fail:

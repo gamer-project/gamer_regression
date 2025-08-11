@@ -106,12 +106,13 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler)
 
     has_version_list = False
     ythub_folder_dict = {}
-    # Group flat cases back into legacy structure per <TestName>_<Type>
-    grouped = {}
+    # Group by <TestName>_<Type> and run per-case via TestRunner
+    grouped_cfg = {}
+    grouped_cases: dict[str, list[TestCase]] = {}
     for tc in test_cases:
-        key = tc.test_key  # <TestName>_<Type>
-        if key not in grouped:
-            grouped[key] = {
+        key = tc.test_key
+        if key not in grouped_cfg:
+            grouped_cfg[key] = {
                 "name": tc.problem_name,
                 "pre_script": tc.pre_scripts,
                 "post_script": tc.post_scripts,
@@ -120,39 +121,72 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler)
                     {"name": r.name, "loc": r.loc, "file_type": r.file_type} for r in tc.references
                 ],
                 "levels": tc.levels,
-                "cases": [],
+                "cases": [],  # still needed by gamer_test.make_compare_tool
             }
-        grouped[key]["cases"].append({
+            grouped_cases[key] = []
+        grouped_cfg[key]["cases"].append({
             "Makefile": tc.makefile_cfg,
             "Input__Parameter": tc.input_parameter,
             "Input__TestProb": tc.input_testprob,
         })
+        grouped_cases[key].append(tc)
 
-    tests = [gamer.gamer_test(rtvars, name, cfg, rtvars.gamer_path, ch, file_handler)
-             for name, cfg in grouped.items()]
-    for test in tests:
+    results = {}
+    for name, cfg in grouped_cfg.items():
+        # Prepare run group dir and assign to cases
+        run_group_dir = os.path.join(rtvars.gamer_path, 'regression_test', 'run', name)
+        if os.path.isdir(run_group_dir):
+            subprocess.check_call(['rm', '-rf', run_group_dir])
+        os.makedirs(run_group_dir)
+
+        # Run each case directly with TestRunner
+        for tc in grouped_cases[name]:
+            tc.run_group_dir = run_group_dir
+            runner = gamer.TestRunner(rtvars, tc, rtvars.gamer_path, ch, file_handler)
+            test_logger = set_up_logger(name, ch, file_handler)
+            test_logger.info('Start running case: %s' % tc.case_name)
+            os.chdir(os.path.join(rtvars.gamer_path, 'src'))
+            if runner.compile_gamer() != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+            if runner.copy_case() != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+            os.chdir(runner.case_dir)
+            if runner.set_input() != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+            if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+            if runner.run_gamer() != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+            if runner.execute_scripts('post_script') != STATUS.SUCCESS:
+                results[name] = {"status": runner.status, "reason": runner.reason}
+                break
+
+        # Group-level operations with legacy gamer_test
+        test = gamer.gamer_test(rtvars, name, cfg, rtvars.gamer_path, ch, file_handler)
         test.logger.info('Test %s start.' % (test.name))
 
         test.gh_has_list = has_version_list
         test.yh_folder_dict = ythub_folder_dict
 
-        if test.run_all_cases() != STATUS.SUCCESS:
-            continue
-        if test.get_reference_data() != STATUS.SUCCESS:
-            continue
-        if test.make_compare_tool() != STATUS.SUCCESS:
-            continue
-        if test.compare_data() != STATUS.SUCCESS:
-            continue
-        if test.execute_scripts('user_compare_script') != STATUS.SUCCESS:
-            continue
+        if test.get_reference_data() == STATUS.SUCCESS and \
+           test.make_compare_tool() == STATUS.SUCCESS and \
+           test.compare_data() == STATUS.SUCCESS and \
+           test.execute_scripts('user_compare_script') == STATUS.SUCCESS:
+            results[name] = {"status": test.status, "reason": test.reason}
+        else:
+            results[name] = {"status": test.status, "reason": test.reason}
 
         has_version_list = test.gh_has_list
         ythub_folder_dict = test.yh_folder_dict
 
         test.logger.info('Test %s done.' % (test.name))
 
-    return {test.name: {"status": test.status, "reason": test.reason} for test in tests}
+    return results
 
 
 def write_args_to_log(logger, rtvars: RuntimeVariables, force_args=None):

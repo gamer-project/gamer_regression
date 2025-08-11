@@ -22,6 +22,8 @@ class TestCase:
     user_compare_scripts: List[str] = field(default_factory=list)
     references: List[TestReference] = field(default_factory=list)
     levels: Dict[str, float] = field(default_factory=dict)
+    # Path to run/<TestName>_<Type> directory (set by orchestrator)
+    run_group_dir: str = ""
 
     @property
     def test_key(self) -> str:
