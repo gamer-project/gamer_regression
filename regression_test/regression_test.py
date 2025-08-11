@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
     # Initialize regression test
     # Use new flat list of cases produced by TestExplorer
-    test_cases = test_explorer.test_cases
+    test_cases = test_explorer.get_test_cases()
 
     # Initialize logger
     ch, file_handler = log_init(rtvars.output)
