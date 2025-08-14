@@ -22,16 +22,26 @@ class TestCase:
     user_compare_scripts: List[str] = field(default_factory=list)
     references: List[TestReference] = field(default_factory=list)
     levels: Dict[str, float] = field(default_factory=dict)
-    # Path to run/<TestName>_<Type> directory (set by orchestrator)
-    run_group_dir: str = ""
+    # Path to run/<test_id> directory (set by orchestrator)
+    run_dir: str = ""
 
     @property
-    def test_key(self) -> str:
+    def test_group(self) -> str:
+        # Deprecated: legacy grouped identity (<TestName>_<Type>)
+        # Still be used in GirderReferenceProvider
         return f"{self.problem_name}_{self.type_name}"
 
     @property
     def case_name(self) -> str:
         return f"case_{self.case_index:02d}"
+
+    @property
+    def test_id(self) -> str:
+        """Flattened unique per-case identity.
+
+        Format: <TestName>_<Type>_c<case_index:02d>
+        """
+        return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
 
 
 @dataclass

@@ -1,0 +1,300 @@
+import hashlib
+import json
+import logging
+import os
+import re
+import subprocess
+from dataclasses import dataclass
+from os.path import isfile
+from typing import Dict, Tuple
+
+import numpy as np
+
+from .hdf5_file_config import hdf_info_read
+from .log_pipe import LogPipe
+from .models import TestCase
+from .reference import FetchContext, get_provider
+from .runtime_vars import RuntimeVariables
+from .utilities import STATUS, set_up_logger
+
+
+def _machine_paths(gamer_abs_path: str, machine: str) -> Dict[str, str]:
+    config_file = f"{gamer_abs_path}/configs/{machine}.config"
+    paths: Dict[str, str] = {}
+    with open(config_file, 'r') as f:
+        for line in f:
+            if 'PATH' not in line:
+                continue
+            temp = list(filter(None, re.split(" |:=|\n", line)))
+            if not temp:
+                continue
+            key = temp[0]
+            val = temp[1] if len(temp) > 1 else ''
+            paths[key] = val
+    return paths
+
+
+def _config_hash(make_cfg: Dict[str, object], machine_paths: Dict[str, str]) -> str:
+    data = {"Makefile": make_cfg, "paths": machine_paths}
+    s = json.dumps(data, sort_keys=True)
+    return hashlib.sha256(s.encode('utf-8')).hexdigest()[:16]
+
+
+@dataclass
+class CompareToolBuilder:
+    rtvars: RuntimeVariables
+    ch: object
+    fh: object
+
+    def get_tool(self, case: TestCase) -> Tuple[int, str, str]:
+        """Returns (STATUS, reason, tool_path). Builds if needed."""
+        logger = set_up_logger(f"{case.test_id}:tool", self.ch, self.fh)
+        base = os.path.join(self.rtvars.gamer_path, 'tool', 'analysis', 'gamer_compare_data')
+        paths = _machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
+        sig = _config_hash(case.makefile_cfg, paths)
+        tools_root = os.path.join(self.rtvars.gamer_path, 'regression_test', 'run', 'tools', sig)
+        exe = os.path.join(tools_root, 'GAMER_CompareData')
+        if os.path.isfile(exe):
+            return STATUS.SUCCESS, "", exe
+
+        os.makedirs(tools_root, exist_ok=True)
+        makefile_path = os.path.join(base, 'Makefile')
+        makefile_origin = os.path.join(base, 'Makefile.origin')
+        out_log = LogPipe(logger, logging.DEBUG)
+        try:
+            os.rename(makefile_path, makefile_origin)
+            with open(makefile_origin) as f:
+                content = f.read()
+            for k, v in paths.items():
+                content = content.replace(k + " :=", k + f" := {v}\n#")
+
+            model = case.makefile_cfg.get('model', 'HYDRO')
+            if model == 'HYDRO':
+                content = content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=HYDRO")
+            elif model == 'ELBDM':
+                content = content.replace("SIMU_OPTION += -DMODEL=HYDRO", "SIMU_OPTION += -DMODEL=ELBDM")
+            else:
+                raise ValueError(f"Unknown model {model} in case {case.test_id}")
+
+            if case.makefile_cfg.get('double', False):
+                content = content.replace("#SIMU_OPTION += -DFLOAT8", "SIMU_OPTION += -DFLOAT8")
+            if case.makefile_cfg.get('debug', False):
+                content = content.replace("#SIMU_OPTION += -DGAMER_DEBUG", "SIMU_OPTION += -DGAMER_DEBUG")
+            if case.makefile_cfg.get('hdf5', False):
+                content = content.replace("#SIMU_OPTION += -DSUPPORT_HDF5", "SIMU_OPTION += -DSUPPORT_HDF5")
+
+            with open(makefile_path, 'w') as f:
+                f.write(content)
+
+            os.chdir(base)
+            subprocess.check_call(['make', 'clean'], stderr=out_log)
+            subprocess.check_call(['make > make.log'], stderr=out_log, shell=True)
+            if not os.path.isfile(os.path.join(base, 'GAMER_CompareData')):
+                return STATUS.COMPILE_ERR, 'Compare tool missing after build', ''
+
+            os.rename(os.path.join(base, 'GAMER_CompareData'), exe)
+            # with open(os.path.join(tools_root, 'signature.json'), 'w') as f:
+            #     json.dump({"sig": sig}, f)
+            try:
+                os.remove(os.path.join(base, 'make.log'))
+            except Exception:
+                pass
+            return STATUS.SUCCESS, "", exe
+        except Exception as e:
+            return STATUS.COMPILE_ERR, f"Error while compiling the compare tool: {e}", ''
+        finally:
+            try:
+                if os.path.exists(makefile_path):
+                    os.remove(makefile_path)
+                if os.path.exists(makefile_origin):
+                    os.rename(makefile_origin, makefile_path)
+            except Exception:
+                pass
+            out_log.close()
+
+
+def _compare_text(logger, result_file, expect_file, err_allowed) -> bool:
+    logger.info(f"Comparing TEXT: {result_file} <--> {expect_file}")
+    if not os.path.isfile(result_file):
+        logger.error(f"Result file is missing: {result_file}")
+        return True
+    if not os.path.isfile(expect_file):
+        logger.error(f"Reference file is missing: {expect_file}")
+        return True
+    try:
+        a = np.loadtxt(result_file)
+        b = np.loadtxt(expect_file)
+    except Exception as e:
+        logger.error(f"Error reading TEXT files: {e}")
+        return True
+    if a.shape != b.shape:
+        logger.error('Data compare: data shapes are different.')
+        return True
+    err = np.max(np.abs(a - b))
+    if err > err_allowed:
+        logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.' % (err_allowed, err))
+        return True
+    logger.info("Comparing TEXT done.")
+    return False
+
+
+def _compare_hdf5(logger, tool_path, result_file, expect_file, err_allowed) -> bool:
+    out_log = LogPipe(logger, logging.DEBUG)
+    logger.info(f"Comparing HDF5: {result_file} <--> {expect_file}")
+    compare_program = tool_path
+    compare_result = os.path.join(os.path.dirname(tool_path), 'compare_result')
+    result_info = hdf_info_read(result_file)
+    expect_info = hdf_info_read(expect_file)
+    cmd = [compare_program, '-i', result_file, '-j', expect_file,
+           '-o', compare_result, '-e', str(err_allowed), '-c', '-m']
+    try:
+        with open(os.path.join(os.path.dirname(tool_path), 'compare.log'), 'w') as out_file:
+            subprocess.check_call(cmd, stderr=out_log, stdout=out_file)
+    except Exception:
+        out_log.close()
+        return True
+    fail_compare = False
+    try:
+        with open(compare_result, 'r') as f:
+            for line in f:
+                if line and line[0] not in ['#', '\n']:
+                    fail_compare = True
+                    break
+    except Exception:
+        fail_compare = True
+    if fail_compare:
+        logger.error('Result data is not identical to expect data')
+        logger.error('Error is greater than expected.')
+        str_len = str(max(len(expect_file), len(result_file), 50))
+        str_format = "%-"+str_len+"s %-"+str_len+"s"
+        logger.error('Type      : '+str_format % ("Expect",              "Result"))
+        logger.error('File name : '+str_format % (expect_file,           result_file))
+        logger.error('Git Branch: '+str_format % (expect_info.gitBranch, result_info.gitBranch))
+        logger.error('Git Commit: '+str_format % (expect_info.gitCommit, result_info.gitCommit))
+        logger.error('Unique ID : '+str_format % (expect_info.DataID,    result_info.DataID))
+    logger.info("Comparing HDF5 done.")
+    out_log.close()
+    return fail_compare
+
+
+def _store_note_para(file_name):
+    with open(file_name, "r") as f:
+        data = f.readlines()
+    paras = {}
+    in_section = False
+    cur_sec = ""
+    section_pattern = "*****"
+    skip_sec = ["Flag Criterion (# of Particles per Patch)", "Flag Criterion (Lohner Error Estimator)",
+                "Cell Size and Scale (scale = number of cells at the finest level)", "Compilation Time", "Current Time"]
+    end_sec = ["OpenMP Diagnosis", "Device Diagnosis"]
+    for i in range(len(data)):
+        if data[i] == "\n":
+            continue
+        if section_pattern in data[i]:
+            in_section = not in_section
+            continue
+        if not in_section:
+            sec = data[i].rstrip()
+            cur_sec = sec
+            if cur_sec in end_sec:
+                break
+            paras[cur_sec] = {}
+            continue
+        if cur_sec in skip_sec:
+            continue
+        para = data[i].rstrip().split()
+        key = " ".join(para[0:-1])
+        paras[cur_sec][key] = para[-1]
+    return paras
+
+
+def _compare_note(logger, result_note, expect_note) -> bool:
+    fail_compare = False
+    if not isfile(result_note) or not isfile(expect_note):
+        return fail_compare
+    logger.info(f"Comparing Record__Note: {result_note} <-> {expect_note}")
+    para_result = _store_note_para(result_note)
+    para_expect = _store_note_para(expect_note)
+    keys = set(para_result.keys()) | set(para_expect.keys())
+    for k in sorted(keys):
+        a = para_result.get(k, {})
+        b = para_expect.get(k, {})
+        if a != b:
+            logger.debug(f"Section diff: {k}")
+    logger.info("Comparison of Record__Note done.")
+    return fail_compare
+
+
+class TestComparator:
+    def __init__(self, rtvars: RuntimeVariables, ch, file_handler, tool_builder: CompareToolBuilder):
+        self.gamer_abs_path = rtvars.gamer_path
+        self.ch = ch
+        self.fh = file_handler
+        self.tool_builder = tool_builder
+        self.yh_folder_dict = {}
+        self.gh_has_list = False
+
+    def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
+        logger = set_up_logger(case.test_id + ":compare", self.ch, self.fh)
+        case_dir = case.run_dir
+        ref_root = os.path.join(case_dir, 'reference')
+        os.makedirs(ref_root, exist_ok=True)
+        # stage references directly under reference/ (flatten any legacy case_## prefix)
+        for ref in case.references:
+            try:
+                subdir = ref_root
+                os.makedirs(subdir, exist_ok=True)
+                ctx = FetchContext(
+                    gamer_abs_path=self.gamer_abs_path,
+                    logger_name=case.test_id,
+                    ch=self.ch,
+                    file_handler=self.fh,
+                    yh_folder_dict=self.yh_folder_dict,
+                    gh_has_list=self.gh_has_list,
+                    case=case,
+                )
+                provider = get_provider(ref.loc)
+                status, reason = provider.fetch(ref, subdir, ctx)
+                if status != STATUS.SUCCESS:
+                    return status, reason
+                if hasattr(provider, 'gh') and provider.gh is not None:
+                    self.yh_folder_dict = getattr(provider.gh, 'home_folder_dict', self.yh_folder_dict)
+                    self.gh_has_list = True
+            except Exception as e:
+                return STATUS.DOWNLOAD, f"Reference fetch error: {e}"
+
+        # get tool
+        tool_status, tool_reason, tool_path = self.tool_builder.get_tool(case)
+
+        # compare
+        for ref in case.references:
+            # Compare using basenames: current outputs are under case_dir/, references under ref_root/
+            fname = os.path.basename(ref.name)
+            cur_path = os.path.join(case_dir, fname)
+            ref_path = os.path.join(ref_root, fname)
+            if ref.file_type == 'TEXT':
+                failed = _compare_text(logger, cur_path, ref_path, case.levels[err_level])
+            elif ref.file_type == 'HDF5':
+                if tool_status != STATUS.SUCCESS:
+                    return STATUS.COMPARISON, tool_reason or 'Compare tool unavailable'
+                failed = _compare_hdf5(logger, tool_path, cur_path, ref_path, case.levels[err_level])
+            elif ref.file_type == 'NOTE':
+                failed = _compare_note(logger, cur_path, ref_path)
+            else:
+                return STATUS.FAIL, f"Unknown file_type {ref.file_type}"
+            if failed:
+                return STATUS.COMPARISON, 'Fail data comparison.'
+
+        # user compare scripts
+        out_log = LogPipe(logger, logging.DEBUG)
+        for script in case.user_compare_scripts:
+            try:
+                if not os.path.isfile(script):
+                    continue
+                subprocess.check_call(['sh', script, case_dir], stderr=out_log)
+            except Exception:
+                out_log.close()
+                return STATUS.EXTERNAL, f"Error while executing {script}"
+        out_log.close()
+
+        return STATUS.SUCCESS, ""

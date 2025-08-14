@@ -23,19 +23,17 @@ class TestRunner:
         self.case = case
         self.err_level = rtvars.error_level
         self.gamer_abs_path = gamer_abs_path
-        self.src_path = gamer_abs_path + '/src'
-        # group_dir provided via case.run_group_dir
-        self.group_dir = case.run_group_dir
-        self.case_dir = os.path.join(self.group_dir, case.case_name)
+        self.src_path = os.path.join(gamer_abs_path, 'src')
+        # per-case run dir provided by orchestrator
+        self.group_dir = None
+        self.case_dir = case.run_dir
         self.ref_path = os.path.join(gamer_abs_path, 'regression_test', 'tests', case.problem_name)
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
-        self.logger = set_up_logger(f"{case.test_key}:{case.case_name}", ch, file_handler)
-        self.rtvar: RuntimeVariables = rtvars
+        self.logger = set_up_logger(f"{case.test_id}", ch, file_handler)
+        self.rtvar = rtvars
         return
-
-    # Intentionally no run_all_cases here; orchestration happens in gamer_test
 
     def compile_gamer(self):
         self.logger.info('Start compiling GAMER')
@@ -137,14 +135,14 @@ class TestRunner:
         scripts = {
             'pre_script': self.case.pre_scripts,
             'post_script': self.case.post_scripts,
-            'user_compare_script': self.case.user_compare_scripts,
+            'user_compare_script': self.case.user_compare_scripts,  # TODO: TestComparator need it.
         }[mode]
         for script in scripts:
             if self.file_not_exist(script):
                 break
             try:
                 self.logger.info('Executing: %s' % script)
-                subprocess.check_call(['sh', script, self.group_dir], stderr=out_log)
+                subprocess.check_call(['sh', script, self.case_dir], stderr=out_log)
             except:
                 self.set_fail_test("Error while executing %s." % script, STATUS.EXTERNAL)
                 break
@@ -166,7 +164,7 @@ class TestRunner:
         try:
             subprocess.check_call([run_cmd], stderr=out_log, shell=True)
             if not isfile('./Record__Note'):
-                self.set_fail_test('No Record__Note in %s.' % self.case.test_key, STATUS.FAIL)
+                self.set_fail_test('No Record__Note in %s.' % self.case.test_id, STATUS.FAIL)
         except subprocess.CalledProcessError as err:
             self.set_fail_test('GAMER error', STATUS.EXTERNAL)
         finally:
