@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import subprocess
-from dataclasses import dataclass
 from os.path import isfile
 from typing import Dict, Tuple
 
@@ -18,40 +17,18 @@ from .runtime_vars import RuntimeVariables
 from .utilities import STATUS, set_up_logger
 
 
-def _machine_paths(gamer_abs_path: str, machine: str) -> Dict[str, str]:
-    config_file = f"{gamer_abs_path}/configs/{machine}.config"
-    paths: Dict[str, str] = {}
-    with open(config_file, 'r') as f:
-        for line in f:
-            if 'PATH' not in line:
-                continue
-            temp = list(filter(None, re.split(" |:=|\n", line)))
-            if not temp:
-                continue
-            key = temp[0]
-            val = temp[1] if len(temp) > 1 else ''
-            paths[key] = val
-    return paths
-
-
-def _config_hash(make_cfg: Dict[str, object], machine_paths: Dict[str, str]) -> str:
-    data = {"Makefile": make_cfg, "paths": machine_paths}
-    s = json.dumps(data, sort_keys=True)
-    return hashlib.sha256(s.encode('utf-8')).hexdigest()[:16]
-
-
-@dataclass
 class CompareToolBuilder:
-    rtvars: RuntimeVariables
-    ch: object
-    fh: object
+    def __init__(self, rtvars: RuntimeVariables, ch, fh):
+        self.rtvars = rtvars
+        self.ch = ch
+        self.fh = fh
 
     def get_tool(self, case: TestCase) -> Tuple[int, str, str]:
         """Returns (STATUS, reason, tool_path). Builds if needed."""
         logger = set_up_logger(f"{case.test_id}:tool", self.ch, self.fh)
         base = os.path.join(self.rtvars.gamer_path, 'tool', 'analysis', 'gamer_compare_data')
-        paths = _machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
-        sig = _config_hash(case.makefile_cfg, paths)
+        paths = self._machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
+        sig = self._config_hash(case.makefile_cfg, paths)
         tools_root = os.path.join(self.rtvars.gamer_path, 'regression_test', 'run', 'tools', sig)
         exe = os.path.join(tools_root, 'GAMER_CompareData')
         if os.path.isfile(exe):
@@ -93,8 +70,6 @@ class CompareToolBuilder:
                 return STATUS.COMPILE_ERR, 'Compare tool missing after build', ''
 
             os.rename(os.path.join(base, 'GAMER_CompareData'), exe)
-            # with open(os.path.join(tools_root, 'signature.json'), 'w') as f:
-            #     json.dump({"sig": sig}, f)
             try:
                 os.remove(os.path.join(base, 'make.log'))
             except Exception:
@@ -112,117 +87,25 @@ class CompareToolBuilder:
                 pass
             out_log.close()
 
-
-def _compare_text(logger, result_file, expect_file, err_allowed) -> bool:
-    logger.info(f"Comparing TEXT: {result_file} <--> {expect_file}")
-    if not os.path.isfile(result_file):
-        logger.error(f"Result file is missing: {result_file}")
-        return True
-    if not os.path.isfile(expect_file):
-        logger.error(f"Reference file is missing: {expect_file}")
-        return True
-    try:
-        a = np.loadtxt(result_file)
-        b = np.loadtxt(expect_file)
-    except Exception as e:
-        logger.error(f"Error reading TEXT files: {e}")
-        return True
-    if a.shape != b.shape:
-        logger.error('Data compare: data shapes are different.')
-        return True
-    err = np.max(np.abs(a - b))
-    if err > err_allowed:
-        logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.' % (err_allowed, err))
-        return True
-    logger.info("Comparing TEXT done.")
-    return False
-
-
-def _compare_hdf5(logger, tool_path, result_file, expect_file, err_allowed) -> bool:
-    out_log = LogPipe(logger, logging.DEBUG)
-    logger.info(f"Comparing HDF5: {result_file} <--> {expect_file}")
-    compare_program = tool_path
-    compare_result = os.path.join(os.path.dirname(tool_path), 'compare_result')
-    result_info = hdf_info_read(result_file)
-    expect_info = hdf_info_read(expect_file)
-    cmd = [compare_program, '-i', result_file, '-j', expect_file,
-           '-o', compare_result, '-e', str(err_allowed), '-c', '-m']
-    try:
-        with open(os.path.join(os.path.dirname(tool_path), 'compare.log'), 'w') as out_file:
-            subprocess.check_call(cmd, stderr=out_log, stdout=out_file)
-    except Exception:
-        out_log.close()
-        return True
-    fail_compare = False
-    try:
-        with open(compare_result, 'r') as f:
+    def _machine_paths(self, gamer_abs_path: str, machine: str) -> Dict[str, str]:
+        config_file = f"{gamer_abs_path}/configs/{machine}.config"
+        paths: Dict[str, str] = {}
+        with open(config_file, 'r') as f:
             for line in f:
-                if line and line[0] not in ['#', '\n']:
-                    fail_compare = True
-                    break
-    except Exception:
-        fail_compare = True
-    if fail_compare:
-        logger.error('Result data is not identical to expect data')
-        logger.error('Error is greater than expected.')
-        str_len = str(max(len(expect_file), len(result_file), 50))
-        str_format = "%-"+str_len+"s %-"+str_len+"s"
-        logger.error('Type      : '+str_format % ("Expect",              "Result"))
-        logger.error('File name : '+str_format % (expect_file,           result_file))
-        logger.error('Git Branch: '+str_format % (expect_info.gitBranch, result_info.gitBranch))
-        logger.error('Git Commit: '+str_format % (expect_info.gitCommit, result_info.gitCommit))
-        logger.error('Unique ID : '+str_format % (expect_info.DataID,    result_info.DataID))
-    logger.info("Comparing HDF5 done.")
-    out_log.close()
-    return fail_compare
+                if 'PATH' not in line:
+                    continue
+                temp = list(filter(None, re.split(" |:=|\n", line)))
+                if not temp:
+                    continue
+                key = temp[0]
+                val = temp[1] if len(temp) > 1 else ''
+                paths[key] = val
+        return paths
 
-
-def _store_note_para(file_name):
-    with open(file_name, "r") as f:
-        data = f.readlines()
-    paras = {}
-    in_section = False
-    cur_sec = ""
-    section_pattern = "*****"
-    skip_sec = ["Flag Criterion (# of Particles per Patch)", "Flag Criterion (Lohner Error Estimator)",
-                "Cell Size and Scale (scale = number of cells at the finest level)", "Compilation Time", "Current Time"]
-    end_sec = ["OpenMP Diagnosis", "Device Diagnosis"]
-    for i in range(len(data)):
-        if data[i] == "\n":
-            continue
-        if section_pattern in data[i]:
-            in_section = not in_section
-            continue
-        if not in_section:
-            sec = data[i].rstrip()
-            cur_sec = sec
-            if cur_sec in end_sec:
-                break
-            paras[cur_sec] = {}
-            continue
-        if cur_sec in skip_sec:
-            continue
-        para = data[i].rstrip().split()
-        key = " ".join(para[0:-1])
-        paras[cur_sec][key] = para[-1]
-    return paras
-
-
-def _compare_note(logger, result_note, expect_note) -> bool:
-    fail_compare = False
-    if not isfile(result_note) or not isfile(expect_note):
-        return fail_compare
-    logger.info(f"Comparing Record__Note: {result_note} <-> {expect_note}")
-    para_result = _store_note_para(result_note)
-    para_expect = _store_note_para(expect_note)
-    keys = set(para_result.keys()) | set(para_expect.keys())
-    for k in sorted(keys):
-        a = para_result.get(k, {})
-        b = para_expect.get(k, {})
-        if a != b:
-            logger.debug(f"Section diff: {k}")
-    logger.info("Comparison of Record__Note done.")
-    return fail_compare
+    def _config_hash(self, make_cfg: Dict[str, object], machine_paths: Dict[str, str]) -> str:
+        data = {"Makefile": make_cfg, "paths": machine_paths}
+        s = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(s.encode('utf-8')).hexdigest()[:16]
 
 
 class TestComparator:
@@ -239,7 +122,24 @@ class TestComparator:
         case_dir = case.run_dir
         ref_root = os.path.join(case_dir, 'reference')
         os.makedirs(ref_root, exist_ok=True)
-        # stage references directly under reference/ (flatten any legacy case_## prefix)
+
+        # 1) Get references
+        status, reason = self._fetch_references(case, ref_root, logger)
+        if status != STATUS.SUCCESS:
+            return status, reason
+
+        # 2) Build/ensure compare tool
+        tool_status, tool_reason, tool_path = self._build_compare_tool(case, logger)
+
+        # 3) Run comparisons
+        status, reason = self._run_comparisons(case, ref_root, err_level, tool_status, tool_reason, tool_path, logger)
+        if status != STATUS.SUCCESS:
+            return status, reason
+
+        return STATUS.SUCCESS, ""
+
+    # ---- internals: step 1 - reference staging ----
+    def _fetch_references(self, case: TestCase, ref_root: str, logger) -> Tuple[int, str]:
         for ref in case.references:
             try:
                 subdir = ref_root
@@ -262,24 +162,28 @@ class TestComparator:
                     self.gh_has_list = True
             except Exception as e:
                 return STATUS.DOWNLOAD, f"Reference fetch error: {e}"
+        return STATUS.SUCCESS, ""
 
-        # get tool
-        tool_status, tool_reason, tool_path = self.tool_builder.get_tool(case)
+    # ---- internals: step 2 - tool ensure/build ----
+    def _build_compare_tool(self, case: TestCase, logger) -> Tuple[int, str, str]:
+        return self.tool_builder.get_tool(case)
 
-        # compare
+    # ---- internals: step 3 - comparisons ----
+    def _run_comparisons(self, case: TestCase, ref_root: str, err_level: str,
+                         tool_status: int, tool_reason: str, tool_path: str, logger) -> Tuple[int, str]:
+        case_dir = case.run_dir
         for ref in case.references:
-            # Compare using basenames: current outputs are under case_dir/, references under ref_root/
             fname = os.path.basename(ref.name)
             cur_path = os.path.join(case_dir, fname)
             ref_path = os.path.join(ref_root, fname)
             if ref.file_type == 'TEXT':
-                failed = _compare_text(logger, cur_path, ref_path, case.levels[err_level])
+                failed = self._compare_text(logger, cur_path, ref_path, case.levels[err_level])
             elif ref.file_type == 'HDF5':
                 if tool_status != STATUS.SUCCESS:
                     return STATUS.COMPARISON, tool_reason or 'Compare tool unavailable'
-                failed = _compare_hdf5(logger, tool_path, cur_path, ref_path, case.levels[err_level])
+                failed = self._compare_hdf5(logger, tool_path, cur_path, ref_path, case.levels[err_level])
             elif ref.file_type == 'NOTE':
-                failed = _compare_note(logger, cur_path, ref_path)
+                failed = self._compare_note(logger, cur_path, ref_path)
             else:
                 return STATUS.FAIL, f"Unknown file_type {ref.file_type}"
             if failed:
@@ -296,5 +200,119 @@ class TestComparator:
                 out_log.close()
                 return STATUS.EXTERNAL, f"Error while executing {script}"
         out_log.close()
-
         return STATUS.SUCCESS, ""
+
+    # ---- comparison helpers ----
+    def _compare_text(self, logger, result_file, expect_file, err_allowed) -> bool:
+        logger.info(f"Comparing TEXT: {result_file} <--> {expect_file}")
+        if not os.path.isfile(result_file):
+            logger.error(f"Result file is missing: {result_file}")
+            return True
+        if not os.path.isfile(expect_file):
+            logger.error(f"Reference file is missing: {expect_file}")
+            return True
+        try:
+            a = np.loadtxt(result_file)
+            b = np.loadtxt(expect_file)
+        except Exception as e:
+            logger.error(f"Error reading TEXT files: {e}")
+            return True
+        if a.shape != b.shape:
+            logger.error('Data compare: data shapes are different.')
+            return True
+        err = np.max(np.abs(a - b))
+        if err > err_allowed:
+            logger.debug('Error is greater than expect. Expected: %.4e. Test: %.4e.' % (err_allowed, err))
+            return True
+        logger.info("Comparing TEXT done.")
+        return False
+
+    def _compare_hdf5(self, logger, tool_path, result_file, expect_file, err_allowed) -> bool:
+        out_log = LogPipe(logger, logging.DEBUG)
+        logger.info(f"Comparing HDF5: {result_file} <--> {expect_file}")
+        compare_program = tool_path
+        compare_result = os.path.join(os.path.dirname(tool_path), 'compare_result')
+        result_info = hdf_info_read(result_file)
+        expect_info = hdf_info_read(expect_file)
+        cmd = [compare_program, '-i', result_file, '-j', expect_file,
+               '-o', compare_result, '-e', str(err_allowed), '-c', '-m']
+        try:
+            with open(os.path.join(os.path.dirname(tool_path), 'compare.log'), 'w') as out_file:
+                subprocess.check_call(cmd, stderr=out_log, stdout=out_file)
+        except Exception:
+            out_log.close()
+            return True
+        fail_compare = False
+        try:
+            with open(compare_result, 'r') as f:
+                for line in f:
+                    if line and line[0] not in ['#', '\n']:
+                        fail_compare = True
+                        break
+        except Exception:
+            fail_compare = True
+        if fail_compare:
+            logger.error('Result data is not identical to expect data')
+            logger.error('Error is greater than expected.')
+            str_len = str(max(len(expect_file), len(result_file), 50))
+            str_format = "%-"+str_len+"s %-"+str_len+"s"
+            logger.error('Type      : '+str_format % ("Expect",              "Result"))
+            logger.error('File name : '+str_format % (expect_file,           result_file))
+            logger.error('Git Branch: '+str_format % (expect_info.gitBranch, result_info.gitBranch))
+            logger.error('Git Commit: '+str_format % (expect_info.gitCommit, result_info.gitCommit))
+            logger.error('Unique ID : '+str_format % (expect_info.DataID,    result_info.DataID))
+        logger.info("Comparing HDF5 done.")
+        out_log.close()
+        return fail_compare
+
+    @staticmethod
+    def _store_note_para(file_name):
+        with open(file_name, "r") as f:
+            data = f.readlines()
+        paras = {}
+        in_section = False
+        cur_sec = ""
+        section_pattern = "*****"
+        skip_sec = [
+            "Flag Criterion (# of Particles per Patch)",
+            "Flag Criterion (Lohner Error Estimator)",
+            "Cell Size and Scale (scale = number of cells at the finest level)",
+            "Compilation Time",
+            "Current Time",
+        ]
+        end_sec = ["OpenMP Diagnosis", "Device Diagnosis"]
+        for i in range(len(data)):
+            if data[i] == "\n":
+                continue
+            if section_pattern in data[i]:
+                in_section = not in_section
+                continue
+            if not in_section:
+                sec = data[i].rstrip()
+                cur_sec = sec
+                if cur_sec in end_sec:
+                    break
+                paras[cur_sec] = {}
+                continue
+            if cur_sec in skip_sec:
+                continue
+            para = data[i].rstrip().split()
+            key = " ".join(para[0:-1])
+            paras[cur_sec][key] = para[-1]
+        return paras
+
+    def _compare_note(self, logger, result_note, expect_note) -> bool:
+        fail_compare = False
+        if not isfile(result_note) or not isfile(expect_note):
+            return fail_compare
+        logger.info(f"Comparing Record__Note: {result_note} <-> {expect_note}")
+        para_result = self._store_note_para(result_note)
+        para_expect = self._store_note_para(expect_note)
+        keys = set(para_result.keys()) | set(para_expect.keys())
+        for k in sorted(keys):
+            a = para_result.get(k, {})
+            b = para_expect.get(k, {})
+            if a != b:
+                logger.debug(f"Section diff: {k}")
+        logger.info("Comparison of Record__Note done.")
+        return fail_compare
