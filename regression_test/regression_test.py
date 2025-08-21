@@ -231,7 +231,7 @@ if __name__ == '__main__':
 
     rtvars = RuntimeVariables(
         num_threads=os.cpu_count(),
-        gamer_path=os.path.dirname(os.path.dirname(__file__)),
+        gamer_path=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         py_exe=sys.executable,
         error_level=args.error_level,
         priority=args.priority,
