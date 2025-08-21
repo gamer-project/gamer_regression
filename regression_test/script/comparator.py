@@ -1,15 +1,13 @@
+import copy
 import hashlib
 import json
 import logging
+import numpy as np
 import os
 import re
-import copy
 import subprocess
 from os.path import isfile
 from typing import Dict, Tuple
-
-import numpy as np
-
 from .hdf5_file_config import hdf_info_read
 from .log_pipe import LogPipe
 from .models import TestCase

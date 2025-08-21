@@ -2,10 +2,9 @@ import os
 import subprocess
 from dataclasses import dataclass
 from typing import Protocol, Optional
-
+from .girder_inscript import girder_handler
 from .models import TestReference, TestCase
 from .utilities import set_up_logger, STATUS
-import script.girder_inscript as gi
 
 
 @dataclass
@@ -55,7 +54,7 @@ class GirderReferenceProvider:
 
         if self.gh is None:
             try:
-                self.gh = gi.girder_handler(ctx.gamer_abs_path, set_up_logger(
+                self.gh = girder_handler(ctx.gamer_abs_path, set_up_logger(
                     'girder', ctx.ch, ctx.file_handler), ctx.yh_folder_dict or {})
             except Exception:
                 return STATUS.DOWNLOAD, 'Download from girder fails (init)'

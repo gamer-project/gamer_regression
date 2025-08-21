@@ -1,21 +1,16 @@
-from __future__ import print_function
-from script.utilities import STATUS, read_test_config, set_up_logger
-import script.girder_inscript as gi
-import argparse
 import os
 import sys
 import logging
 import subprocess
-from os import listdir
+from typing import List
 from os.path import isfile
-
 from script.argparse import argument_handler
-from script.test_explorer import TestExplorer
-from script.run_gamer import TestRunner
 from script.comparator import TestComparator, CompareToolBuilder
 from script.models import TestCase
-from typing import List
+from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
+from script.test_explorer import TestExplorer
+from script.utilities import STATUS, set_up_logger
 
 
 """

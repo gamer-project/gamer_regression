@@ -1,13 +1,13 @@
 ####################################################################################################
 # Imports
 ####################################################################################################
-from script.utilities import STATUS, check_dict_key, gen2dict, read_yaml
-import girder_client
-import yaml
-import os
 import datetime
-import subprocess
 import getpass
+import girder_client
+import os
+import subprocess
+import yaml
+from .utilities import STATUS, check_dict_key, gen2dict, read_yaml
 
 
 ####################################################################################################

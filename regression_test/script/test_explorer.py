@@ -1,8 +1,8 @@
 import os
 from typing import Dict, List, Optional
-from .utilities import read_yaml
-from .runtime_vars import RuntimeVariables
 from .models import TestProblem, TestType, TestCase, TestReference
+from .runtime_vars import RuntimeVariables
+from .utilities import read_yaml
 
 
 PRIOR = {"high": 3, "medium": 2, "low": 1}
