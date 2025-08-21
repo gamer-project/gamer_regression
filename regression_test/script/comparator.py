@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import copy
 import subprocess
 from os.path import isfile
 from typing import Dict, Tuple
@@ -204,6 +205,7 @@ class TestComparator:
 
     # ---- comparison helpers ----
     def _compare_text(self, logger, result_file, expect_file, err_allowed) -> bool:
+        # TODO: support the user compare range(data)
         logger.info(f"Comparing TEXT: {result_file} <--> {expect_file}")
         if not os.path.isfile(result_file):
             logger.error(f"Result file is missing: {result_file}")
@@ -301,18 +303,58 @@ class TestComparator:
             paras[cur_sec][key] = para[-1]
         return paras
 
+    @staticmethod
+    def _diff_note_para(para_1: dict, para_2: dict) -> dict:
+        """Legacy-compatible parameter diff used for detailed logging.
+
+        Returns a dict {"1": {key: val1_or_EMPTY}, "2": {key: val2_or_EMPTY}} aggregating all diffs.
+        """
+        p1 = copy.deepcopy(para_1)
+        p2 = copy.deepcopy(para_2)
+        diff = {"1": {}, "2": {}}
+        for sec in list(para_1.keys()):
+            if sec not in para_2:
+                for k in para_1[sec]:
+                    diff["1"][k] = para_1[sec][k]
+                    diff["2"][k] = "EMPTY"
+                continue
+            for k in list(para_1[sec].keys()):
+                if k not in para_2[sec]:
+                    diff["1"][k] = para_1[sec][k]
+                    diff["2"][k] = "EMPTY"
+                    p1[sec].pop(k, None)
+                    continue
+                if para_1[sec][k] != para_2[sec][k]:
+                    diff["1"][k] = para_1[sec][k]
+                    diff["2"][k] = para_2[sec][k]
+                p1[sec].pop(k, None)
+                p2[sec].pop(k, None)
+            # remaining only-in-para2
+            for k in list(p2.get(sec, {}).keys()):
+                diff["1"][k] = "EMPTY"
+                diff["2"][k] = para_2[sec][k]
+            p1.pop(sec, None)
+            p2.pop(sec, None)
+        for sec in list(para_2.keys()):
+            if sec in para_1:
+                continue
+            for k in para_2[sec]:
+                diff["1"][k] = "EMPTY"
+                diff["2"][k] = para_2[sec][k]
+            p2.pop(sec, None)
+        return diff
+
     def _compare_note(self, logger, result_note, expect_note) -> bool:
         fail_compare = False
+        # TODO: Should this allways return passing?
         if not isfile(result_note) or not isfile(expect_note):
             return fail_compare
         logger.info(f"Comparing Record__Note: {result_note} <-> {expect_note}")
         para_result = self._store_note_para(result_note)
         para_expect = self._store_note_para(expect_note)
-        keys = set(para_result.keys()) | set(para_expect.keys())
-        for k in sorted(keys):
-            a = para_result.get(k, {})
-            b = para_expect.get(k, {})
-            if a != b:
-                logger.debug(f"Section diff: {k}")
+        diff = self._diff_note_para(para_result, para_expect)
+        logger.debug("%-30s | %40s | %40s |" % ("Parameter name", "result parameter", "expect parameter"))
+        for key in diff["1"]:
+            logger.debug("%-30s | %40s | %40s |" % (key, diff["1"][key], diff["2"][key]))
         logger.info("Comparison of Record__Note done.")
         return fail_compare

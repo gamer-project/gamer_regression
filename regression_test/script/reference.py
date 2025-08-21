@@ -30,7 +30,9 @@ class LocalReferenceProvider:
         logger = set_up_logger(ctx.logger_name + ":ref-local", ctx.ch, ctx.file_handler)
         _, path = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
-        target = os.path.join(dest_dir, os.path.basename(path))
+        # Prefer the declared name's basename to align with comparator expectations
+        target_name = os.path.basename(ref.name) if ref.name else os.path.basename(path)
+        target = os.path.join(dest_dir, target_name)
         try:
             if os.path.islink(target) or os.path.exists(target):
                 return STATUS.SUCCESS, ""
@@ -103,8 +105,10 @@ class UrlReferenceProvider:
         logger = set_up_logger(ctx.logger_name + ":ref-url", ctx.ch, ctx.file_handler)
         _, url = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
-        target = os.path.join(dest_dir, os.path.basename(url))
+        target_name = os.path.basename(ref.name) if ref.name else os.path.basename(url)
+        target = os.path.join(dest_dir, target_name)
         try:
+            # TODO: test download from url, the `-o` name should be wrong
             cmd = ["curl", "-L", url, "-o", target]
             logger.info("Downloading %s --> %s" % (url, target))
             subprocess.check_call(cmd)
