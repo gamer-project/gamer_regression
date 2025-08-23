@@ -5,15 +5,14 @@ import logging
 import numpy as np
 import os
 import re
-import subprocess
 from os.path import isfile
 from typing import Dict, Tuple
 from .hdf5_file_config import hdf_info_read
-from .log_pipe import LogPipe
 from .models import TestCase
 from .reference import FetchContext, get_provider
 from .runtime_vars import RuntimeVariables
 from .utilities import STATUS, set_up_logger
+from .process_runner import run_process
 
 
 class CompareToolBuilder:
@@ -36,7 +35,7 @@ class CompareToolBuilder:
         os.makedirs(tools_root, exist_ok=True)
         makefile_path = os.path.join(base, 'Makefile')
         makefile_origin = os.path.join(base, 'Makefile.origin')
-        out_log = LogPipe(logger, logging.DEBUG)
+        # Build with streaming logs and tee to make.log
         try:
             os.rename(makefile_path, makefile_origin)
             with open(makefile_origin) as f:
@@ -63,8 +62,9 @@ class CompareToolBuilder:
                 f.write(content)
 
             os.chdir(base)
-            subprocess.check_call(['make', 'clean'], stderr=out_log)
-            subprocess.check_call(['make > make.log'], stderr=out_log, shell=True)
+            run_process(['make', 'clean'], logger=logger, level=logging.DEBUG)
+            run_process('make', logger=logger, level=logging.DEBUG,
+                        shell=True, tee_stdout='make.log', merge_streams=True)
             if not os.path.isfile(os.path.join(base, 'GAMER_CompareData')):
                 return STATUS.COMPILE_ERR, 'Compare tool missing after build', ''
 
@@ -84,7 +84,6 @@ class CompareToolBuilder:
                     os.rename(makefile_origin, makefile_path)
             except Exception:
                 pass
-            out_log.close()
 
     def _machine_paths(self, gamer_abs_path: str, machine: str) -> Dict[str, str]:
         config_file = f"{gamer_abs_path}/configs/{machine}.config"
@@ -189,16 +188,13 @@ class TestComparator:
                 return STATUS.COMPARISON, 'Fail data comparison.'
 
         # user compare scripts
-        out_log = LogPipe(logger, logging.DEBUG)
         for script in case.user_compare_scripts:
             try:
                 if not os.path.isfile(script):
                     continue
-                subprocess.check_call(['sh', script, case_dir], stderr=out_log)
+                run_process(['sh', script, case_dir], logger=logger, level=logging.DEBUG)
             except Exception:
-                out_log.close()
                 return STATUS.EXTERNAL, f"Error while executing {script}"
-        out_log.close()
         return STATUS.SUCCESS, ""
 
     # ---- comparison helpers ----
@@ -228,7 +224,6 @@ class TestComparator:
         return False
 
     def _compare_hdf5(self, logger, tool_path, result_file, expect_file, err_allowed) -> bool:
-        out_log = LogPipe(logger, logging.DEBUG)
         logger.info(f"Comparing HDF5: {result_file} <--> {expect_file}")
         compare_program = tool_path
         compare_result = os.path.join(os.path.dirname(tool_path), 'compare_result')
@@ -236,12 +231,15 @@ class TestComparator:
         expect_info = hdf_info_read(expect_file)
         cmd = [compare_program, '-i', result_file, '-j', expect_file,
                '-o', compare_result, '-e', str(err_allowed), '-c', '-m']
-        try:
-            with open(os.path.join(os.path.dirname(tool_path), 'compare.log'), 'w') as out_file:
-                subprocess.check_call(cmd, stderr=out_log, stdout=out_file)
-        except Exception:
-            out_log.close()
-            return True
+
+        # Run compare tool: tee stdout to compare.log (overwrite), stream both streams to logger
+        compare_log_path = os.path.join(os.path.dirname(tool_path), 'compare.log')
+        if os.path.exists(compare_log_path):
+            os.remove(compare_log_path)
+        returncode = run_process(cmd, logger=logger, level=logging.DEBUG, tee_stdout=compare_log_path, check=False)
+        if returncode != 0:
+            return True  # Running the tool failed (non-zero exit)
+
         fail_compare = False
         try:
             with open(compare_result, 'r') as f:
@@ -262,7 +260,6 @@ class TestComparator:
             logger.error('Git Commit: '+str_format % (expect_info.gitCommit, result_info.gitCommit))
             logger.error('Unique ID : '+str_format % (expect_info.DataID,    result_info.DataID))
         logger.info("Comparing HDF5 done.")
-        out_log.close()
         return fail_compare
 
     @staticmethod

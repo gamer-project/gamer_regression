@@ -183,9 +183,6 @@ def set_up_logger(logger_name, ch, file_handler):
 
     """
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
-    logger.addHandler(ch)
-    logger.addHandler(file_handler)
-
+    # Avoid per-logger handlers to prevent duplicates
+    assert not logger.handlers, f"Logger {logger_name} should not have any handlers attached."
     return logger

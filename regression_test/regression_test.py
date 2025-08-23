@@ -11,6 +11,7 @@ from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.test_explorer import TestExplorer
 from script.utilities import STATUS, set_up_logger
+from script.logging_center import LoggingManager, make_standard_handlers
 
 
 """
@@ -57,32 +58,13 @@ def get_git_info():
 
 
 def log_init(log_file_name):
-    """
-    Initialize the logger.
-
-    Returns
-    -------
-
-    ch           : class logging.StreamHandler
-       Saving the screen output format to the logger.
-    file_handler : class logging.FileHandler
-       Saving the file output format to the logger.
-    """
-    # 1. Set up log config
-    logging.basicConfig(level=0)
-
-    ch = logging.StreamHandler()
-    file_handler = logging.FileHandler(log_file_name)
-
-    # 2. Add log config into std output
-    ch.setLevel(logging.DEBUG)
+    """Initialize queue-based logging and return console/file handlers for set_up_logger compatibility."""
+    ch, fh = make_standard_handlers(log_file_name)
+    # Maintain existing file format for compatibility in set_up_logger
     ch.setFormatter(STD_FORMATTER)
-
-    # 3. Add log config into file
-    file_handler.setLevel(0)
-    file_handler.setFormatter(SAVE_FORMATTER)
-
-    return ch, file_handler
+    fh.setFormatter(SAVE_FORMATTER)
+    LoggingManager.setup([ch, fh], level=logging.DEBUG)
+    return ch, fh
 
 
 def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler):

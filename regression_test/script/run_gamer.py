@@ -2,10 +2,10 @@ import logging
 import os
 import subprocess
 from os.path import isfile
-from .log_pipe import LogPipe
 from .models import TestCase
 from .runtime_vars import RuntimeVariables
 from .utilities import STATUS, set_up_logger
+from .process_runner import run_process
 
 
 ####################################################################################################
@@ -32,7 +32,6 @@ class TestRunner:
 
     def compile_gamer(self):
         self.logger.info('Start compiling GAMER')
-        out_log = LogPipe(self.logger, logging.DEBUG)
 
         # 1. Back up the original Makefile
         keep_makefile = isfile('Makefile')
@@ -44,19 +43,19 @@ class TestRunner:
 
         try:
             self.logger.debug("Generating Makefile using: %s" % (" ".join(cmd)))
-            subprocess.check_call(cmd)
+            run_process(cmd, self.logger)
         except subprocess.CalledProcessError:
             self.set_fail_test("Error while editing Makefile.", STATUS.EDITING_FAIL)
             if keep_makefile:
                 subprocess.check_call(['cp', 'Makefile.origin', 'Makefile'])
                 subprocess.check_call(['rm', 'Makefile.origin'])
-            out_log.close()
             return self.status
 
         # 3. Compile GAMER
         try:
-            subprocess.check_call(['make', 'clean'], stderr=out_log)
-            subprocess.check_call(['make -j > make.log'], stderr=out_log, shell=True)
+            run_process(['make', 'clean'], logger=self.logger, level=logging.DEBUG)
+            run_process('make -j', logger=self.logger, level=logging.DEBUG,
+                        shell=True, tee_stdout='make.log', merge_streams=True)
             subprocess.check_call(['rm', 'make.log'])
         except subprocess.CalledProcessError:
             self.set_fail_test("Compiling error.", STATUS.COMPILE_ERR)
@@ -69,8 +68,6 @@ class TestRunner:
                 subprocess.check_call(['rm', 'Makefile.origin'])
             else:
                 subprocess.check_call(['rm', 'Makefile'])
-
-            out_log.close()
 
         # 4. Check if gamer exist
         if self.file_not_exist('./gamer'):
@@ -125,8 +122,6 @@ class TestRunner:
         if mode not in ['pre_script', 'post_script', 'user_compare_script']:
             self.set_fail_test("Wrong mode of executing scripts.", STATUS.FAIL)
             return self.status
-
-        out_log = LogPipe(self.logger, logging.DEBUG)
         scripts = {
             'pre_script': self.case.pre_scripts,
             'post_script': self.case.post_scripts,
@@ -137,33 +132,31 @@ class TestRunner:
                 break
             try:
                 self.logger.info('Executing: %s' % script)
-                subprocess.check_call(['sh', script, self.case_dir], stderr=out_log)
-            except:
+                run_process(['sh', script, self.case_dir], logger=self.logger, level=logging.DEBUG)
+            except Exception:
                 self.set_fail_test("Error while executing %s." % script, STATUS.EXTERNAL)
                 break
-        out_log.close()
         self.logger.info('Done execute scripts.')
         return self.status
 
     def run_gamer(self):
-        out_log = LogPipe(self.logger, logging.DEBUG)
         run_mpi = False
         if "mpi" in self.case.makefile_cfg:
             run_mpi = self.case.makefile_cfg["mpi"]
 
         run_cmd = "mpirun -map-by ppr:%d:socket:pe=%d --report-bindings " % (
             self.rtvar.mpi_rank, self.rtvar.mpi_core_per_rank) if run_mpi else ""
-        run_cmd += "./gamer 1>>log 2>&1"
+        run_cmd += "./gamer"
 
         self.logger.info('Running GAMER.')
         try:
-            subprocess.check_call([run_cmd], stderr=out_log, shell=True)
+            # Stream into logging and tee to file 'log' for artifact
+            run_process(run_cmd, logger=self.logger, level=logging.DEBUG,
+                        shell=True, merge_streams=True, tee_stdout='log')
             if not isfile('./Record__Note'):
                 self.set_fail_test('No Record__Note in %s.' % self.case.test_id, STATUS.FAIL)
-        except subprocess.CalledProcessError as err:
+        except subprocess.CalledProcessError:
             self.set_fail_test('GAMER error', STATUS.EXTERNAL)
-        finally:
-            out_log.close()
         self.logger.info('GAMER done.')
 
         return self.status
