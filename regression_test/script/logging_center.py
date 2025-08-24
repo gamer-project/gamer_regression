@@ -10,24 +10,13 @@ _ctx_test_id: contextvars.ContextVar[str] = contextvars.ContextVar("test_id", de
 _ctx_phase: contextvars.ContextVar[str] = contextvars.ContextVar("phase", default="-")
 
 
-class ContextFilter(logging.Filter):
-    """Attach context fields (test_id/phase) to every record if missing."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not hasattr(record, "test_id"):
-            record.test_id = _ctx_test_id.get()
-        if not hasattr(record, "phase"):
-            record.phase = _ctx_phase.get()
-        return True
-
-
 class LoggingManager:
     """Singleton-like manager that wires QueueHandler on root and a QueueListener with real handlers."""
 
     _initialized = False
     _listener: Optional[logging.handlers.QueueListener] = None
     _queue: Optional[queue.Queue] = None
-    _filter = ContextFilter()
+    _prev_record_factory = None
 
     @classmethod
     def setup(
@@ -39,6 +28,19 @@ class LoggingManager:
         if cls._initialized:
             return
 
+        # Install a LogRecord factory that injects context values at creation time (producer thread)
+        cls._prev_record_factory = logging.getLogRecordFactory()
+
+        def _record_factory(*args, **kwargs):
+            record = cls._prev_record_factory(*args, **kwargs)
+            if not hasattr(record, "test_id"):
+                record.test_id = _ctx_test_id.get()
+            if not hasattr(record, "phase"):
+                record.phase = _ctx_phase.get()
+            return record
+
+        logging.setLogRecordFactory(_record_factory)
+
         # 1) Root gets a QueueHandler only
         cls._queue = queue.Queue(maxsize=queue_size)  # TODO: Change it to multiprocessing.Queue?
         qh = logging.handlers.QueueHandler(cls._queue)
@@ -48,18 +50,12 @@ class LoggingManager:
         assert not root.handlers, "Root logger should have no handlers before setup"
         root.addHandler(qh)
 
-        # 2) Attach context filter to downstream handlers
-        real_handlers = []
-        for h in handlers:
-            h.addFilter(cls._filter)
-            real_handlers.append(h)
-
-        # 3) One listener thread that does formatting/I/O
-        cls._listener = logging.handlers.QueueListener(cls._queue, *real_handlers, respect_handler_level=True)
+        # 2) One listener thread that does formatting/I/O
+        cls._listener = logging.handlers.QueueListener(cls._queue, *list(handlers), respect_handler_level=True)
         cls._listener.daemon = True
         cls._listener.start()
 
-        # 4) Forward warnings into logging
+        # 3) Forward warnings into logging
         logging.captureWarnings(True)
 
         cls._initialized = True
@@ -69,6 +65,10 @@ class LoggingManager:
         if cls._listener is not None:
             cls._listener.stop()
             cls._listener = None
+        # Restore previous record factory
+        if cls._prev_record_factory is not None:
+            logging.setLogRecordFactory(cls._prev_record_factory)
+            cls._prev_record_factory = None
         cls._initialized = False
 
 
@@ -83,6 +83,11 @@ def set_log_context(test_id: Optional[str] = None, phase: Optional[str] = None) 
 def clear_log_context() -> None:
     _ctx_test_id.set("-")
     _ctx_phase.set("-")
+
+
+def get_log_context() -> dict:
+    """Return a snapshot of current context values for propagation to worker threads."""
+    return {"test_id": _ctx_test_id.get(), "phase": _ctx_phase.get()}
 
 
 def log_init(log_file_path):

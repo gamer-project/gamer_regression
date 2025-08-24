@@ -5,7 +5,7 @@ from typing import List
 from os.path import isfile
 from script.argparse import argument_handler
 from script.comparator import TestComparator, CompareToolBuilder
-from script.logging_center import log_init
+from script.logging_center import log_init, set_log_context, clear_log_context
 from script.models import TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
@@ -74,32 +74,49 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
         # Run case
         runner = TestRunner(rtvars, tc, rtvars.gamer_path)
         test_logger = set_up_logger(tc.test_id)
-        test_logger.info('Start running case')
-        os.chdir(os.path.join(rtvars.gamer_path, 'src'))
-        if runner.compile_gamer() != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
-        if runner.copy_case() != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
-        os.chdir(runner.case_dir)
-        if runner.set_input() != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
-        if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
-        if runner.run_gamer() != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
-        if runner.execute_scripts('post_script') != STATUS.SUCCESS:
-            results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
-            continue
+        try:
+            set_log_context(test_id=tc.test_id, phase='start')
+            test_logger.info('Start running case')
 
-        # Compare
-        status, reason = comparator.compare(tc, rtvars.error_level)
-        results[tc.test_id] = {"status": status, "reason": reason}
-        test_logger.info('Case done')
+            set_log_context(phase='compile')
+            os.chdir(os.path.join(rtvars.gamer_path, 'src'))
+            if runner.compile_gamer() != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            set_log_context(phase='prepare')
+            if runner.copy_case() != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            set_log_context(phase='set_input')
+            os.chdir(runner.case_dir)
+            if runner.set_input() != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            set_log_context(phase='pre_script')
+            if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            set_log_context(phase='run')
+            if runner.run_gamer() != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            set_log_context(phase='post_script')
+            if runner.execute_scripts('post_script') != STATUS.SUCCESS:
+                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                continue
+
+            # Compare
+            set_log_context(phase='compare')
+            status, reason = comparator.compare(tc, rtvars.error_level)
+            results[tc.test_id] = {"status": status, "reason": reason}
+            test_logger.info('Case done')
+        finally:
+            clear_log_context()
 
     return results
 

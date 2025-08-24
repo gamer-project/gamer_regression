@@ -2,6 +2,7 @@ import logging
 import subprocess
 import threading
 from typing import Optional, Sequence, Union
+from .logging_center import set_log_context, get_log_context
 
 
 class _StreamLogger(threading.Thread):
@@ -19,8 +20,12 @@ class _StreamLogger(threading.Thread):
         self._level = level
         self._tee_fp = open(tee_path, "ab", buffering=0) if tee_path else None
         self._stop_evt = threading.Event()
+        # Capture context at construction time from parent thread
+        self._ctx = get_log_context()
 
     def run(self):
+        # Apply captured context into this thread
+        set_log_context(test_id=self._ctx.get("test_id"), phase=self._ctx.get("phase"))
         while not self._stop_evt.is_set():
             chunk = self._stream.readline()
             if not chunk:
