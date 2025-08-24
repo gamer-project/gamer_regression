@@ -14,7 +14,7 @@ from .process_runner import run_process
 class TestRunner:
     """Run a single TestCase (compile, copy, set inputs, pre/post, run GAMER)."""
 
-    def __init__(self, rtvars: RuntimeVariables, case: TestCase, gamer_abs_path: str, ch, file_handler):
+    def __init__(self, rtvars: RuntimeVariables, case: TestCase, gamer_abs_path: str):
         self.case = case
         self.err_level = rtvars.error_level
         self.gamer_abs_path = gamer_abs_path
@@ -26,7 +26,7 @@ class TestRunner:
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
-        self.logger = set_up_logger(f"{case.test_id}", ch, file_handler)
+        self.logger = set_up_logger(f"{case.test_id}")
         self.rtvar = rtvars
         return
 

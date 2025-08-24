@@ -85,15 +85,22 @@ def clear_log_context() -> None:
     _ctx_phase.set("-")
 
 
-def make_standard_handlers(log_file_path: str) -> tuple[logging.Handler, logging.Handler]:
-    """Create console and file handlers with default formatters compatible with existing output."""
+def log_init(log_file_path):
+    """Initialize queue-based logging."""
+    ROOT_LEVEL = logging.DEBUG
+    CONSOLE_LEVEL = logging.DEBUG
+    FILE_LEVEL = logging.DEBUG
+    CONSOLE_FORMAT = '%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s'
+    FILE_FORMAT = '%(levelname)-8s %(name)-20s [%(test_id)s|%(phase)s] %(message)s'
+
     # Console handler
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    ch.setFormatter(logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s'))
+    ch.setLevel(CONSOLE_LEVEL)
+    ch.setFormatter(logging.Formatter(CONSOLE_FORMAT))
 
     # File handler (more compact, but include context)
     fh = logging.FileHandler(log_file_path)
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter('%(levelname)-8s %(name)-20s [%(test_id)s|%(phase)s] %(message)s'))
-    return ch, fh
+    fh.setLevel(FILE_LEVEL)
+    fh.setFormatter(logging.Formatter(FILE_FORMAT))
+
+    LoggingManager.setup([ch, fh], level=ROOT_LEVEL)

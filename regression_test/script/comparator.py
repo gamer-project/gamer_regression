@@ -16,14 +16,12 @@ from .process_runner import run_process
 
 
 class CompareToolBuilder:
-    def __init__(self, rtvars: RuntimeVariables, ch, fh):
+    def __init__(self, rtvars: RuntimeVariables):
         self.rtvars = rtvars
-        self.ch = ch
-        self.fh = fh
 
     def get_tool(self, case: TestCase) -> Tuple[int, str, str]:
         """Returns (STATUS, reason, tool_path). Builds if needed."""
-        logger = set_up_logger(f"{case.test_id}:tool", self.ch, self.fh)
+        logger = set_up_logger(f"{case.test_id}:tool")
         base = os.path.join(self.rtvars.gamer_path, 'tool', 'analysis', 'gamer_compare_data')
         paths = self._machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
         sig = self._config_hash(case.makefile_cfg, paths)
@@ -107,16 +105,14 @@ class CompareToolBuilder:
 
 
 class TestComparator:
-    def __init__(self, rtvars: RuntimeVariables, ch, file_handler, tool_builder: CompareToolBuilder):
+    def __init__(self, rtvars: RuntimeVariables, tool_builder: CompareToolBuilder):
         self.gamer_abs_path = rtvars.gamer_path
-        self.ch = ch
-        self.fh = file_handler
         self.tool_builder = tool_builder
         self.yh_folder_dict = {}
         self.gh_has_list = False
 
     def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
-        logger = set_up_logger(case.test_id + ":compare", self.ch, self.fh)
+        logger = set_up_logger(case.test_id + ":compare")
         case_dir = case.run_dir
         ref_root = os.path.join(case_dir, 'reference')
         os.makedirs(ref_root, exist_ok=True)
@@ -145,8 +141,6 @@ class TestComparator:
                 ctx = FetchContext(
                     gamer_abs_path=self.gamer_abs_path,
                     logger_name=case.test_id,
-                    ch=self.ch,
-                    file_handler=self.fh,
                     yh_folder_dict=self.yh_folder_dict,
                     gh_has_list=self.gh_has_list,
                     case=case,

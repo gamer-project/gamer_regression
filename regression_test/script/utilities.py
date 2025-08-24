@@ -161,7 +161,7 @@ def read_test_config(test_names):
     return all_test_name_configs, all_test_types
 
 
-def set_up_logger(logger_name, ch, file_handler):
+def set_up_logger(logger_name):
     """
     Set up settings to logger object
 
@@ -170,10 +170,6 @@ def set_up_logger(logger_name, ch, file_handler):
 
     logger_name  : string
        The name of logger.
-    ch           : class logging.StreamHandler
-       Saving the screen output format to the logger.
-    file_handler : class logging.FileHandler
-       Saving the file output format to the logger.
 
     Returns
     -------

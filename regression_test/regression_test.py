@@ -1,17 +1,16 @@
 import os
 import sys
-import logging
 import subprocess
 from typing import List
 from os.path import isfile
 from script.argparse import argument_handler
 from script.comparator import TestComparator, CompareToolBuilder
+from script.logging_center import log_init
 from script.models import TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.test_explorer import TestExplorer
 from script.utilities import STATUS, set_up_logger
-from script.logging_center import LoggingManager, make_standard_handlers
 
 
 """
@@ -26,14 +25,6 @@ Documents:
 3. how to modify
 4. the logic of regression test
 """
-
-
-####################################################################################################
-# Global variables
-####################################################################################################
-# 3. Logging variable
-STD_FORMATTER = logging.Formatter('%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s')
-SAVE_FORMATTER = logging.Formatter('%(levelname)-8s %(name)-20s %(message)s')
 
 
 ####################################################################################################
@@ -57,17 +48,7 @@ def get_git_info():
     return gamer_commit
 
 
-def log_init(log_file_name):
-    """Initialize queue-based logging and return console/file handlers for set_up_logger compatibility."""
-    ch, fh = make_standard_handlers(log_file_name)
-    # Maintain existing file format for compatibility in set_up_logger
-    ch.setFormatter(STD_FORMATTER)
-    fh.setFormatter(SAVE_FORMATTER)
-    LoggingManager.setup([ch, fh], level=logging.DEBUG)
-    return ch, fh
-
-
-def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler):
+def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
     """
     Main regression test.
 
@@ -76,15 +57,11 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler)
 
     tests        : dict
        A dictionary of a sequence of the test paths with a key access of the test names.
-    ch           : class logging.StreamHandler
-       Saving the screen output format to the logger.
-    file_handler : class logging.FileHandler
-       Saving the file output format to the logger.
     """
 
     results: dict[str, dict] = {}
-    tool_builder = CompareToolBuilder(rtvars, ch, file_handler)
-    comparator = TestComparator(rtvars, ch, file_handler, tool_builder)
+    tool_builder = CompareToolBuilder(rtvars)
+    comparator = TestComparator(rtvars, tool_builder)
 
     run_root = os.path.join(rtvars.gamer_path, 'regression_test', 'run')
     for tc in test_cases:
@@ -95,8 +72,8 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase], ch, file_handler)
         # os.makedirs(tc.run_dir)
 
         # Run case
-        runner = TestRunner(rtvars, tc, rtvars.gamer_path, ch, file_handler)
-        test_logger = set_up_logger(tc.test_id, ch, file_handler)
+        runner = TestRunner(rtvars, tc, rtvars.gamer_path)
+        test_logger = set_up_logger(tc.test_id)
         test_logger.info('Start running case')
         os.chdir(os.path.join(rtvars.gamer_path, 'src'))
         if runner.compile_gamer() != STATUS.SUCCESS:
@@ -235,9 +212,9 @@ if __name__ == '__main__':
     test_cases = test_explorer.get_test_cases()
 
     # Initialize logger
-    ch, file_handler = log_init(rtvars.output)
+    log_init(rtvars.output)
 
-    test_logger = set_up_logger('regression_test', ch, file_handler)
+    test_logger = set_up_logger('regression_test')
 
     test_logger.info('Recording the commit version.')
     test_logger.info('GAMER      version   : %-s' % (GAMER_CURRENT_COMMIT))
@@ -253,7 +230,7 @@ if __name__ == '__main__':
     # Regression test
     try:
         test_logger.info('Regression test start.')
-        result = main(rtvars, test_cases, ch, file_handler)
+        result = main(rtvars, test_cases)
         test_logger.info('Regression test done.')
     except Exception:
         test_logger.critical('', exc_info=True)
@@ -272,7 +249,7 @@ if __name__ == '__main__':
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y', 'y', 'yes']:
-        upload_logger = set_up_logger('upload', ch, file_handler)
+        upload_logger = set_up_logger('upload')
         upload_process({}, upload_logger)
     elif upload_or_not in ['N', 'n', 'no']:
         exit(1)
