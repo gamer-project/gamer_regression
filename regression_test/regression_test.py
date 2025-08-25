@@ -2,7 +2,6 @@ import os
 import sys
 import subprocess
 from typing import List
-from os.path import isfile
 from script.argparse import argument_handler
 from script.comparator import TestComparator, CompareToolBuilder
 from script.logging_center import log_init, set_log_context, clear_log_context
@@ -214,10 +213,6 @@ if __name__ == '__main__':
         mpi_rank=args.mpi_rank,
         mpi_core_per_rank=args.mpi_core_per_rank
     )
-
-    if isfile(rtvars.output):
-        print('WARNING!!! %s is already exist. The original log file will be removed.' % (rtvars.output))
-        os.remove(rtvars.output)
 
     test_explorer = TestExplorer(rtvars)
 

@@ -1,4 +1,5 @@
 import contextvars
+import os
 import logging
 import logging.handlers
 import queue
@@ -13,19 +14,15 @@ _ctx_phase: contextvars.ContextVar[str] = contextvars.ContextVar("phase", defaul
 class LoggingManager:
     """Singleton-like manager that wires QueueHandler on root and a QueueListener with real handlers."""
 
-    _initialized = False
+    _bootstrapped = False
     _listener: Optional[logging.handlers.QueueListener] = None
     _queue: Optional[queue.Queue] = None
     _prev_record_factory = None
 
     @classmethod
-    def setup(
-        cls,
-        handlers: Iterable[logging.Handler],
-        level: int,
-        queue_size: int = 10000,
-    ) -> None:
-        if cls._initialized:
+    def bootstrap(cls, level: int, queue_size: int = 10000) -> None:
+        """Install LogRecord factory, root QueueHandler, and set root level."""
+        if cls._bootstrapped:
             return
 
         # Install a LogRecord factory that injects context values at creation time (producer thread)
@@ -41,7 +38,7 @@ class LoggingManager:
 
         logging.setLogRecordFactory(_record_factory)
 
-        # 1) Root gets a QueueHandler only
+        # Root gets a QueueHandler only
         cls._queue = queue.Queue(maxsize=queue_size)  # TODO: Change it to multiprocessing.Queue?
         qh = logging.handlers.QueueHandler(cls._queue)
         root = logging.getLogger()
@@ -50,15 +47,20 @@ class LoggingManager:
         assert not root.handlers, "Root logger should have no handlers before setup"
         root.addHandler(qh)
 
-        # 2) One listener thread that does formatting/I/O
+        # Forward warnings into logging
+        logging.captureWarnings(True)
+
+        cls._bootstrapped = True
+
+    @classmethod
+    def start_listener(cls, handlers: Iterable[logging.Handler]) -> None:
+        """Start the QueueListener with provided handlers; no-op if already running."""
+        if cls._listener is not None:
+            return
+        assert cls._bootstrapped and cls._queue is not None, "Must bootstrap before starting listener"
         cls._listener = logging.handlers.QueueListener(cls._queue, *list(handlers), respect_handler_level=True)
         cls._listener.daemon = True
         cls._listener.start()
-
-        # 3) Forward warnings into logging
-        logging.captureWarnings(True)
-
-        cls._initialized = True
 
     @classmethod
     def shutdown(cls) -> None:
@@ -69,7 +71,7 @@ class LoggingManager:
         if cls._prev_record_factory is not None:
             logging.setLogRecordFactory(cls._prev_record_factory)
             cls._prev_record_factory = None
-        cls._initialized = False
+        cls._bootstrapped = False
 
 
 def set_log_context(test_id: Optional[str] = None, phase: Optional[str] = None) -> None:
@@ -98,6 +100,20 @@ def log_init(log_file_path):
     CONSOLE_FORMAT = '%(asctime)s : %(levelname)-8s %(name)-20s : %(message)s'
     FILE_FORMAT = '%(levelname)-8s %(name)-20s [%(test_id)s|%(phase)s] %(message)s'
 
+    # Bootstrap queue so we can log before starting the listener/handlers
+    LoggingManager.bootstrap(level=ROOT_LEVEL)
+
+    logger = logging.getLogger("init")
+    logger.info("Initializing logging system")
+
+    # Remove pre-existing log file BEFORE opening FileHandler
+    if os.path.isfile(log_file_path):
+        logger.warning(f"log file {log_file_path} already exists. Will remove before starting logging.")
+        try:
+            os.remove(log_file_path)
+        except Exception:
+            logger.exception("Failed to remove existing log file: %s", log_file_path)
+
     # Console handler
     ch = logging.StreamHandler()
     ch.setLevel(CONSOLE_LEVEL)
@@ -108,4 +124,6 @@ def log_init(log_file_path):
     fh.setLevel(FILE_LEVEL)
     fh.setFormatter(logging.Formatter(FILE_FORMAT))
 
-    LoggingManager.setup([ch, fh], level=ROOT_LEVEL)
+    # Start listener and flush queued records
+    LoggingManager.start_listener([ch, fh])
+    logger.info("Logging initialized.")
