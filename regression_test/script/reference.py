@@ -1,10 +1,11 @@
+import logging
 import os
 import subprocess
 from dataclasses import dataclass
 from typing import Protocol, Optional
 from .girder_inscript import girder_handler
 from .models import TestReference, TestCase
-from .utilities import set_up_logger, STATUS
+from .utilities import STATUS
 
 
 @dataclass
@@ -24,7 +25,7 @@ class ReferenceProvider(Protocol):
 
 class LocalReferenceProvider:
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = set_up_logger(ctx.logger_name + ":ref-local")
+        logger = logging.getLogger(ctx.logger_name + ":ref-local")
         _, path = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
         # Prefer the declared name's basename to align with comparator expectations
@@ -45,14 +46,14 @@ class GirderReferenceProvider:
         self.gh = None
 
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = set_up_logger(ctx.logger_name + ":ref-cloud")
+        logger = logging.getLogger(ctx.logger_name + ":ref-cloud")
         status = STATUS.SUCCESS
         reason = ""
         os.makedirs(dest_dir, exist_ok=True)
 
         if self.gh is None:
             try:
-                self.gh = girder_handler(ctx.gamer_abs_path, set_up_logger(
+                self.gh = girder_handler(ctx.gamer_abs_path, logging.getLogger(
                     'girder'), ctx.yh_folder_dict or {})
             except Exception:
                 return STATUS.DOWNLOAD, 'Download from girder fails (init)'
@@ -99,7 +100,7 @@ class GirderReferenceProvider:
 
 class UrlReferenceProvider:
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = set_up_logger(ctx.logger_name + ":ref-url")
+        logger = logging.getLogger(ctx.logger_name + ":ref-url")
         _, url = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
         target_name = os.path.basename(ref.name) if ref.name else os.path.basename(url)

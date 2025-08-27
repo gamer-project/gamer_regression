@@ -11,7 +11,7 @@ from .hdf5_file_config import hdf_info_read
 from .models import TestCase
 from .reference import FetchContext, get_provider
 from .runtime_vars import RuntimeVariables
-from .utilities import STATUS, set_up_logger
+from .utilities import STATUS
 from .process_runner import run_process
 
 
@@ -21,7 +21,7 @@ class CompareToolBuilder:
 
     def get_tool(self, case: TestCase) -> Tuple[int, str, str]:
         """Returns (STATUS, reason, tool_path). Builds if needed."""
-        logger = set_up_logger(f"{case.test_id}:tool")
+        logger = logging.getLogger(f"{case.test_id}:tool")
         base = os.path.join(self.rtvars.gamer_path, 'tool', 'analysis', 'gamer_compare_data')
         paths = self._machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
         sig = self._config_hash(case.makefile_cfg, paths)
@@ -112,7 +112,7 @@ class TestComparator:
         self.gh_has_list = False
 
     def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
-        logger = set_up_logger(case.test_id + ":compare")
+        logger = logging.getLogger(case.test_id + ":compare")
         case_dir = case.run_dir
         ref_root = os.path.join(case_dir, 'reference')
         os.makedirs(ref_root, exist_ok=True)

@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import subprocess
@@ -9,7 +10,7 @@ from script.models import TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.test_explorer import TestExplorer
-from script.utilities import STATUS, set_up_logger
+from script.utilities import STATUS
 
 
 """
@@ -72,10 +73,10 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
 
         # Run case
         runner = TestRunner(rtvars, tc, rtvars.gamer_path)
-        test_logger = set_up_logger(tc.test_id)
+        logger = logging.getLogger(tc.test_id)
         try:
             set_log_context(test_id=tc.test_id, phase='start')
-            test_logger.info('Start running case')
+            logger.info('Start running case')
 
             set_log_context(phase='compile')
             os.chdir(os.path.join(rtvars.gamer_path, 'src'))
@@ -113,7 +114,7 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
             set_log_context(phase='compare')
             status, reason = comparator.compare(tc, rtvars.error_level)
             results[tc.test_id] = {"status": status, "reason": reason}
-            test_logger.info('Case done')
+            logger.info('Case done')
         finally:
             clear_log_context()
 
@@ -169,7 +170,8 @@ def output_summary(result, log_file):
     return fail_tests
 
 
-def upload_process(test_configs, logger):
+def upload_process(test_configs):
+    # logger = logging.getLogger('upload')
     # tests_to_upload = input("Enter tests you'd like to update result. ")
     # tests_upload = tests_to_upload.split()
 
@@ -226,26 +228,26 @@ if __name__ == '__main__':
     # Initialize logger
     log_init(rtvars.output)
 
-    test_logger = set_up_logger('regression_test')
+    logger = logging.getLogger('regression_test')
 
-    test_logger.info('Recording the commit version.')
-    test_logger.info('GAMER      version   : %-s' % (GAMER_CURRENT_COMMIT))
+    logger.info('Recording the commit version.')
+    logger.info('GAMER      version   : %-s' % (GAMER_CURRENT_COMMIT))
 
     if GAMER_CURRENT_COMMIT != GAMER_EXPECT_COMMIT:
-        test_logger.warning('Regression test may not fully support this GAMER version!')
+        logger.warning('Regression test may not fully support this GAMER version!')
 
-    write_args_to_log(test_logger, rtvars, force_args=unknown_args)
+    write_args_to_log(logger, rtvars, force_args=unknown_args)
 
     keys = sorted(tc.test_id for tc in test_cases)
-    test_logger.info('Test to be run       : %-s' % (" ".join(keys)))
+    logger.info('Test to be run       : %-s' % (" ".join(keys)))
 
     # Regression test
     try:
-        test_logger.info('Regression test start.')
+        logger.info('Regression test start.')
         result = main(rtvars, test_cases)
-        test_logger.info('Regression test done.')
+        logger.info('Regression test done.')
     except Exception:
-        test_logger.critical('', exc_info=True)
+        logger.exception('Unexpected Error')
         raise
 
     # Print out short summary
@@ -261,8 +263,7 @@ if __name__ == '__main__':
     print("========================================")
     upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
     if upload_or_not in ['Y', 'y', 'yes']:
-        upload_logger = set_up_logger('upload')
-        upload_process({}, upload_logger)
+        upload_process({})
     elif upload_or_not in ['N', 'n', 'no']:
         exit(1)
     else:

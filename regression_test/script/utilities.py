@@ -5,7 +5,6 @@ import os
 import subprocess
 import yaml
 import six
-import logging
 
 
 ####################################################################################################
@@ -159,26 +158,3 @@ def read_test_config(test_names):
             all_test_types.append(t_type)
 
     return all_test_name_configs, all_test_types
-
-
-def set_up_logger(logger_name):
-    """
-    Set up settings to logger object
-
-    Parameters
-    ----------
-
-    logger_name  : string
-       The name of logger.
-
-    Returns
-    -------
-
-    logger       : class logger.Logger
-       The logger added the file handler and the stream handler with logger_name.
-
-    """
-    logger = logging.getLogger(logger_name)
-    # Avoid per-logger handlers to prevent duplicates
-    assert not logger.handlers, f"Logger {logger_name} should not have any handlers attached."
-    return logger

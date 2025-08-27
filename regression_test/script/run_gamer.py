@@ -4,7 +4,7 @@ import subprocess
 from os.path import isfile
 from .models import TestCase
 from .runtime_vars import RuntimeVariables
-from .utilities import STATUS, set_up_logger
+from .utilities import STATUS
 from .process_runner import run_process
 
 
@@ -26,7 +26,7 @@ class TestRunner:
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
-        self.logger = set_up_logger(f"{case.test_id}")
+        self.logger = logging.getLogger(f"{case.test_id}")
         self.rtvar = rtvars
         return
 
