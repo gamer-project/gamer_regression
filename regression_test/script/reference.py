@@ -11,7 +11,6 @@ from .utilities import STATUS
 @dataclass
 class FetchContext:
     gamer_abs_path: str
-    logger_name: str
     yh_folder_dict: Optional[dict] = None
     gh_has_list: bool = False
     case: Optional[TestCase] = None
@@ -25,7 +24,7 @@ class ReferenceProvider(Protocol):
 
 class LocalReferenceProvider:
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = logging.getLogger(ctx.logger_name + ":ref-local")
+        logger = logging.getLogger('reference.local')
         _, path = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
         # Prefer the declared name's basename to align with comparator expectations
@@ -46,15 +45,14 @@ class GirderReferenceProvider:
         self.gh = None
 
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = logging.getLogger(ctx.logger_name + ":ref-cloud")
+        logger = logging.getLogger('reference.girder')
         status = STATUS.SUCCESS
         reason = ""
         os.makedirs(dest_dir, exist_ok=True)
 
         if self.gh is None:
             try:
-                self.gh = girder_handler(ctx.gamer_abs_path, logging.getLogger(
-                    'girder'), ctx.yh_folder_dict or {})
+                self.gh = girder_handler(ctx.gamer_abs_path, ctx.yh_folder_dict or {})
             except Exception:
                 return STATUS.DOWNLOAD, 'Download from girder fails (init)'
 
@@ -100,7 +98,7 @@ class GirderReferenceProvider:
 
 class UrlReferenceProvider:
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = logging.getLogger(ctx.logger_name + ":ref-url")
+        logger = logging.getLogger('reference.url')
         _, url = ref.loc.split(":", 1)
         os.makedirs(dest_dir, exist_ok=True)
         target_name = os.path.basename(ref.name) if ref.name else os.path.basename(url)

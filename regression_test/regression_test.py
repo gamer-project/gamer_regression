@@ -73,7 +73,7 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
 
         # Run case
         runner = TestRunner(rtvars, tc, rtvars.gamer_path)
-        logger = logging.getLogger(tc.test_id)
+        logger = logging.getLogger('runner')
         try:
             set_log_context(test_id=tc.test_id, phase='start')
             logger.info('Start running case')
@@ -121,7 +121,8 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
     return results
 
 
-def write_args_to_log(logger, rtvars: RuntimeVariables, force_args=None):
+def write_args_to_log(rtvars: RuntimeVariables, force_args=None):
+    logger = logging.getLogger('main')
     logger.info("Record all arguments have been set.")
     # force/unknown args first if provided
     if force_args:
@@ -228,7 +229,7 @@ if __name__ == '__main__':
     # Initialize logger
     log_init(rtvars.output)
 
-    logger = logging.getLogger('regression_test')
+    logger = logging.getLogger('main')
 
     logger.info('Recording the commit version.')
     logger.info('GAMER      version   : %-s' % (GAMER_CURRENT_COMMIT))
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     if GAMER_CURRENT_COMMIT != GAMER_EXPECT_COMMIT:
         logger.warning('Regression test may not fully support this GAMER version!')
 
-    write_args_to_log(logger, rtvars, force_args=unknown_args)
+    write_args_to_log(rtvars, force_args=unknown_args)
 
     keys = sorted(tc.test_id for tc in test_cases)
     logger.info('Test to be run       : %-s' % (" ".join(keys)))

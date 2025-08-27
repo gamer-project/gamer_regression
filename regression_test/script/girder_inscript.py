@@ -4,6 +4,7 @@
 import datetime
 import getpass
 import girder_client
+import logging
 import os
 import subprocess
 import yaml
@@ -22,8 +23,8 @@ REG_FOLDER_ID = "64f1b5cd5545e01fe3479259"       # ID of /user/chunyenchen2019/r
 # Class
 ####################################################################################################
 class girder_handler():
-    def __init__(self, gamer_path, logger, home_folder_dict={}):
-        self.logger = logger
+    def __init__(self, gamer_path, home_folder_dict={}):
+        self.logger = logging.getLogger('girder_handler')
         self.gamer_path = gamer_path
         self.gc = girder_client.GirderClient(apiUrl=API_URL)
 

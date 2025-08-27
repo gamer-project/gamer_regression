@@ -26,7 +26,7 @@ class TestRunner:
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
-        self.logger = logging.getLogger(f"{case.test_id}")
+        self.logger = logging.getLogger('runner')
         self.rtvar = rtvars
         return
 
@@ -43,7 +43,7 @@ class TestRunner:
 
         try:
             self.logger.debug("Generating Makefile using: %s" % (" ".join(cmd)))
-            run_process(cmd, self.logger)
+            run_process(cmd)
         except subprocess.CalledProcessError:
             self.set_fail_test("Error while editing Makefile.", STATUS.EDITING_FAIL)
             if keep_makefile:
@@ -53,9 +53,8 @@ class TestRunner:
 
         # 3. Compile GAMER
         try:
-            run_process(['make', 'clean'], logger=self.logger, level=logging.DEBUG)
-            run_process('make -j', logger=self.logger, level=logging.DEBUG,
-                        shell=True, tee_stdout='make.log', merge_streams=True)
+            run_process(['make', 'clean'])
+            run_process('make -j', shell=True, tee_stdout='make.log', merge_streams=True)
             subprocess.check_call(['rm', 'make.log'])
         except subprocess.CalledProcessError:
             self.set_fail_test("Compiling error.", STATUS.COMPILE_ERR)
@@ -132,7 +131,7 @@ class TestRunner:
                 break
             try:
                 self.logger.info('Executing: %s' % script)
-                run_process(['sh', script, self.case_dir], logger=self.logger, level=logging.DEBUG)
+                run_process(['sh', script, self.case_dir])
             except Exception:
                 self.set_fail_test("Error while executing %s." % script, STATUS.EXTERNAL)
                 break
@@ -151,8 +150,7 @@ class TestRunner:
         self.logger.info('Running GAMER.')
         try:
             # Stream into logging and tee to file 'log' for artifact
-            run_process(run_cmd, logger=self.logger, level=logging.DEBUG,
-                        shell=True, merge_streams=True, tee_stdout='log')
+            run_process(run_cmd, shell=True, merge_streams=True, tee_stdout='log')
             if not isfile('./Record__Note'):
                 self.set_fail_test('No Record__Note in %s.' % self.case.test_id, STATUS.FAIL)
         except subprocess.CalledProcessError:

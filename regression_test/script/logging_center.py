@@ -103,7 +103,7 @@ def log_init(log_file_path):
     # Bootstrap queue so we can log before starting the listener/handlers
     LoggingManager.bootstrap(level=ROOT_LEVEL)
 
-    logger = logging.getLogger("init")
+    logger = logging.getLogger("logging")
     logger.info("Initializing logging system")
 
     # Remove pre-existing log file BEFORE opening FileHandler

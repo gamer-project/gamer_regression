@@ -21,7 +21,7 @@ class CompareToolBuilder:
 
     def get_tool(self, case: TestCase) -> Tuple[int, str, str]:
         """Returns (STATUS, reason, tool_path). Builds if needed."""
-        logger = logging.getLogger(f"{case.test_id}:tool")
+        logger = logging.getLogger('compare.build')
         base = os.path.join(self.rtvars.gamer_path, 'tool', 'analysis', 'gamer_compare_data')
         paths = self._machine_paths(self.rtvars.gamer_path, self.rtvars.machine)
         sig = self._config_hash(case.makefile_cfg, paths)
@@ -60,9 +60,8 @@ class CompareToolBuilder:
                 f.write(content)
 
             os.chdir(base)
-            run_process(['make', 'clean'], logger=logger, level=logging.DEBUG)
-            run_process('make', logger=logger, level=logging.DEBUG,
-                        shell=True, tee_stdout='make.log', merge_streams=True)
+            run_process(['make', 'clean'])
+            run_process('make', shell=True, tee_stdout='make.log', merge_streams=True)
             if not os.path.isfile(os.path.join(base, 'GAMER_CompareData')):
                 return STATUS.COMPILE_ERR, 'Compare tool missing after build', ''
 
@@ -112,35 +111,34 @@ class TestComparator:
         self.gh_has_list = False
 
     def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
-        logger = logging.getLogger(case.test_id + ":compare")
+        logger = logging.getLogger('compare')
         case_dir = case.run_dir
         ref_root = os.path.join(case_dir, 'reference')
         os.makedirs(ref_root, exist_ok=True)
 
         # 1) Get references
-        status, reason = self._fetch_references(case, ref_root, logger)
+        status, reason = self._fetch_references(case, ref_root)
         if status != STATUS.SUCCESS:
             return status, reason
 
         # 2) Build/ensure compare tool
-        tool_status, tool_reason, tool_path = self._build_compare_tool(case, logger)
+        tool_status, tool_reason, tool_path = self._build_compare_tool(case)
 
         # 3) Run comparisons
-        status, reason = self._run_comparisons(case, ref_root, err_level, tool_status, tool_reason, tool_path, logger)
+        status, reason = self._run_comparisons(case, ref_root, err_level, tool_status, tool_reason, tool_path)
         if status != STATUS.SUCCESS:
             return status, reason
 
         return STATUS.SUCCESS, ""
 
     # ---- internals: step 1 - reference staging ----
-    def _fetch_references(self, case: TestCase, ref_root: str, logger) -> Tuple[int, str]:
+    def _fetch_references(self, case: TestCase, ref_root: str) -> Tuple[int, str]:
         for ref in case.references:
             try:
                 subdir = ref_root
                 os.makedirs(subdir, exist_ok=True)
                 ctx = FetchContext(
                     gamer_abs_path=self.gamer_abs_path,
-                    logger_name=case.test_id,
                     yh_folder_dict=self.yh_folder_dict,
                     gh_has_list=self.gh_has_list,
                     case=case,
@@ -157,25 +155,25 @@ class TestComparator:
         return STATUS.SUCCESS, ""
 
     # ---- internals: step 2 - tool ensure/build ----
-    def _build_compare_tool(self, case: TestCase, logger) -> Tuple[int, str, str]:
+    def _build_compare_tool(self, case: TestCase) -> Tuple[int, str, str]:
         return self.tool_builder.get_tool(case)
 
     # ---- internals: step 3 - comparisons ----
     def _run_comparisons(self, case: TestCase, ref_root: str, err_level: str,
-                         tool_status: int, tool_reason: str, tool_path: str, logger) -> Tuple[int, str]:
+                         tool_status: int, tool_reason: str, tool_path: str) -> Tuple[int, str]:
         case_dir = case.run_dir
         for ref in case.references:
             fname = os.path.basename(ref.name)
             cur_path = os.path.join(case_dir, fname)
             ref_path = os.path.join(ref_root, fname)
             if ref.file_type == 'TEXT':
-                failed = self._compare_text(logger, cur_path, ref_path, case.levels[err_level])
+                failed = self._compare_text(cur_path, ref_path, case.levels[err_level])
             elif ref.file_type == 'HDF5':
                 if tool_status != STATUS.SUCCESS:
                     return STATUS.COMPARISON, tool_reason or 'Compare tool unavailable'
-                failed = self._compare_hdf5(logger, tool_path, cur_path, ref_path, case.levels[err_level])
+                failed = self._compare_hdf5(tool_path, cur_path, ref_path, case.levels[err_level])
             elif ref.file_type == 'NOTE':
-                failed = self._compare_note(logger, cur_path, ref_path)
+                failed = self._compare_note(cur_path, ref_path)
             else:
                 return STATUS.FAIL, f"Unknown file_type {ref.file_type}"
             if failed:
@@ -186,14 +184,15 @@ class TestComparator:
             try:
                 if not os.path.isfile(script):
                     continue
-                run_process(['sh', script, case_dir], logger=logger, level=logging.DEBUG)
+                run_process(['sh', script, case_dir])
             except Exception:
                 return STATUS.EXTERNAL, f"Error while executing {script}"
         return STATUS.SUCCESS, ""
 
     # ---- comparison helpers ----
-    def _compare_text(self, logger, result_file, expect_file, err_allowed) -> bool:
+    def _compare_text(self, result_file, expect_file, err_allowed) -> bool:
         # TODO: support the user compare range(data)
+        logger = logging.getLogger('compare.text')
         logger.info(f"Comparing TEXT: {result_file} <--> {expect_file}")
         if not os.path.isfile(result_file):
             logger.error(f"Result file is missing: {result_file}")
@@ -217,7 +216,8 @@ class TestComparator:
         logger.info("Comparing TEXT done.")
         return False
 
-    def _compare_hdf5(self, logger, tool_path, result_file, expect_file, err_allowed) -> bool:
+    def _compare_hdf5(self, tool_path, result_file, expect_file, err_allowed) -> bool:
+        logger = logging.getLogger('compare.hdf5')
         logger.info(f"Comparing HDF5: {result_file} <--> {expect_file}")
         compare_program = tool_path
         compare_result = os.path.join(os.path.dirname(tool_path), 'compare_result')
@@ -230,7 +230,7 @@ class TestComparator:
         compare_log_path = os.path.join(os.path.dirname(tool_path), 'compare.log')
         if os.path.exists(compare_log_path):
             os.remove(compare_log_path)
-        returncode = run_process(cmd, logger=logger, level=logging.DEBUG, tee_stdout=compare_log_path, check=False)
+        returncode = run_process(cmd, tee_stdout=compare_log_path, check=False)
         if returncode != 0:
             return True  # Running the tool failed (non-zero exit)
 
@@ -333,7 +333,8 @@ class TestComparator:
             p2.pop(sec, None)
         return diff
 
-    def _compare_note(self, logger, result_note, expect_note) -> bool:
+    def _compare_note(self, result_note, expect_note) -> bool:
+        logger = logging.getLogger('compare.note')
         fail_compare = False
         # TODO: Should this allways return passing?
         if not isfile(result_note) or not isfile(expect_note):

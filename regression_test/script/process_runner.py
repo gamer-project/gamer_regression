@@ -53,7 +53,7 @@ class _StreamLogger(threading.Thread):
         self._stop_evt.set()
 
 
-def run_process(cmd: Union[str, Sequence[str]], logger: logging.Logger, level: int = logging.DEBUG,
+def run_process(cmd: Union[str, Sequence[str]], level: int = logging.DEBUG,
                 cwd: Optional[str] = None, env: Optional[dict] = None, shell: bool = False,
                 merge_streams: bool = False, tee_stdout: Optional[str] = None,
                 tee_stderr: Optional[str] = None, check: bool = True) -> int:
@@ -61,6 +61,7 @@ def run_process(cmd: Union[str, Sequence[str]], logger: logging.Logger, level: i
 
     Returns the exit code; raises CalledProcessError if check=True and code!=0.
     """
+    logger = logging.getLogger('process_runner')
     popen_kwargs = dict(cwd=cwd, env=env, shell=shell)
     if merge_streams:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **popen_kwargs)
