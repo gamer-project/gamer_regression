@@ -1,7 +1,9 @@
 import logging
 import os
+import re
 import subprocess
 from os.path import isfile
+from typing import Dict
 from .models import TestCase
 from .runtime_vars import RuntimeVariables
 from .utilities import STATUS
@@ -101,19 +103,11 @@ class TestRunner:
             'Input__TestProb': self.case.input_testprob,
         }
         for input_file, settings in per_file_settings.items():
-            cmds = []
-
-            for key, val in settings.items():
-                cmds.append(['sed', '-i', 's/%-29s/%-29s%-4s #/g' % (key, key, val), input_file])
-
+            if not settings:
+                continue
             self.logger.info('Editing %s.' % input_file)
-            try:
-                for cmd in cmds:
-                    subprocess.check_call(cmd)
-            except:
-                self.set_fail_test('Error on editing %s.' % input_file, STATUS.EDIT_FILE)
+            self._edit_input_file(input_file, settings)
             self.logger.info('Editing completed.')
-
         return self.status
 
     def execute_scripts(self, mode):
@@ -171,6 +165,63 @@ class TestRunner:
         reason = "%s does not exist." % filename
         self.set_fail_test(reason, STATUS.MISSING_FILE)
         return True
+
+    def _edit_input_file(self, file_path, settings: Dict):
+        """Strict in-place input file editor.
+        Rules:
+          * Ignore any line whose first non-space char is '#'. (commented-out keys are invisible)
+          * For each key, modify only the existing line.
+          * If any key is not found, fail the test.
+          * Preserve original spacing and comment alignment:
+              - Replace only the value token.
+              - If a trailing comment exists, attempt to keep its column by shrinking/expanding
+                the gap between value and '#'.
+        """
+        try:
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            self.set_fail_test(f'Missing input file {file_path}.', STATUS.MISSING_FILE)
+            return
+
+        missing_key = []
+        for key, new_val in settings.items():
+            matched = False
+            key_regex = re.compile(r'^(\s*)' + re.escape(key) + r'(\s+)(\S+)(.*)$')
+            for idx, line in enumerate(lines):
+                stripped = line.lstrip()
+                if not stripped or stripped.startswith('#'):
+                    continue  # ignore commented / blank lines
+                if not stripped.startswith(key):
+                    continue  # line with different key
+                m = key_regex.match(line.rstrip('\n'))  # strip only for regex
+                if not m:
+                    continue
+                pre_spaces, space_after_key, old_val, rest = m.groups()
+                # rest holds any spaces + comment (no newline)
+                if '#' in rest:
+                    before_comment, after_comment = rest.split('#', 1)
+                    diff = len(str(new_val)) - len(old_val)  # difference in value length
+                    if diff > 0:
+                        before_comment = before_comment[diff:] if len(before_comment) > diff else ' '
+                    elif diff < 0:
+                        before_comment = before_comment + (' ' * (-diff))
+                    rest_new = before_comment + '#' + after_comment
+                else:
+                    rest_new = rest
+                lines[idx] = f"{pre_spaces}{key}{space_after_key}{new_val}{rest_new}\n"
+                matched = True
+                break
+            if not matched:
+                missing_key.append(key)
+        if missing_key:
+            self.set_fail_test(f"Keys not found in {file_path}: {', '.join(missing_key)}", STATUS.EDIT_FILE)
+            return
+        try:
+            with open(file_path, 'w') as f:
+                f.writelines(lines)
+        except Exception:
+            self.set_fail_test(f"Error on editing {file_path}.", STATUS.EDIT_FILE)
 
 
 ####################################################################################################
