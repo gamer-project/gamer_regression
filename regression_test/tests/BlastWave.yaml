@@ -1,0 +1,38 @@
+Type: Node
+tags: [BlastWave]
+path: BlastWave_
+source: Hydro/BlastWave
+priority: high
+
+levels:
+  level0: 1.0e-30
+  level1: 1.0e-15
+  level2: 1.0e-7
+  level3: 1.0e+10
+
+options:
+  hdf5: true
+  bitwise_reproducibility: true
+
+Nodes:
+
+  - Type: Node
+    tags: [Hydro]
+    path: Hydro/
+
+    Nodes:
+      
+      - Type: Case
+        options:
+          gpu: false
+      - Type: Case
+        options:
+          gpu: true
+      - Type: Case
+        options:
+          gpu: true
+          mpi: true
+
+    
+
+    

@@ -1,0 +1,144 @@
+Type: Node
+tags: [Riemann]
+path: Riemann_
+source: Hydro/Riemann
+priority: high
+
+levels:
+  level0: 1.0e-30
+  level1: 1.0e-15
+  level2: 1.0e-7
+  level3: 1.0e+10
+
+options:
+  gpu: true
+  mpi: false
+  double: false
+
+Nodes:
+
+  - Type: Node
+    tags: [Hydro]
+    path: Hydro/
+
+    inputs:
+      Input__Parameter:
+        GAMMA: 1.4
+      Input__TestProb:
+        Riemann_Prob: 0
+
+    Nodes:
+      - Type: Product
+        options:
+          flu_scheme : [MHM, MHM_RP, CTU]
+          slope: [PLM, PPM]
+          flux: [EXACT, ROE, HLLE, HLLC]
+        
+        Nodes:
+          - Type: Case
+            path: X/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 0
+            references:
+              - name: Xline_y0.000_z0.000_000000
+                file_type: TEXT
+              - name: Xline_y0.000_z0.000_000010
+                file_type: TEXT
+
+          - Type: Case
+            path: Y/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 1
+            references:
+              - name: Yline_x0.000_z0.000_000000
+                file_type: TEXT
+              - name: Yline_x0.000_z0.000_000010
+                file_type: TEXT
+
+          - Type: Case
+            path: Z/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 2
+            references:
+              - name: Zline_x0.000_y0.000_000000
+                file_type: TEXT
+              - name: Zline_x0.000_y0.000_000010
+                file_type: TEXT
+
+  - Type: Node
+    tags: [MHD]
+    path: MHD/
+
+    inputs:
+      Input__Parameter:
+        GAMMA: 1.666666667
+      Input__TestProb:
+        Riemann_Prob: 6
+
+    options:
+      mhd: true
+
+    Nodes:
+      - Type: Product
+        options:
+          flu_scheme : [MHM, MHM_RP, CTU]
+          slope: [PLM, PPM]
+          flux: [ROE, HLLE, HLLD]
+        
+        Nodes:
+          - Type: Case
+            path: X/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 0
+            references:
+              - name: Xline_y0.000_z0.000_000000
+                file_type: TEXT
+              - name: Xline_y0.000_z0.000_000010
+                file_type: TEXT
+
+          - Type: Case
+            path: Y/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 1
+            references:
+              - name: Yline_x0.000_z0.000_000000
+                file_type: TEXT
+              - name: Yline_x0.000_z0.000_000010
+                file_type: TEXT
+
+          - Type: Case
+            path: Z/
+            inputs:
+              Input__TestProb:
+                Riemann_XYZ: 2
+            references:
+              - name: Zline_x0.000_y0.000_000000
+                file_type: TEXT
+              - name: Zline_x0.000_y0.000_000010
+                file_type: TEXT
+  
+  - Type: Node
+    tags: [SRHD]
+    path: SRHD/
+
+    options:
+      srhd: true
+
+    inputs:
+      Input__TestProb:
+        Riemann_Prob: 10
+
+    references:
+      - name: Xline_y0.000_z0.000_000000
+        file_type: TEXT
+      - name: Xline_y0.000_z0.000_000010
+        file_type: TEXT
+
+references:
+  - name: Record__Note
+    file_type: NOTE
