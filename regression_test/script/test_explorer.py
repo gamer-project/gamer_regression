@@ -1,5 +1,8 @@
+import logging
 import os
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from itertools import product as cart_product
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from .models import TestProblem, TestType, TestCase, TestReference
 from .runtime_vars import RuntimeVariables
 from .utilities import read_yaml
@@ -8,7 +11,7 @@ from .utilities import read_yaml
 PRIOR = {"high": 3, "medium": 2, "low": 1}
 
 
-class TestExplorer:
+class TestExplorerOld:
     """Load tests, validate schema, and provide filtered TestCase lists."""
 
     def __init__(self, rtvars: RuntimeVariables):
@@ -183,3 +186,266 @@ class TestExplorer:
         # Maintain a convenience attribute for callers still using property
         self.test_cases = out
         return out
+
+
+class TestExplorer:
+    """Load test config files and provide filtered TestCase lists.
+
+       Refer to the TreeProcessor class for the tree structure of the .yaml files.
+    """
+
+    def __init__(self, rtvars: RuntimeVariables):
+        self.rtvars = rtvars
+
+        logger = logging.getLogger('explorer')
+        # Load all .yaml files under tests_root
+        tests_root = os.path.join(rtvars.gamer_path, 'regression_test', 'tests')
+        paths, nodes = [], []
+        for dir, _, files in os.walk(tests_root):
+            for file in files:
+                if file.endswith('.yaml'):
+                    config_path = os.path.join(dir, file)
+                    paths.append(config_path)
+                    nodes.append(read_yaml(config_path))
+                    logger.debug(f"Successfully read {config_path}")
+
+        root_node = self._create_virtual_root_node(nodes, paths)
+        self.all_cases = TreeProcessor.return_cases_from_node(root_node, {})
+
+    def get_test_cases(
+        self,
+        name_indices: Optional[List[int]] = None,
+        type_indices: Optional[List[int]] = None,
+        min_priority: Optional[str] = None,
+    ) -> List[TestCase]:
+        return [tc for tc in self.all_cases]  # No filtering for now
+
+    @staticmethod
+    def _create_virtual_root_node(nodes: List[dict], paths: List[str]) -> '_Node':
+        """Create a virtual root node to hold all nodes converted from loaded YAML roots."""
+        ROOT_ATTRIBUTES: Dict[str, Any] = {}
+        return _Node(
+            node_type='Node',
+            self_attrib=ROOT_ATTRIBUTES,
+            children=[_Node.from_raw_dict(file_dict, path) for file_dict, path in zip(nodes, paths)],
+            raw_config_path='VirtualRoot'
+        )
+
+
+@dataclass(frozen=True)
+class _Node:
+
+    node_type: Literal['Node', 'Case', 'Product']
+    self_attrib: Dict[str, Any]
+    children: List['_Node']
+    raw_config_path: str
+
+    @staticmethod
+    def from_raw_dict(data: dict, config_path: str) -> '_Node':
+        """Recursively construct an _Node from a raw mapping loaded from YAML."""
+        if not isinstance(data, dict):
+            raise ValueError("A node must be a mapping (dict).")
+
+        node_type = data.get('Type')
+        if node_type not in {'Node', 'Case', 'Product'}:
+            raise ValueError("A node must have a 'Type' attribute with value 'Node', 'Case', or 'Product'.")
+
+        self_attrib = {k: v for k, v in data.items() if k not in {'Nodes', 'Type'}}
+
+        if 'Nodes' in data and node_type == 'Case':
+            raise ValueError("A Case node cannot have child nodes.")
+        children_config = data.get('Nodes')
+        if children_config is None:  # Key not defined or key without value
+            children_config = []
+        if not isinstance(children_config, list):
+            raise ValueError(f"The 'Nodes' attribute must be a list instead of {type(children_config)}.")
+
+        children = [_Node.from_raw_dict(c, config_path) for c in children_config]
+        return _Node(node_type=node_type, self_attrib=self_attrib,
+                     children=children, raw_config_path=config_path)
+
+    @property
+    def n_children(self) -> int:
+        return len(self.children)
+
+    def __str__(self) -> str:
+        return f"_DataNode(node_type={self.node_type}, self_attrib={self.self_attrib}, n_children={self.n_children})"
+
+
+class TreeProcessor:
+    """Class of static functions to process the tree structure of test cases.
+
+    - Test cases are constructed with a tree structure.
+    - Anything are attributes of a node, except `Nodes`, it is a list of child nodes.
+    - A node is a dict with arbitrary attributes. A node must have a `Type` attribute.
+      There are 3 types of nodes, `Node`, `Case`, and `Product`.
+      - `Node` is a node which can have child nodes (i.e., `Nodes`).
+      - `Case` is a leaf node, and it will be collected as a test case.
+      - `Product` is a special node that will be expanded into multiple nodes with
+        all of the combinations of its attributes. All of its attributes need to be
+        stored in a list. And the combinations will be generated by the Cartesian
+        product of its lists of attributes. Its child nodes in `Nodes` will be
+        expanded into multiple nodes, each with the combinations of attributes applied.
+        If a `Product` has no child nodes, a virtual `Case` node with no attributes
+        will be created and be expanded to be returned with the combinations of
+        attributes applied.
+    - Attributes are inherited from parent nodes to child nodes. And child nodes can
+      modify the attributes from parent nodes.
+      - If the attribute is new, it will be added.
+      - If the attribute is a scalar (e.g., str, int, float), it will override the
+        parent's.
+      - If the attribute is a list, it will be appended to the parent's.
+      - If the attribute is a dict, it will be merged with the parent's according to
+        the same rules recursively.
+      - If the attribute is set to None, the inherited attribute will be removed.
+      - Some attributes are reserved for special rules:
+        - `path`: The path will be appended to the parent's path literally. '/' will
+                need to be added explicitly if needed.
+        - `Type`: The type of a node. It is not inherited and required for every node.
+    - The root is a node itself. `Type` is also required.
+    """
+
+    @staticmethod
+    def merge_attributes(inherited: dict, node: dict) -> dict:
+        """Merge node attributes onto inherited (parent) attributes.
+
+        Precedence for updating inherited attributes:
+         1. Value of None removes the key.
+         2. Key-specific rules (KEYS_INHERITED_RULES)
+         3. Type-specific rules (TYPES_INHERITED_RULES)
+            - Scalars: node overrides inherited.
+            - Lists: concatenate (inherited + node).
+            - Dicts: merge recursively with same rules.
+         4. Error if not matched by any rule.
+        """
+        KEYS_INHERITED_RULES = {
+            'path': lambda a, b: a + b,  # append literally
+        }
+        TYPES_INHERITED_RULES = {
+            (str, int, float): lambda a, b: b,  # override
+            list: lambda a, b: a + b,  # concatenate
+            dict: lambda a, b: TreeProcessor.merge_attributes(a, b),  # merge recursively
+        }
+        logger = logging.getLogger('explorer')
+        out = inherited.copy()
+        for k, v in node.items():
+            assert k not in {'Nodes', 'Cases', 'Product'}
+            if k in out:
+                if v is None:  # 1. Value of None
+                    del out[k]
+                elif k in KEYS_INHERITED_RULES:  # 2. Key-specific rules
+                    out[k] = KEYS_INHERITED_RULES[k](out[k], v)
+                else:  # 3. Type-specific rules
+                    for type_spec, inherit in TYPES_INHERITED_RULES.items():
+                        if isinstance(out[k], type_spec) and isinstance(v, type_spec):
+                            out[k] = inherit(out[k], v)
+                            break
+                    else:
+                        logger.error(f"Key '{k}' with values '{v}' of type '{type(v)}' cannot be merged "
+                                     f"with inherited value '{out[k]}' of type '{type(out[k])}'")
+                        raise ValueError(f"Key '{k}' do not match any attribute inheritance rule.")
+            else:  # 4. New key, just add
+                out[k] = v
+        return out
+
+    @staticmethod
+    def return_cases_from_node(data: _Node, parent_attrib: Dict[str, Any]) -> List[TestCase]:
+        """Recursively traverse starting from this node and return TestCase list."""
+        logger = logging.getLogger('explorer')
+        out: List[TestCase] = []
+
+        # Partition children by type of node
+        n_type_children: List[_Node] = []
+        c_type_children: List[_Node] = []
+        p_type_children: List[_Node] = []
+
+        for child_data in data.children:
+            child_type = child_data.node_type
+            if child_type == 'Node':
+                n_type_children.append(child_data)
+            elif child_type == 'Case':
+                c_type_children.append(child_data)
+            elif child_type == 'Product':
+                p_type_children.append(child_data)
+            else:
+                raise AssertionError("Unreachable")
+
+        # Expand products to ordinary Node/Case children
+        for child_data in p_type_children:
+            n_type_children.extend(TreeProcessor.expand_product(child_data))
+
+        # Merge attributes with parent attributes (Type is not inherited)
+        merged_attrib = TreeProcessor.merge_attributes(parent_attrib, data.self_attrib)
+
+        # Recurse into Node children
+        for child_data in n_type_children:
+            out.extend(TreeProcessor.return_cases_from_node(child_data, merged_attrib))
+
+        # Handle Case children
+        for child_data in c_type_children:
+            case_attrib = TreeProcessor.merge_attributes(merged_attrib, child_data.self_attrib)
+            out.append(TestCase.from_node_attributes(case_attrib))
+
+        if not out:
+            logger.warning(f"A node has not produced any test case.")
+
+        return out
+
+    @staticmethod
+    def expand_product(data: _Node) -> List[_Node]:
+        """Expand the Product node into child Nodes.
+
+        Supports nested dictionaries: any list-valued leaf (at any depth) defines a
+        product axis. For each Cartesian combination across these lists, a new
+        attributes dict is reconstructed with the chosen values substituted back
+        into their original locations.
+        """
+
+        def _find_list_paths(obj: Any, prefix: Tuple[str, ...]) -> List[Tuple[Tuple[str, ...], list]]:
+            """Return a list of (path, list of values) for all list-valued leaves in obj."""
+            paths: List[Tuple[Tuple[str, ...], list]] = []
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    paths.extend(_find_list_paths(v, prefix + (k,)))
+            elif isinstance(obj, list):
+                paths.append((prefix, obj))
+            else:
+                raise ValueError(f"Product attributes '{prefix}' must be a list.")
+            return paths
+
+        def _set_by_path(obj: Any, path: Tuple[str, ...], val: Any):
+            key = path[0]
+            if len(path) == 1:
+                obj[key] = val
+            else:
+                if key not in obj:
+                    obj[key] = {}
+                _set_by_path(obj[key], path[1:], val)
+
+        # Collect all list-valued leaves in the product attributes
+        list_leaves = _find_list_paths(data.self_attrib, tuple())
+        # TODO: Warn if no list at all?
+        list_paths, list_values = zip(*list_leaves) if list_leaves else ([], [])
+        # TODO: Warn if any list is empty?
+
+        expanded_nodes: List[_Node] = []
+
+        # Generate combinations across all discovered lists
+        for combo in (cart_product(*list_values) if list_values else [()]):
+            # Reconstruct attributes for this combination
+            combo_attr = {}
+            for path, chosen in zip(list_paths, combo):
+                _set_by_path(combo_attr, path, chosen)
+
+            # No children: create a virtual Case node with the expanded attributes
+            children_pack = data.children if data.children else [
+                _Node(node_type='Case', self_attrib={}, children=[],
+                      raw_config_path='VirtualCaseFromProduct')
+            ]
+
+            expanded_nodes.append(
+                _Node(node_type='Node', self_attrib=combo_attr, children=children_pack,
+                      raw_config_path='VirtualNodeFromProduct')
+            )
+
+        return expanded_nodes

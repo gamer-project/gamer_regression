@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,11 @@ class TestCase:
     levels: Dict[str, float] = field(default_factory=dict)
     # Path to run/<test_id> directory (set by orchestrator)
     run_dir: str = ""
+    # Properties for new YAML config
+    path: str = ""
+    source: str = ""
+    priority: int | str = 0
+    tags: List[str] = field(default_factory=list)
 
     @property
     def test_group(self) -> str:
@@ -42,6 +47,56 @@ class TestCase:
         Format: <TestName>_<Type>_c<case_index:02d>
         """
         return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
+
+    @staticmethod
+    def from_node_attributes(attrs: dict[str, Any]) -> 'TestCase':
+        """Construct a TestCase from a _DataNode instance."""
+
+        def get_attr(attrs, key: str, default=None, expect_type=None):
+            if attrs is None:
+                return default
+            v = attrs.get(key)
+            if v is None:
+                return default
+            if expect_type and not isinstance(v, expect_type):
+                raise ValueError(f"Expected {key} to be of type {expect_type}, got {type(v)}")
+            return v
+
+        fields = {}  # TestCase fields
+
+        fields['makefile_cfg'] = get_attr(attrs, 'options', {})
+
+        inputs = get_attr(attrs, 'inputs', {}, dict)
+        fields['input_parameter'] = get_attr(inputs, 'Input__Parameter', {}, dict)
+        fields['input_testprob'] = get_attr(inputs, 'Input__TestProb', {}, dict)
+
+        fields['priority'] = get_attr(attrs, 'priority', 0, (int, str))
+        fields['levels'] = get_attr(attrs, 'levels', {}, dict)
+
+        references: List[TestReference] = []
+        for ref in get_attr(attrs, 'references', [], list):
+            references.append(TestReference(
+                name=ref['name'],
+                loc=ref['loc'],
+                file_type=ref['file_type']
+            ))
+        fields['references'] = references
+
+        # Optional attributes
+        fields['pre_scripts'] = get_attr(attrs, 'pre_scripts', [], list)
+        fields['post_scripts'] = get_attr(attrs, 'post_scripts', [], list)
+        fields['user_compare_scripts'] = get_attr(attrs, 'user_compare_scripts', [], list)
+
+        fields['path'] = get_attr(attrs, 'path', "", str)
+        fields['source'] = get_attr(attrs, 'source', "", str)
+        fields['tags'] = get_attr(attrs, 'tags', [], list)
+
+        # To be deprecated:
+        fields['problem_name'] = "new_structure"
+        fields['type_name'] = fields.get('path', '').replace('/', '_').replace('\\', '_')
+        fields['case_index'] = 0
+
+        return TestCase(**fields)
 
 
 @dataclass
