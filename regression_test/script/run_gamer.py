@@ -24,7 +24,7 @@ class TestRunner:
         # per-case run dir provided by orchestrator
         self.group_dir = None
         self.case_dir = case.run_dir
-        self.ref_path = os.path.join(gamer_abs_path, 'regression_test', 'tests', case.problem_name)
+        self.ref_path = os.path.join(gamer_abs_path, 'example', 'test_problem', case.source)
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')
         self.status = STATUS.SUCCESS
         self.reason = ""
@@ -82,8 +82,9 @@ class TestRunner:
         """
         Copy input files and GAMER to work directory.
         """
+        # TODO: Copy only necessary files (e.g., input files)
         case_dir = self.case_dir
-        origin_dir = os.path.join(self.ref_path, 'Inputs')
+        origin_dir = self.ref_path
 
         self.logger.info('Copying the test folder: %s ---> %s' % (origin_dir, case_dir))
         try:
