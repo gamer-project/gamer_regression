@@ -63,17 +63,17 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
     tool_builder = CompareToolBuilder(rtvars)
     comparator = TestComparator(rtvars, tool_builder)
 
-    run_root = os.path.join(rtvars.gamer_path, 'regression_test', 'run')
     for tc in test_cases:
         # Prepare per-case run dir
-        tc.run_dir = os.path.join(run_root, tc.test_id)
-        if os.path.isdir(tc.run_dir):
-            subprocess.check_call(['rm', '-rf', tc.run_dir])
-        # os.makedirs(tc.run_dir)
+        logger = logging.getLogger('runner')
+        run_dir = tc.run_dir(rtvars)
+        if os.path.isdir(run_dir):
+            subprocess.check_call(['rm', '-rf', run_dir])
+            logger.warning(f"Run directory {run_dir} exists. Removed.")
+        os.makedirs(os.path.dirname(run_dir), exist_ok=True)
 
         # Run case
         runner = TestRunner(rtvars, tc, rtvars.gamer_path)
-        logger = logging.getLogger('runner')
         try:
             set_log_context(test_id=tc.test_id, phase='start')
             logger.info('Start running case')

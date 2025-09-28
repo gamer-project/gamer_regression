@@ -105,6 +105,7 @@ class CompareToolBuilder:
 
 class TestComparator:
     def __init__(self, rtvars: RuntimeVariables, tool_builder: CompareToolBuilder):
+        self.rtvars = rtvars
         self.gamer_abs_path = rtvars.gamer_path
         self.tool_builder = tool_builder
         self.yh_folder_dict = {}
@@ -112,7 +113,7 @@ class TestComparator:
 
     def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
         logger = logging.getLogger('compare')
-        case_dir = case.run_dir
+        case_dir = case.run_dir(self.rtvars)
         ref_root = os.path.join(case_dir, 'reference')
         os.makedirs(ref_root, exist_ok=True)
 
@@ -161,7 +162,7 @@ class TestComparator:
     # ---- internals: step 3 - comparisons ----
     def _run_comparisons(self, case: TestCase, ref_root: str, err_level: str,
                          tool_status: int, tool_reason: str, tool_path: str) -> Tuple[int, str]:
-        case_dir = case.run_dir
+        case_dir = case.run_dir(self.rtvars)
         for ref in case.references:
             fname = os.path.basename(ref.name)
             cur_path = os.path.join(case_dir, fname)

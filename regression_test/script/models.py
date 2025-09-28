@@ -1,5 +1,9 @@
-from dataclasses import dataclass, field
+import hashlib
+import json
+import os
+from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, Dict, List
+from .runtime_vars import RuntimeVariables
 
 
 @dataclass(frozen=True)
@@ -9,7 +13,7 @@ class TestReference:
     file_type: str       # HDF5 | TEXT | NOTE
 
 
-@dataclass
+@dataclass(frozen=True)
 class TestCase:
     problem_name: str                 # <TestName>
     type_name: str                    # <Type>
@@ -23,12 +27,45 @@ class TestCase:
     references: List[TestReference] = field(default_factory=list)
     levels: Dict[str, float] = field(default_factory=dict)
     # Path to run/<test_id> directory (set by orchestrator)
-    run_dir: str = ""
+    # run_dir: str = ""
     # Properties for new YAML config
     path: str = ""
     source: str = ""
     priority: int | str = 0
     tags: List[str] = field(default_factory=list)
+
+    def run_dir(self, rtvars: RuntimeVariables) -> str:
+        run_root = os.path.join(rtvars.gamer_path, 'regression_test', 'run')
+        return os.path.join(run_root, self.test_id)
+
+    # Canonicalization + stable digest helpers
+    @staticmethod
+    def _canonicalize(value):
+        # Convert to a structure with deterministic ordering
+        if value is None or isinstance(value, (int, float, str, bool)):
+            return value
+        if isinstance(value, dict):
+            return {str(k): TestCase._canonicalize(value[k]) for k in sorted(value.keys(), key=str)}
+        if isinstance(value, (list, tuple)):
+            return [TestCase._canonicalize(v) for v in value]
+        if is_dataclass(value):  # Only accept frozen dataclasses
+            cls = type(value)
+            params = getattr(cls, "__dataclass_params__", None)
+            if params is not None and getattr(params, "frozen", False):
+                return {f.name: TestCase._canonicalize(getattr(value, f.name)) for f in fields(value)}
+            raise TypeError(f"Cannot canonicalize dataclass {cls.__name__}: not frozen")
+        raise TypeError(f"Cannot canonicalize value of type {type(value)}: {value}")
+
+    def _stable_hexdigest(self) -> str:
+        # 8-hex fingerprint (4-byte blake2s)
+        payload = json.dumps(TestCase._canonicalize(self), separators=(",", ":"), sort_keys=True)
+        return hashlib.blake2s(payload.encode("utf-8"), digest_size=4).hexdigest()
+
+    def __hash__(self):
+        return hash(self._stable_hexdigest())
+
+    def __str__(self):
+        return f"TestCase<{self.test_id}>"
 
     @property
     def test_group(self) -> str:
@@ -42,11 +79,13 @@ class TestCase:
 
     @property
     def test_id(self) -> str:
-        """Flattened unique per-case identity.
+        """Unique identity for the test case, constructed from its content."""
+        # """Flattened unique per-case identity.
 
-        Format: <TestName>_<Type>_c<case_index:02d>
-        """
-        return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
+        # Format: <TestName>_<Type>_c<case_index:02d>
+        # """
+        # return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
+        return os.path.join(self.path, f"case_{self._stable_hexdigest()}")
 
     @staticmethod
     def from_node_attributes(attrs: dict[str, Any]) -> 'TestCase':
