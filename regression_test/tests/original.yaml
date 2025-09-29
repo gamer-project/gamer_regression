@@ -1,0 +1,211 @@
+Type: Node
+tags: [CYC]
+
+levels:
+  level0: 1.0e-30
+  level1: 1.0e-15
+  level2: 1.0e-7
+  level3: 1.0e+10
+
+pre_script:
+- "clean.sh"
+
+Nodes:
+
+  - Type: Case
+    tags: [AcousticWave, Hydro]
+    path: AcousticWave_Hydro/
+    source: Hydro/AcousticWave
+    priority: high
+    options:
+      model: HYDRO
+      double: true
+
+    references:
+      - name: "case_00/AcousticWave_Dens_000000"
+        loc: "cloud:case_00/AcousticWave_Dens_000000"
+        file_type : TEXT
+      - name: "case_00/AcousticWave_Dens_000010"
+        loc: "cloud:case_00/AcousticWave_Dens_000010"
+        file_type : TEXT
+      - name: "case_00/Record__Note"
+        loc: "cloud:case_00/Record__Note"
+        file_type : NOTE
+
+  - Type: Node
+    tags: [BlastWave]
+    path: BlastWave_
+    source: Hydro/BlastWave
+    priority: high
+    options:
+      model: HYDRO
+      hdf5: true
+
+    Nodes:
+      
+      - Type: Case
+        tags: [Hydro]
+        path: Hydro/
+
+      - Type: Case
+        tags: [MHD]
+        path: MHD/
+        options:
+          mhd: true
+
+    references:
+      - name : "case_00/Data_000000"
+        loc : "cloud:case_00/Data_000000"
+        file_type : HDF5
+      - name : "case_00/Data_000010"
+        loc : "cloud:case_00/Data_000010"
+        file_type : HDF5
+      - name : "case_00/Diag_000000"
+        loc : "cloud:case_00/Diag_000000"
+        file_type : TEXT
+      - name : "case_00/Diag_000010"
+        loc : "cloud:case_00/Diag_000010"
+        file_type : TEXT
+      - name: "case_00/Record__Note"
+        loc: "cloud:case_00/Record__Note"
+        file_type : NOTE
+
+  - Type: Case
+    tags: [MHD_ABC, MHD]
+    path: MHD_ABC_MHD/
+    source: Hydro/MHD_ABC
+    priority: high
+    options:
+      model: HYDRO
+      mhd: true
+      hdf5: true
+      gpu: true
+      mpi: true
+
+    references:
+      - name : "case_00/Data_000000"
+        loc : "cloud:case_00/Data_000000"
+        file_type : HDF5
+      - name : "case_00/Data_000010"
+        loc : "cloud:case_00/Data_000010"
+        file_type : HDF5
+      - name: "case_00/Record__Note"
+        loc: "cloud:case_00/Record__Note"
+        file_type : NOTE
+
+  - Type: Node
+    tags: [Plummer]
+    path: Plummer_
+    source: Hydro/Plummer
+    priority: high
+    options:
+      model: HYDRO
+      gravity: true
+      fftw: FFTW3
+      hdf5: true
+      gpu: true
+      mpi: true
+
+    inputs:
+      Input__Parameter:
+        OPT__OUTPUT_POT: 0
+
+    references:
+      - name : "case_00/Data_000000"
+        loc : "cloud:case_00/Data_000000"
+        file_type : HDF5
+      - name : "case_00/Data_000019"
+        loc : "cloud:case_00/Data_000019"
+        file_type : HDF5
+      - name: "case_00/Record__Note"
+        loc: "cloud:case_00/Record__Note"
+        file_type : NOTE
+    
+    Nodes:
+      - Type: Case
+        tags: [Gravity]
+        path: Gravity/
+
+      - Type: Case
+        tags: [Particle]
+        path: Particle/
+        options:
+          particle: true
+        
+        references:
+          - name : "case_00/Particle_000000.txt"
+            loc : "cloud:case_00/Particle_000000.txt"
+            file_type : TEXT
+          - name : "case_00/Particle_000019.txt"
+            loc : "cloud:case_00/Particle_000019.txt"
+            file_type : TEXT
+
+  - Type: Node
+    tags: [Riemann]
+    path: Riemann_
+    source: Hydro/Riemann
+    priority: high
+    options:
+      model: HYDRO
+
+    references:
+      - name: case_00/Xline_y0.000_z0.000_000000
+        loc: "cloud:case_00/Xline_y0.000_z0.000_000000"
+        file_type: TEXT
+      - name: case_00/Xline_y0.000_z0.000_000010
+        loc: "cloud:case_00/Xline_y0.000_z0.000_000010"
+        file_type: TEXT
+      - name: case_00/Record__Note
+        loc: "cloud:case_00/Record__Note"
+        file_type: NOTE
+
+    Nodes:
+      - Type: Node
+        tags: [Hydro]
+        path: Hydro/
+
+        Nodes:
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0  #1  Set to 0 due to a bug in the code originally.
+
+      - Type: Node
+        tags: [MHD]
+        path: MHD/
+        options:
+          mhd: true
+
+        Nodes:
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0  #6  Set to 0 due to a bug in the code originally.
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0  #7  Set to 0 due to a bug in the code originally.
+                
+      - Type: Node
+        tags: [SRHD]
+        path: SRHD/
+        options:
+          flu_scheme: MHM
+          srhd: true
+          slope: PLM
+          flux: HLLC
+          double: true
+
+        Nodes:
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0  #10  Set to 0 due to a bug in the code originally.
+          - Type: Case
+            inputs:
+              Input__TestProb:
+                Riemann_Prob: 0  #11  Set to 0 due to a bug in the code originally.
