@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass, field, fields, is_dataclass
-from typing import Any, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from .runtime_vars import RuntimeVariables
 
 
@@ -33,6 +33,12 @@ class TestCase:
     source: str = ""
     priority: int | str = 0
     tags: List[str] = field(default_factory=list)
+    # Optional fields for input from config
+    _case_name: Optional[str] = None
+    # TODO: a corresponding field case_name set by __post_init__
+
+    # Class variables
+    _all_test_ids: ClassVar[set[str]] = set()
 
     def run_dir(self, rtvars: RuntimeVariables) -> str:
         run_root = os.path.join(rtvars.gamer_path, 'regression_test', 'run')
@@ -85,7 +91,8 @@ class TestCase:
         # Format: <TestName>_<Type>_c<case_index:02d>
         # """
         # return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
-        return os.path.join(self.path, f"case_{self._stable_hexdigest()}")
+        case_name = f"case_{self._stable_hexdigest()}" if self._case_name is None else self._case_name
+        return os.path.join(self.path, case_name)
 
     @staticmethod
     def from_node_attributes(attrs: dict[str, Any]) -> 'TestCase':
@@ -129,13 +136,21 @@ class TestCase:
         fields['path'] = get_attr(attrs, 'path', "", str)
         fields['source'] = get_attr(attrs, 'source', "", str)
         fields['tags'] = get_attr(attrs, 'tags', [], list)
+        fields['_case_name'] = get_attr(attrs, 'name', None, str)
 
         # To be deprecated:
         fields['problem_name'] = "new_structure"
         fields['type_name'] = fields.get('path', '').replace('/', '_').replace('\\', '_')
         fields['case_index'] = 0
 
-        return TestCase(**fields)
+        # Construct TestCase instance and check duplicated test_id
+        tc = TestCase(**fields)
+        test_id = tc.test_id
+        if test_id in TestCase._all_test_ids:
+            raise ValueError(f"Duplicate path/name found: {test_id}")
+        TestCase._all_test_ids.add(test_id)
+
+        return tc
 
 
 @dataclass

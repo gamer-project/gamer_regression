@@ -13,6 +13,7 @@ pre_script:
 Nodes:
 
   - Type: Case
+    name: case_00
     tags: [AcousticWave, Hydro]
     path: AcousticWave_Hydro/
     source: Hydro/AcousticWave
@@ -44,10 +45,12 @@ Nodes:
     Nodes:
       
       - Type: Case
+        name: case_00
         tags: [Hydro]
         path: Hydro/
 
       - Type: Case
+        name: case_00
         tags: [MHD]
         path: MHD/
         options:
@@ -71,6 +74,7 @@ Nodes:
         file_type : NOTE
 
   - Type: Case
+    name: case_00
     tags: [MHD_ABC, MHD]
     path: MHD_ABC_MHD/
     source: Hydro/MHD_ABC
@@ -123,10 +127,12 @@ Nodes:
     
     Nodes:
       - Type: Case
+        name: case_00
         tags: [Gravity]
         path: Gravity/
 
       - Type: Case
+        name: case_00
         tags: [Particle]
         path: Particle/
         options:
@@ -166,10 +172,12 @@ Nodes:
 
         Nodes:
           - Type: Case
+            name: case_00
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0
           - Type: Case
+            name: case_01
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0  #1  Set to 0 due to a bug in the code originally.
@@ -182,10 +190,12 @@ Nodes:
 
         Nodes:
           - Type: Case
+            name: case_00
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0  #6  Set to 0 due to a bug in the code originally.
           - Type: Case
+            name: case_01
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0  #7  Set to 0 due to a bug in the code originally.
@@ -202,10 +212,12 @@ Nodes:
 
         Nodes:
           - Type: Case
+            name: case_00
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0  #10  Set to 0 due to a bug in the code originally.
           - Type: Case
+            name: case_01
             inputs:
               Input__TestProb:
                 Riemann_Prob: 0  #11  Set to 0 due to a bug in the code originally.

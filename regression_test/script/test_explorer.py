@@ -254,6 +254,8 @@ class _Node:
 
         if 'Nodes' in data and node_type == 'Case':
             raise ValueError("A Case node cannot have child nodes.")
+        if 'id' in data and node_type != 'Case':
+            raise ValueError("Only a Case node can have an 'id' attribute.")
         children_config = data.get('Nodes')
         if children_config is None:  # Key not defined or key without value
             children_config = []
@@ -302,6 +304,7 @@ class TreeProcessor:
         - `path`: The path will be appended to the parent's path literally. '/' will
                 need to be added explicitly if needed.
         - `Type`: The type of a node. It is not inherited and required for every node.
+        - `name`: Only available for `Case` nodes to override the default case name.
     - The root is a node itself. `Type` is also required.
     """
 

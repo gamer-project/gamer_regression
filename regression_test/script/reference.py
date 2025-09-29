@@ -69,7 +69,7 @@ class GirderReferenceProvider:
 
         # Cloud group name (legacy): <TestName>_<Type>
         group_name = ctx.case.test_group
-        case_folder = ctx.case.case_name
+        case_folder = ctx.case._case_name  # Use the private field for supporting the legacy structure
         # Determine the file name to fetch: prefer basename from declared reference name
         file_basename = os.path.basename(ref.name) if ref.name else os.path.basename(ref.loc.split(":", 1)[1])
 
