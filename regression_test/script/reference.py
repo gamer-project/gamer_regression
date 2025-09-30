@@ -68,10 +68,9 @@ class GirderReferenceProvider:
             return STATUS.FAIL, 'Missing case in FetchContext for cloud provider'
 
         # Cloud group name (legacy): <TestName>_<Type>
-        group_name = ctx.case.test_group
+        group_name = ctx.case.path.replace('/', '')
         case_folder = ctx.case._case_name  # Use the private field for supporting the legacy structure
-        # Determine the file name to fetch: prefer basename from declared reference name
-        file_basename = os.path.basename(ref.name) if ref.name else os.path.basename(ref.loc.split(":", 1)[1])
+        file_basename = ref.name
 
         # Resolve latest version folder
         ver_latest = self.gh.get_latest_version(group_name)
@@ -114,11 +113,10 @@ class UrlReferenceProvider:
 
 
 def get_provider(loc: str) -> ReferenceProvider:
-    where = loc.split(":", 1)[0]
-    if where == "local":
+    if loc == "local":
         return LocalReferenceProvider()
-    if where == "cloud":
+    elif loc == "cloud":
         return GirderReferenceProvider()
-    if where == "url":
+    elif loc == "url":
         return UrlReferenceProvider()
-    raise ValueError(f"Unknown reference location '{where}'")
+    raise ValueError(f"Unknown reference location '{loc}'")

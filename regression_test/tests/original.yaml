@@ -23,14 +23,14 @@ Nodes:
       double: true
 
     references:
-      - name: "case_00/AcousticWave_Dens_000000"
-        loc: "cloud:case_00/AcousticWave_Dens_000000"
+      - name: "AcousticWave_Dens_000000"
+        loc: "cloud"
         file_type : TEXT
-      - name: "case_00/AcousticWave_Dens_000010"
-        loc: "cloud:case_00/AcousticWave_Dens_000010"
+      - name: "AcousticWave_Dens_000010"
+        loc: "cloud"
         file_type : TEXT
-      - name: "case_00/Record__Note"
-        loc: "cloud:case_00/Record__Note"
+      - name: "Record__Note"
+        loc: "cloud"
         file_type : NOTE
 
   - Type: Node
@@ -57,20 +57,20 @@ Nodes:
           mhd: true
 
     references:
-      - name : "case_00/Data_000000"
-        loc : "cloud:case_00/Data_000000"
+      - name : "Data_000000"
+        loc: "cloud"
         file_type : HDF5
-      - name : "case_00/Data_000010"
-        loc : "cloud:case_00/Data_000010"
+      - name : "Data_000010"
+        loc: "cloud"
         file_type : HDF5
-      - name : "case_00/Diag_000000"
-        loc : "cloud:case_00/Diag_000000"
+      - name : "Diag_000000"
+        loc : "cloud"
         file_type : TEXT
-      - name : "case_00/Diag_000010"
-        loc : "cloud:case_00/Diag_000010"
+      - name : "Diag_000010"
+        loc : "cloud"
         file_type : TEXT
-      - name: "case_00/Record__Note"
-        loc: "cloud:case_00/Record__Note"
+      - name: "Record__Note"
+        loc: "cloud"
         file_type : NOTE
 
   - Type: Case
@@ -87,14 +87,14 @@ Nodes:
       mpi: true
 
     references:
-      - name : "case_00/Data_000000"
-        loc : "cloud:case_00/Data_000000"
+      - name : "Data_000000"
+        loc : "cloud"
         file_type : HDF5
-      - name : "case_00/Data_000010"
-        loc : "cloud:case_00/Data_000010"
+      - name : "Data_000010"
+        loc : "cloud"
         file_type : HDF5
-      - name: "case_00/Record__Note"
-        loc: "cloud:case_00/Record__Note"
+      - name: "Record__Note"
+        loc: "cloud"
         file_type : NOTE
 
   - Type: Node
@@ -115,14 +115,14 @@ Nodes:
         OPT__OUTPUT_POT: 0
 
     references:
-      - name : "case_00/Data_000000"
-        loc : "cloud:case_00/Data_000000"
+      - name : "Data_000000"
+        loc : "cloud"
         file_type : HDF5
-      - name : "case_00/Data_000019"
-        loc : "cloud:case_00/Data_000019"
+      - name : "Data_000019"
+        loc : "cloud"
         file_type : HDF5
-      - name: "case_00/Record__Note"
-        loc: "cloud:case_00/Record__Note"
+      - name: "Record__Note"
+        loc: "cloud"
         file_type : NOTE
     
     Nodes:
@@ -139,11 +139,11 @@ Nodes:
           particle: true
         
         references:
-          - name : "case_00/Particle_000000.txt"
-            loc : "cloud:case_00/Particle_000000.txt"
+          - name : "Particle_000000.txt"
+            loc : "cloud"
             file_type : TEXT
-          - name : "case_00/Particle_000019.txt"
-            loc : "cloud:case_00/Particle_000019.txt"
+          - name : "Particle_000019.txt"
+            loc : "cloud"
             file_type : TEXT
 
   - Type: Node
@@ -155,14 +155,14 @@ Nodes:
       model: HYDRO
 
     references:
-      - name: case_00/Xline_y0.000_z0.000_000000
-        loc: "cloud:case_00/Xline_y0.000_z0.000_000000"
+      - name: Xline_y0.000_z0.000_000000
+        loc: "cloud"
         file_type: TEXT
-      - name: case_00/Xline_y0.000_z0.000_000010
-        loc: "cloud:case_00/Xline_y0.000_z0.000_000010"
+      - name: Xline_y0.000_z0.000_000010
+        loc: "cloud"
         file_type: TEXT
-      - name: case_00/Record__Note
-        loc: "cloud:case_00/Record__Note"
+      - name: Record__Note
+        loc: "cloud"
         file_type: NOTE
 
     Nodes:
