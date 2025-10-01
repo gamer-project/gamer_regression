@@ -21,8 +21,6 @@ class TestRunner:
         self.err_level = rtvars.error_level
         self.gamer_abs_path = gamer_abs_path
         self.src_path = os.path.join(gamer_abs_path, 'src')
-        # per-case run dir provided by orchestrator
-        self.group_dir = None
         self.case_dir = case.run_dir(rtvars)
         self.ref_path = os.path.join(gamer_abs_path, 'example', 'test_problem', case.source)
         self.tool_path = os.path.join(gamer_abs_path, 'tool', 'analysis', 'gamer_compare_data')

@@ -15,9 +15,7 @@ class TestReference:
 
 @dataclass(frozen=True)
 class TestCase:
-    problem_name: str                 # <TestName>
-    type_name: str                    # <Type>
-    case_index: int                   # numeric index, 0-based
+
     makefile_cfg: Dict[str, object]   # Makefile options
     input_parameter: Dict[str, object]
     input_testprob: Dict[str, object]
@@ -26,9 +24,6 @@ class TestCase:
     user_compare_scripts: List[str] = field(default_factory=list)
     references: List[TestReference] = field(default_factory=list)
     levels: Dict[str, float] = field(default_factory=dict)
-    # Path to run/<test_id> directory (set by orchestrator)
-    # run_dir: str = ""
-    # Properties for new YAML config
     path: str = ""
     source: str = ""
     priority: int | str = 0
@@ -74,23 +69,8 @@ class TestCase:
         return f"TestCase<{self.test_id}>"
 
     @property
-    def test_group(self) -> str:
-        # Deprecated: legacy grouped identity (<TestName>_<Type>)
-        # Still be used in GirderReferenceProvider
-        return f"{self.problem_name}_{self.type_name}"
-
-    @property
-    def case_name(self) -> str:
-        return f"case_{self.case_index:02d}"
-
-    @property
     def test_id(self) -> str:
         """Unique identity for the test case, constructed from its content."""
-        # """Flattened unique per-case identity.
-
-        # Format: <TestName>_<Type>_c<case_index:02d>
-        # """
-        # return f"{self.problem_name}_{self.type_name}_c{self.case_index:02d}"
         case_name = f"case_{self._stable_hexdigest()}" if self._case_name is None else self._case_name
         return os.path.join(self.path, case_name)
 
@@ -138,11 +118,6 @@ class TestCase:
         fields['tags'] = get_attr(attrs, 'tags', [], list)
         fields['_case_name'] = get_attr(attrs, 'name', None, str)
 
-        # To be deprecated:
-        fields['problem_name'] = "new_structure"
-        fields['type_name'] = fields.get('path', '').replace('/', '_').replace('\\', '_')
-        fields['case_index'] = 0
-
         # Construct TestCase instance and check duplicated test_id
         tc = TestCase(**fields)
         test_id = tc.test_id
@@ -151,20 +126,3 @@ class TestCase:
         TestCase._all_test_ids.add(test_id)
 
         return tc
-
-
-@dataclass
-class TestType:
-    name: str                           # <Type>
-    priority: str                       # high | medium | low
-    levels: Dict[str, float]
-    pre_scripts: List[str] = field(default_factory=list)
-    post_scripts: List[str] = field(default_factory=list)
-    user_compare_scripts: List[str] = field(default_factory=list)
-    cases: List[TestCase] = field(default_factory=list)
-
-
-@dataclass
-class TestProblem:
-    name: str                           # <TestName>
-    types: List[TestType] = field(default_factory=list)

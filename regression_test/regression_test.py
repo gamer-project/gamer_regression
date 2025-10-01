@@ -208,8 +208,6 @@ if __name__ == '__main__':
         py_exe=sys.executable,
         error_level=args.error_level,
         priority=args.priority,
-        name=args.name,
-        type=args.type,
         output=args.output + ".log",
         no_upload=args.no_upload,
         machine=args.machine,

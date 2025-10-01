@@ -116,7 +116,7 @@ def get_git_info(path):
     return commit_hash
 
 
-def read_yaml(file_name, read_type=None):
+def read_yaml(file_name):
     """
     Read the yaml file.
 
@@ -124,37 +124,8 @@ def read_yaml(file_name, read_type=None):
     ------
     file_name : str
        File name.
-    read_type : str
-       Read file type. [config/test_list]
-
-    Returns
-    -------
-
-    config:
-       data['MAKE_CONFIG']    : dict
-          The config of the makefile.
-       data['INPUT_SETTINGS'] : dict
-          The config of the Input__Parameters.
-    test_list:
-       data                   : dict
-          The test problems of each group.
-
     """
     with open(file_name) as stream:
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
     return data
-
-
-def read_test_config(test_names):
-    all_test_name_configs = {}
-    all_test_types = []
-    for name, path in test_names.items():
-        config = read_yaml(path + '/configs')
-        all_test_name_configs[name] = config
-        for t_type in config:
-            if t_type in all_test_types:
-                continue
-            all_test_types.append(t_type)
-
-    return all_test_name_configs, all_test_types
