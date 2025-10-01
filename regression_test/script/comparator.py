@@ -111,7 +111,7 @@ class TestComparator:
         self.yh_folder_dict = {}
         self.gh_has_list = False
 
-    def compare(self, case: TestCase, err_level: str) -> Tuple[int, str]:
+    def compare(self, case: TestCase) -> Tuple[int, str]:
         logger = logging.getLogger('compare')
         case_dir = case.run_dir(self.rtvars)
         ref_root = os.path.join(case_dir, 'reference')
@@ -126,7 +126,7 @@ class TestComparator:
         tool_status, tool_reason, tool_path = self._build_compare_tool(case)
 
         # 3) Run comparisons
-        status, reason = self._run_comparisons(case, ref_root, err_level, tool_status, tool_reason, tool_path)
+        status, reason = self._run_comparisons(case, ref_root, tool_status, tool_reason, tool_path)
         if status != STATUS.SUCCESS:
             return status, reason
 
@@ -160,8 +160,9 @@ class TestComparator:
         return self.tool_builder.get_tool(case)
 
     # ---- internals: step 3 - comparisons ----
-    def _run_comparisons(self, case: TestCase, ref_root: str, err_level: str,
+    def _run_comparisons(self, case: TestCase, ref_root: str,
                          tool_status: int, tool_reason: str, tool_path: str) -> Tuple[int, str]:
+        err_level = f"level{self.rtvars.error_level}"
         case_dir = case.run_dir(self.rtvars)
         for ref in case.references:
             fname = os.path.basename(ref.name)

@@ -112,7 +112,7 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
 
             # Compare
             set_log_context(phase='compare')
-            status, reason = comparator.compare(tc, rtvars.error_level)
+            status, reason = comparator.compare(tc)
             results[tc.test_id] = {"status": status, "reason": reason}
             logger.info('Case done')
         finally:
@@ -121,12 +121,9 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
     return results
 
 
-def write_args_to_log(rtvars: RuntimeVariables, force_args=None):
+def write_args_to_log(rtvars: RuntimeVariables):
     logger = logging.getLogger('main')
     logger.info("Record all arguments have been set.")
-    # force/unknown args first if provided
-    if force_args:
-        logger.info("%-20s : %s" % ("force_args", " ".join(force_args)))
 
     # Log fields from rtvars dataclass
     for field, value in vars(rtvars).items():
@@ -200,7 +197,7 @@ def upload_process(test_configs):
 # Main execution
 ####################################################################################################
 if __name__ == '__main__':
-    args, unknown_args = argument_handler()
+    args = argument_handler()
 
     rtvars = RuntimeVariables(
         num_threads=os.cpu_count(),
@@ -208,7 +205,7 @@ if __name__ == '__main__':
         py_exe=sys.executable,
         error_level=args.error_level,
         priority=args.priority,
-        output=args.output + ".log",
+        output=args.output + (".log" if not args.output.endswith(".log") else ""),
         no_upload=args.no_upload,
         machine=args.machine,
         mpi_rank=args.mpi_rank,
@@ -235,7 +232,7 @@ if __name__ == '__main__':
     if GAMER_CURRENT_COMMIT != GAMER_EXPECT_COMMIT:
         logger.warning('Regression test may not fully support this GAMER version!')
 
-    write_args_to_log(rtvars, force_args=unknown_args)
+    write_args_to_log(rtvars)
 
     keys = sorted(tc.test_id for tc in test_cases)
     logger.info('Test to be run       : %-s' % (" ".join(keys)))
