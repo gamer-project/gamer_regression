@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, ClassVar, Dict, List, Optional
 from .runtime_vars import RuntimeVariables
+from .utilities import priority2int
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class TestCase:
     levels: Dict[str, float] = field(default_factory=dict)
     path: str = ""
     source: str = ""
-    priority: int | str = 0
+    priority: int = 0
     tags: List[str] = field(default_factory=list)
     # Optional fields for input from config
     _case_name: Optional[str] = None
@@ -96,7 +97,7 @@ class TestCase:
         fields['input_parameter'] = get_attr(inputs, 'Input__Parameter', {}, dict)
         fields['input_testprob'] = get_attr(inputs, 'Input__TestProb', {}, dict)
 
-        fields['priority'] = get_attr(attrs, 'priority', 0, (int, str))
+        fields['priority'] = priority2int(get_attr(attrs, 'priority', 0, (int, str)))
         fields['levels'] = get_attr(attrs, 'levels', {}, dict)
 
         references: List[TestReference] = []

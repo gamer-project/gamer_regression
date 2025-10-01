@@ -10,7 +10,7 @@ from script.models import TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.test_explorer import TestExplorer
-from script.utilities import STATUS
+from script.utilities import STATUS, priority2int
 
 
 """
@@ -204,12 +204,13 @@ if __name__ == '__main__':
         gamer_path=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         py_exe=sys.executable,
         error_level=args.error_level,
-        priority=args.priority,
+        priority=priority2int(args.priority),
+        tags=args.tags,
         output=args.output + (".log" if not args.output.endswith(".log") else ""),
         no_upload=args.no_upload,
         machine=args.machine,
         mpi_rank=args.mpi_rank,
-        mpi_core_per_rank=args.mpi_core_per_rank
+        mpi_core_per_rank=args.mpi_core_per_rank,
     )
 
     test_explorer = TestExplorer(rtvars)
@@ -219,7 +220,7 @@ if __name__ == '__main__':
 
     # Initialize regression test
     # Use new flat list of cases produced by TestExplorer
-    test_cases = test_explorer.get_test_cases()
+    test_cases = test_explorer.get_test_cases(min_priority=rtvars.priority, tags=rtvars.tags)
 
     # Initialize logger
     log_init(rtvars.output)

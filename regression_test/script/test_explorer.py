@@ -8,9 +8,6 @@ from .runtime_vars import RuntimeVariables
 from .utilities import read_yaml
 
 
-PRIOR = {"high": 3, "medium": 2, "low": 1}
-
-
 class TestExplorer:
     """Load test config files and provide filtered TestCase lists.
 
@@ -37,9 +34,17 @@ class TestExplorer:
 
     def get_test_cases(
         self,
-        min_priority: Optional[str] = None,
+        min_priority: Optional[int] = None,
+        tags: Optional[List[str]] = None,
     ) -> List[TestCase]:
-        return [tc for tc in self.all_cases]  # No filtering for now
+        """Get a list of test cases filtered by minimum priority and tags."""
+        selected = self.all_cases
+        if min_priority is not None:  # Filter by minimum priority
+            selected = [tc for tc in selected if tc.priority >= min_priority]
+        if tags:  # Filter by tags: require ALL tags to be present
+            need = set(tags)
+            selected = [tc for tc in selected if need.issubset(set(tc.tags))]
+        return selected
 
     @staticmethod
     def _create_virtual_root_node(nodes: List[dict], paths: List[str]) -> '_Node':

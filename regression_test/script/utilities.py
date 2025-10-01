@@ -129,3 +129,22 @@ def read_yaml(file_name):
         data = yaml.load(stream, Loader=yaml.FullLoader if six.PY3 else yaml.Loader)
 
     return data
+
+
+def priority2int(priority: int | str) -> int:
+    if isinstance(priority, int):
+        if priority >= 0:
+            return priority
+        else:
+            raise ValueError(f"Integer priority must be non-negative, got {priority}.")
+    elif isinstance(priority, str):
+        PRIORITY_MAP = {"high": 30, "medium": 20, "low": 10}
+        if priority.lower() in PRIORITY_MAP:
+            return PRIORITY_MAP[priority.lower()]
+        elif priority.isdigit() and int(priority) >= 0:
+            return int(priority)
+        else:
+            raise ValueError(
+                f"Invalid string priority: '{priority}'. Must be 'high', 'medium', 'low', or a non-negative integer.")
+    else:
+        raise ValueError(f"Priority must be an integer or string, got {type(priority)}.")

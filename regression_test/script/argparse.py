@@ -28,9 +28,12 @@ def argument_handler():
                         default=0
                         )
     parser.add_argument("-p", "--priority",
-                        help="minimum priority of test cases to run",
-                        type=str, choices=["high", "medium", "low"],
+                        help="minimum priority of test cases to run; could be high, medium, low, or a non-negative integer",
                         default="high"
+                        )
+    parser.add_argument("-t", "--tags",
+                        nargs="+",
+                        help="select tests that contain ALL tags"
                         )
     parser.add_argument("-o", "--output",
                         help="name of the log file; .log will be appended if not provided",
