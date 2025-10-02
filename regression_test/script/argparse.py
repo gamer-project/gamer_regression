@@ -1,5 +1,6 @@
 import argparse
 import os
+from .runtime_vars import RuntimeVariables
 
 thread_nums = os.cpu_count()
 THREAD_PER_CORE = 2
@@ -8,19 +9,15 @@ core_nums = thread_nums // THREAD_PER_CORE
 RANK_NUMS = core_nums // CORE_PER_RANK
 
 
-def argument_handler():
+def get_runtime_settings() -> RuntimeVariables:
     """
-    Get the input arguements.
-
-    Returns
-    -------
-
-    args    : class argparse.Namespace
-       Storing the input arguments.
+    Handle the input arguments and create a RuntimeVariables instance
+    to store the settings.
     """
-    parser = argparse.ArgumentParser(description="Regression test of GAMER (commit ?).",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter
-                                     )
+    parser = argparse.ArgumentParser(
+        description="Regression test of GAMER (commit ?).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
     parser.add_argument("-e", "--error-level",
                         help="level of error allowed",
@@ -61,4 +58,6 @@ def argument_handler():
                         default=CORE_PER_RANK
                         )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    return RuntimeVariables(**vars(args))

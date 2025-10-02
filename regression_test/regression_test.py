@@ -1,16 +1,15 @@
 import logging
 import os
-import sys
 import subprocess
 from typing import List
-from script.argparse import argument_handler
+from script.argparse import get_runtime_settings
 from script.comparator import TestComparator, CompareToolBuilder
 from script.logging_center import log_init, set_log_context, clear_log_context
 from script.models import TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.test_explorer import TestExplorer
-from script.utilities import STATUS, priority2int
+from script.utilities import STATUS
 
 
 """
@@ -197,21 +196,7 @@ def upload_process(test_configs):
 # Main execution
 ####################################################################################################
 if __name__ == '__main__':
-    args = argument_handler()
-
-    rtvars = RuntimeVariables(
-        num_threads=os.cpu_count(),
-        gamer_path=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        py_exe=sys.executable,
-        error_level=args.error_level,
-        priority=priority2int(args.priority),
-        tags=args.tags,
-        output=args.output + (".log" if not args.output.endswith(".log") else ""),
-        no_upload=args.no_upload,
-        machine=args.machine,
-        mpi_rank=args.mpi_rank,
-        mpi_core_per_rank=args.mpi_core_per_rank,
-    )
+    rtvars = get_runtime_settings()
 
     test_explorer = TestExplorer(rtvars)
 
