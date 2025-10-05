@@ -21,6 +21,10 @@ class ReferenceProvider(Protocol):
         """Fetch reference into dest_dir. Returns (STATUS, reason)."""
         ...
 
+    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
+        """Push src_path to the location specified by ref. Returns (STATUS, reason)."""
+        ...
+
 
 class LocalReferenceProvider:
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
@@ -38,6 +42,9 @@ class LocalReferenceProvider:
             return STATUS.SUCCESS, ""
         except Exception as e:
             return STATUS.EXTERNAL, f"Can not link file {path}: {e}"
+
+    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
+        raise NotImplementedError("Push not implemented for LocalReferenceProvider")
 
 
 class GirderReferenceProvider:
@@ -94,22 +101,8 @@ class GirderReferenceProvider:
             reason = 'Download failed'
         return status, reason
 
-
-class UrlReferenceProvider:
-    def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = logging.getLogger('reference.url')
-        _, url = ref.loc.split(":", 1)
-        os.makedirs(dest_dir, exist_ok=True)
-        target_name = os.path.basename(ref.name) if ref.name else os.path.basename(url)
-        target = os.path.join(dest_dir, target_name)
-        try:
-            # TODO: test download from url, the `-o` name should be wrong
-            cmd = ["curl", "-L", url, "-o", target]
-            logger.info("Downloading %s --> %s" % (url, target))
-            subprocess.check_call(cmd)
-            return STATUS.SUCCESS, ""
-        except Exception as e:
-            return STATUS.DOWNLOAD, f"Download from {url} failed: {e}"
+    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
+        raise NotImplementedError("Push not implemented for GirderReferenceProvider")
 
 
 def get_provider(loc: str) -> ReferenceProvider:
@@ -117,6 +110,4 @@ def get_provider(loc: str) -> ReferenceProvider:
         return LocalReferenceProvider()
     elif loc == "cloud":
         return GirderReferenceProvider()
-    elif loc == "url":
-        return UrlReferenceProvider()
     raise ValueError(f"Unknown reference location '{loc}'")

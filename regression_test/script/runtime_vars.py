@@ -14,7 +14,7 @@ class RuntimeVariables:
     error_level: int
     priority: int
     output: str
-    no_upload: bool
+    update_ref: bool
     machine: str
     mpi_rank: int
     mpi_core_per_rank: int

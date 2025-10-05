@@ -167,31 +167,6 @@ def output_summary(result, log_file):
     return fail_tests
 
 
-def upload_process(test_configs):
-    # logger = logging.getLogger('upload')
-    # tests_to_upload = input("Enter tests you'd like to update result. ")
-    # tests_upload = tests_to_upload.split()
-
-    # reask = False
-    # for test_upload in tests_upload:
-    #     if test_upload not in ALL_TEST_CONFIGS:
-    #         print("'%s' no such test.")
-    #         reask = True
-    #     elif test_upload not in test_configs:
-    #         print("%s is not included in the tests you have ran.")
-    #         reask = True
-    # if reask:
-    #     upload_process(test_configs, logger)
-    #     return
-
-    # for test in tests_upload:
-    #     print("Uploading test %s" % test)
-    #     test_folder = GAMER_ABS_PATH + '/regression_test/tests/' + test
-    #     gi.upload_data(test, GAMER_ABS_PATH, test_folder, logger)
-
-    return
-
-
 ####################################################################################################
 # Main execution
 ####################################################################################################
@@ -234,19 +209,3 @@ if __name__ == '__main__':
 
     # Print out short summary
     fail_tests = output_summary(result, rtvars.output)
-
-    # Further process for fail tests
-    # TODO: add further process such as do nothing or accept new result and upload to hub.yt
-    if fail_tests == {}:
-        exit(0)
-    if rtvars.no_upload:
-        exit(1)
-
-    print("========================================")
-    upload_or_not = input("Would you like to update new result for fail test? (Y/n)")
-    if upload_or_not in ['Y', 'y', 'yes']:
-        upload_process({})
-    elif upload_or_not in ['N', 'n', 'no']:
-        exit(1)
-    else:
-        raise ValueError("Invalid input: %s" % (upload_or_not))

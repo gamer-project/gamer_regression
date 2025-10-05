@@ -37,8 +37,8 @@ def get_runtime_settings() -> RuntimeVariables:
                         type=str,
                         default="test.log"
                         )
-    parser.add_argument("-u", "--no-upload",
-                        help="not asking uploading new answer or not",
+    parser.add_argument("-u", "--update-ref",
+                        help="use new result to update reference data",
                         action="store_true"
                         )
 

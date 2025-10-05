@@ -18,6 +18,8 @@ src/.local_settings
 
 # Regression test
 regression_test/run/**
+regression_test/references/cloud/**
+regression_test/references/local/**
 
 # Python
 __pycache__

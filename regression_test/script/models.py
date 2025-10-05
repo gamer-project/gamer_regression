@@ -9,7 +9,7 @@ from .utilities import priority2int
 
 @dataclass(frozen=True)
 class TestReference:
-    name: str            # relative path under run dir (e.g., case_00/Data_...)
+    name: str            # file name under run dir (e.g., Data_...)
     loc: str             # e.g., "local:/abs/path" or "cloud:case_00/..."
     file_type: str       # HDF5 | TEXT | NOTE
 
