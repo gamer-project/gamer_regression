@@ -30,6 +30,10 @@ class ReferenceProvider(Protocol):
         """Fetch all references for *case* and return the directory containing them."""
         ...
 
+    def push(self, case: TestCase, run_dir: str) -> None:
+        """Push test results from *run_dir* to the reference storage for *case*."""
+        ...
+
 
 class LocalReferenceProvider:
     def __init__(self, abs_base_dir: str):
@@ -51,6 +55,21 @@ class LocalReferenceProvider:
                 f"Missing reference files for {case.test_id}: {', '.join(missing)}")
         logger.debug("Using local references at %s", case_dir)
         return case_dir
+
+    def push(self, case: TestCase, run_dir: str) -> None:
+        logger = logging.getLogger('reference.local')
+        case_dir = os.path.join(self.base_dir, case.test_id)
+        os.makedirs(case_dir, exist_ok=True)
+        
+        for ref in case.references:
+            src = os.path.join(run_dir, ref.name)
+            dst = os.path.join(case_dir, ref.name)
+            if not os.path.isfile(src):
+                logger.warning(f"Source file not found for reference update: {src}")
+                continue
+            shutil.copy2(src, dst)
+            logger.info(f"Updated local reference: {dst}")
+        logger.info(f"Pushed references for {case.test_id} to {case_dir}")
 
 
 class GirderReferenceProvider:
@@ -146,6 +165,11 @@ class GirderReferenceProvider:
                 shutil.rmtree(entry_path)
             else:
                 os.remove(entry_path)
+
+    def push(self, case: TestCase, run_dir: str) -> None:
+        logger = logging.getLogger('reference.girder')
+        logger.warning(f"Cloud reference push not yet implemented for {case.test_id}")
+        logger.info("Skipping reference update for cloud provider")
 
 
 def get_provider(rtvars: RuntimeVariables) -> ReferenceProvider:
