@@ -9,7 +9,7 @@ from os.path import isfile
 from typing import Dict, Tuple
 from .hdf5_file_config import hdf_info_read
 from .models import TestCase
-from .reference import FetchContext, get_provider
+from .reference import MissingReferenceError, ReferenceError, get_provider
 from .runtime_vars import RuntimeVariables
 from .utilities import STATUS
 from .process_runner import run_process
@@ -108,19 +108,19 @@ class TestComparator:
         self.rtvars = rtvars
         self.gamer_abs_path = rtvars.gamer_path
         self.tool_builder = tool_builder
-        self.yh_folder_dict = {}
-        self.gh_has_list = False
 
     def compare(self, case: TestCase) -> Tuple[int, str]:
         logger = logging.getLogger('compare')
-        case_dir = case.run_dir(self.rtvars)
-        ref_root = os.path.join(case_dir, 'reference')
-        os.makedirs(ref_root, exist_ok=True)
 
         # 1) Get references
-        status, reason = self._fetch_references(case, ref_root)
-        if status != STATUS.SUCCESS:
-            return status, reason
+        try:
+            ref_root = self._fetch_references(case)
+        except MissingReferenceError as exc:
+            return exc.status, str(exc)
+        except ReferenceError as exc:
+            return exc.status, str(exc)
+        except Exception as exc:
+            return STATUS.FAIL, f"Unexpected reference error: {exc}"
 
         # 2) Build/ensure compare tool
         tool_status, tool_reason, tool_path = self._build_compare_tool(case)
@@ -133,27 +133,9 @@ class TestComparator:
         return STATUS.SUCCESS, ""
 
     # ---- internals: step 1 - reference staging ----
-    def _fetch_references(self, case: TestCase, ref_root: str) -> Tuple[int, str]:
-        for ref in case.references:
-            try:
-                subdir = ref_root
-                os.makedirs(subdir, exist_ok=True)
-                ctx = FetchContext(
-                    gamer_abs_path=self.gamer_abs_path,
-                    yh_folder_dict=self.yh_folder_dict,
-                    gh_has_list=self.gh_has_list,
-                    case=case,
-                )
-                provider = get_provider(self.rtvars)
-                status, reason = provider.fetch(ref, subdir, ctx)
-                if status != STATUS.SUCCESS:
-                    return status, reason
-                if hasattr(provider, 'gh') and provider.gh is not None:
-                    self.yh_folder_dict = getattr(provider.gh, 'home_folder_dict', self.yh_folder_dict)
-                    self.gh_has_list = True
-            except Exception as e:
-                return STATUS.DOWNLOAD, f"Reference fetch error: {e}"
-        return STATUS.SUCCESS, ""
+    def _fetch_references(self, case: TestCase) -> str:
+        provider = get_provider(self.rtvars)
+        return provider.fetch(case)
 
     # ---- internals: step 2 - tool ensure/build ----
     def _build_compare_tool(self, case: TestCase) -> Tuple[int, str, str]:

@@ -1,29 +1,33 @@
 import logging
 import os
-import subprocess
-from dataclasses import dataclass
-from typing import Protocol, Optional
+import shutil
+from typing import Dict, Optional, Protocol
 from .girder_inscript import girder_handler
-from .models import TestReference, TestCase
+from .models import TestCase
 from .runtime_vars import RuntimeVariables
 from .utilities import STATUS
 
 
-@dataclass
-class FetchContext:
-    gamer_abs_path: str
-    yh_folder_dict: Optional[dict] = None
-    gh_has_list: bool = False
-    case: Optional[TestCase] = None
+class ReferenceError(RuntimeError):
+    """Base exception for reference staging issues."""
+
+    def __init__(self, message: str, status: int = STATUS.FAIL):
+        super().__init__(message)
+        self.status = status
+
+
+class MissingReferenceError(ReferenceError):
+    def __init__(self, message: str):
+        super().__init__(message, STATUS.MISSING_FILE)
 
 
 class ReferenceProvider(Protocol):
-    def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        """Fetch reference into dest_dir. Returns (STATUS, reason)."""
-        ...
+    """Ensure reference data is available for a given test case."""
 
-    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
-        """Push src_path to the location specified by ref. Returns (STATUS, reason)."""
+    reference_root: str
+
+    def fetch(self, case: TestCase) -> str:
+        """Fetch all references for *case* and return the directory containing them."""
         ...
 
 
@@ -31,84 +35,117 @@ class LocalReferenceProvider:
     def __init__(self, abs_base_dir: str):
         self.base_dir = os.path.abspath(abs_base_dir)
 
-    def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
-        logger = logging.getLogger('reference.local')
-        assert ctx.case is not None, 'Missing case in FetchContext for local provider'
-        case_ref_dir = os.path.join(self.base_dir, ctx.case.test_id)
-        path = os.path.abspath(os.path.join(case_ref_dir, ref.name))
-        if not os.path.exists(path):
-            return STATUS.MISSING_FILE, f"Local reference missing: {path}"
-        os.makedirs(dest_dir, exist_ok=True)
-        target = os.path.join(dest_dir, ref.name)
-        try:
-            if os.path.exists(target):
-                os.remove(target)
-            logger.info("Linking %s --> %s" % (path, target))
-            os.symlink(path, target)
-            return STATUS.SUCCESS, ""
-        except Exception as e:
-            return STATUS.EXTERNAL, f"Can not link file {path}: {e}"
+    @property
+    def reference_root(self) -> str:
+        return self.base_dir
 
-    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
-        raise NotImplementedError("Push not implemented for LocalReferenceProvider")
+    def fetch(self, case: TestCase) -> str:
+        logger = logging.getLogger('reference.local')
+        case_dir = os.path.join(self.base_dir, case.test_id)
+        if not os.path.isdir(case_dir):
+            raise MissingReferenceError(f"Local reference directory missing: {case_dir}")
+        missing = [ref.name for ref in case.references
+                   if not os.path.isfile(os.path.join(case_dir, ref.name))]
+        if missing:
+            raise MissingReferenceError(
+                f"Missing reference files for {case.test_id}: {', '.join(missing)}")
+        logger.debug("Using local references at %s", case_dir)
+        return case_dir
 
 
 class GirderReferenceProvider:
-    def __init__(self):
-        self.gh = None
+    def __init__(self, gamer_path: str):
+        self.gamer_path = gamer_path
+        self._gh: Optional[girder_handler] = None
+        self._has_version_list = False
+        self._folder_cache: Optional[Dict[str, dict]] = None
 
-    def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
+    @property
+    def reference_root(self) -> str:
+        return os.path.join(self.gamer_path, 'regression_test', 'references', 'cloud')
+
+    def fetch(self, case: TestCase) -> str:
         logger = logging.getLogger('reference.girder')
-        status = STATUS.SUCCESS
-        reason = ""
-        os.makedirs(dest_dir, exist_ok=True)
+        case_dir = os.path.join(self.reference_root, case.test_id)
+        os.makedirs(case_dir, exist_ok=True)
+        self._ensure_client()
+        self._ensure_version_list()
 
-        if self.gh is None:
+        group_name = case.path.replace('/', '')
+        case_folder = case._case_name or case.test_id.split(os.sep)[-1]
+        ref_folder = self._resolve_latest_folder(group_name)
+
+        files = self._resolve_file_nodes(ref_folder, case_folder, case)
+        self._clean_case_dir(case_dir)
+
+        for ref in case.references:
+            node = files.get(ref.name)
+            if node is None:
+                raise MissingReferenceError(
+                    f"Reference file not found in cloud: {case_folder}/{ref.name}")
+            file_id = node['_id']
+            logger.info("Downloading %s/%s/%s (id=%s) to %s",
+                        ref_folder, case_folder, ref.name, file_id, case_dir)
+            status = self._gh.download_file_by_id(file_id, case_dir)
+            if status != STATUS.SUCCESS:
+                raise ReferenceError(
+                    f"Download failed for {case.test_id}:{ref.name}", status)
+
+        logger.debug("Downloaded cloud references to %s", case_dir)
+        return case_dir
+
+    def _ensure_client(self) -> None:
+        if self._gh is None:
             try:
-                self.gh = girder_handler(ctx.gamer_abs_path, ctx.yh_folder_dict or {})
-            except Exception:
-                return STATUS.DOWNLOAD, 'Download from girder fails (init)'
+                self._gh = girder_handler(self.gamer_path, self._folder_cache or {})
+            except Exception as exc:
+                raise ReferenceError(f"Failed to initialize Girder client: {exc}", STATUS.DOWNLOAD)
+        self._folder_cache = getattr(self._gh, 'home_folder_dict', None)
 
+    def _ensure_version_list(self) -> None:
+        if not self._has_version_list:
+            try:
+                status = self._gh.download_compare_version_list()
+            except Exception as exc:
+                raise ReferenceError(
+                    f"Failed to download compare version list: {exc}", STATUS.DOWNLOAD)
+            if status != STATUS.SUCCESS:
+                raise ReferenceError("compare_version_list download failed", status)
+            self._has_version_list = True
+
+    def _resolve_latest_folder(self, group_name: str) -> str:
         try:
-            if not ctx.gh_has_list:
-                status = self.gh.download_compare_version_list()
-                if status != STATUS.SUCCESS:
-                    return status, 'Download from girder fails (list)'
-        except Exception:
-            return STATUS.DOWNLOAD, 'Download from girder fails (list-exception)'
-
-        if ctx.case is None:
-            return STATUS.FAIL, 'Missing case in FetchContext for cloud provider'
-
-        # Cloud group name (legacy): <TestName>_<Type>
-        group_name = ctx.case.path.replace('/', '')
-        case_folder = ctx.case._case_name  # Use the private field for supporting the legacy structure
-        file_basename = ref.name
-
-        # Resolve latest version folder
-        ver_latest = self.gh.get_latest_version(group_name)
+            ver_latest = self._gh.get_latest_version(group_name)
+        except Exception as exc:
+            raise ReferenceError(
+                f"Unable to resolve latest reference version for {group_name}: {exc}",
+                STATUS.DOWNLOAD)
+        if not ver_latest or 'time' not in ver_latest:
+            raise ReferenceError(f"Invalid version info for {group_name}", STATUS.DOWNLOAD)
         ref_folder = f"{group_name}-{ver_latest['time']}"
+        if not self._folder_cache or ref_folder not in self._folder_cache:
+            raise MissingReferenceError(
+                f"Reference version folder not found: {ref_folder}")
+        return ref_folder
 
-        # Walk to case folder then file item
-        node = self.gh.home_folder_dict.get(ref_folder)
-        if node is None:
-            return STATUS.DOWNLOAD, f"Reference version folder not found: {ref_folder}"
+    def _resolve_file_nodes(self, ref_folder: str, case_folder: str,
+                             case: TestCase) -> Dict[str, dict]:
+        node = self._folder_cache.get(ref_folder, {})
         if case_folder not in node:
-            return STATUS.DOWNLOAD, f"Case folder not found in cloud: {case_folder}"
-        node = node[case_folder]
-        if file_basename not in node:
-            return STATUS.DOWNLOAD, f"Reference file not found in cloud: {case_folder}/{file_basename}"
-        file_id = node[file_basename]['_id']
+            raise MissingReferenceError(
+                f"Case folder not found in cloud: {case_folder}")
+        case_node = node[case_folder]
+        if not isinstance(case_node, dict):
+            raise ReferenceError(f"Invalid node structure for {case_folder}")
+        return {name: data for name, data in case_node.items() if name != '_id'}
 
-        logger.info("Downloading (name: %s/%s/%s, id: %s) --> %s" %
-                    (ref_folder, case_folder, file_basename, file_id, dest_dir))
-        status = self.gh.download_file_by_id(file_id, dest_dir)
-        if status != STATUS.SUCCESS:
-            reason = 'Download failed'
-        return status, reason
-
-    def push(self, src_path: str, ref: TestReference, ctx: FetchContext) -> tuple[int, str]:
-        raise NotImplementedError("Push not implemented for GirderReferenceProvider")
+    def _clean_case_dir(self, case_dir: str) -> None:
+        for entry in os.listdir(case_dir):
+            entry_path = os.path.join(case_dir, entry)
+            if os.path.isdir(entry_path):
+                shutil.rmtree(entry_path)
+            else:
+                os.remove(entry_path)
 
 
 def get_provider(rtvars: RuntimeVariables) -> ReferenceProvider:
@@ -127,5 +164,5 @@ def get_provider(rtvars: RuntimeVariables) -> ReferenceProvider:
         path = payload if os.path.isabs(payload) else os.path.join(rtvars.gamer_path, payload)
         return LocalReferenceProvider(path)
     elif kind == "cloud":
-        return GirderReferenceProvider()
+        return GirderReferenceProvider(rtvars.gamer_path)
     raise ValueError(f"Unknown reference location '{loc}'")
