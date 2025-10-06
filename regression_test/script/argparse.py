@@ -45,6 +45,11 @@ def get_runtime_settings() -> RuntimeVariables:
     parser.add_argument("-m", "--machine",
                         help="name of the machine configuration in gamer/configs",
                         default="eureka_intel")
+    parser.add_argument("-r", "--reference-loc",
+                        help="reference data source; either 'cloud', 'local', or a prefixed spec like 'local:/abs/path'",
+                        dest="reference_loc",
+                        type=str,
+                        default="local")
 
     # MPI arguments
     parser.add_argument("--mpi-rank", metavar="N_RANK",

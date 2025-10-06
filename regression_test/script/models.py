@@ -10,7 +10,6 @@ from .utilities import priority2int
 @dataclass(frozen=True)
 class TestReference:
     name: str            # file name under run dir (e.g., Data_...)
-    loc: str             # e.g., "local:/abs/path" or "cloud:case_00/..."
     file_type: str       # HDF5 | TEXT | NOTE
 
 
@@ -104,7 +103,6 @@ class TestCase:
         for ref in get_attr(attrs, 'references', [], list):
             references.append(TestReference(
                 name=ref['name'],
-                loc=ref['loc'],
                 file_type=ref['file_type']
             ))
         fields['references'] = references

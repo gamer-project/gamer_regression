@@ -144,7 +144,7 @@ class TestComparator:
                     gh_has_list=self.gh_has_list,
                     case=case,
                 )
-                provider = get_provider(ref.loc)
+                provider = get_provider(self.rtvars)
                 status, reason = provider.fetch(ref, subdir, ctx)
                 if status != STATUS.SUCCESS:
                     return status, reason

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol, Optional
 from .girder_inscript import girder_handler
 from .models import TestReference, TestCase
+from .runtime_vars import RuntimeVariables
 from .utilities import STATUS
 
 
@@ -27,16 +28,21 @@ class ReferenceProvider(Protocol):
 
 
 class LocalReferenceProvider:
+    def __init__(self, abs_base_dir: str):
+        self.base_dir = os.path.abspath(abs_base_dir)
+
     def fetch(self, ref: TestReference, dest_dir: str, ctx: FetchContext) -> tuple[int, str]:
         logger = logging.getLogger('reference.local')
-        _, path = ref.loc.split(":", 1)
+        assert ctx.case is not None, 'Missing case in FetchContext for local provider'
+        case_ref_dir = os.path.join(self.base_dir, ctx.case.test_id)
+        path = os.path.abspath(os.path.join(case_ref_dir, ref.name))
+        if not os.path.exists(path):
+            return STATUS.MISSING_FILE, f"Local reference missing: {path}"
         os.makedirs(dest_dir, exist_ok=True)
-        # Prefer the declared name's basename to align with comparator expectations
-        target_name = os.path.basename(ref.name) if ref.name else os.path.basename(path)
-        target = os.path.join(dest_dir, target_name)
+        target = os.path.join(dest_dir, ref.name)
         try:
-            if os.path.islink(target) or os.path.exists(target):
-                return STATUS.SUCCESS, ""
+            if os.path.exists(target):
+                os.remove(target)
             logger.info("Linking %s --> %s" % (path, target))
             os.symlink(path, target)
             return STATUS.SUCCESS, ""
@@ -105,9 +111,21 @@ class GirderReferenceProvider:
         raise NotImplementedError("Push not implemented for GirderReferenceProvider")
 
 
-def get_provider(loc: str) -> ReferenceProvider:
-    if loc == "local":
-        return LocalReferenceProvider()
-    elif loc == "cloud":
+def get_provider(rtvars: RuntimeVariables) -> ReferenceProvider:
+    DEFAULT_LOCAL_PATH = os.path.join('regression_test', 'references', 'local')
+    loc = rtvars.reference_loc
+    if ":" in loc:
+        kind, payload = loc.split(":", 1)
+    else:
+        kind, payload = loc, ""
+    kind = kind.strip()
+    payload = payload.strip()
+
+    if kind == "local":
+        if not payload:
+            payload = DEFAULT_LOCAL_PATH
+        path = payload if os.path.isabs(payload) else os.path.join(rtvars.gamer_path, payload)
+        return LocalReferenceProvider(path)
+    elif kind == "cloud":
         return GirderReferenceProvider()
     raise ValueError(f"Unknown reference location '{loc}'")

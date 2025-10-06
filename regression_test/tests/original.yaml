@@ -24,13 +24,10 @@ Nodes:
 
     references:
       - name: "AcousticWave_Dens_000000"
-        loc: "cloud"
         file_type : TEXT
       - name: "AcousticWave_Dens_000010"
-        loc: "cloud"
         file_type : TEXT
       - name: "Record__Note"
-        loc: "cloud"
         file_type : NOTE
 
   - Type: Node
@@ -58,19 +55,14 @@ Nodes:
 
     references:
       - name : "Data_000000"
-        loc: "cloud"
         file_type : HDF5
       - name : "Data_000010"
-        loc: "cloud"
         file_type : HDF5
       - name : "Diag_000000"
-        loc : "cloud"
         file_type : TEXT
       - name : "Diag_000010"
-        loc : "cloud"
         file_type : TEXT
       - name: "Record__Note"
-        loc: "cloud"
         file_type : NOTE
 
   - Type: Case
@@ -88,13 +80,10 @@ Nodes:
 
     references:
       - name : "Data_000000"
-        loc : "cloud"
         file_type : HDF5
       - name : "Data_000010"
-        loc : "cloud"
         file_type : HDF5
       - name: "Record__Note"
-        loc: "cloud"
         file_type : NOTE
 
   - Type: Node
@@ -116,13 +105,10 @@ Nodes:
 
     references:
       - name : "Data_000000"
-        loc : "cloud"
         file_type : HDF5
       - name : "Data_000019"
-        loc : "cloud"
         file_type : HDF5
       - name: "Record__Note"
-        loc: "cloud"
         file_type : NOTE
     
     Nodes:
@@ -140,10 +126,8 @@ Nodes:
         
         references:
           - name : "Particle_000000.txt"
-            loc : "cloud"
             file_type : TEXT
           - name : "Particle_000019.txt"
-            loc : "cloud"
             file_type : TEXT
 
   - Type: Node
@@ -156,13 +140,10 @@ Nodes:
 
     references:
       - name: Xline_y0.000_z0.000_000000
-        loc: "cloud"
         file_type: TEXT
       - name: Xline_y0.000_z0.000_000010
-        loc: "cloud"
         file_type: TEXT
       - name: Record__Note
-        loc: "cloud"
         file_type: NOTE
 
     Nodes:
