@@ -4,7 +4,14 @@ import os
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, ClassVar, Dict, List, Optional
 from .runtime_vars import RuntimeVariables
-from .utilities import priority2int
+from .utilities import priority2int, STATUS
+
+
+@dataclass()
+class Result:
+    """Result of a test case."""
+    status: STATUS
+    reason: str
 
 
 @dataclass(frozen=True)

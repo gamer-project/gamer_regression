@@ -1,13 +1,14 @@
 import logging
 import os
 import subprocess
-from typing import List
+from typing import Dict, List
 from script.argparse import get_runtime_settings
 from script.comparator import TestComparator, CompareToolBuilder
 from script.logging_center import log_init, set_log_context, clear_log_context
-from script.models import TestCase
+from script.models import Result, TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
+from script.summary import generate_summaries
 from script.test_explorer import TestExplorer
 from script.utilities import STATUS
 
@@ -47,18 +48,24 @@ def get_git_info():
     return gamer_commit
 
 
-def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
+def main(rtvars: RuntimeVariables, test_cases: List[TestCase]) -> Dict[str, Result]:
     """
     Main regression test.
 
     Parameters
     ----------
+    rtvars : RuntimeVariables
+        Runtime variables containing configuration.
+    test_cases : List[TestCase]
+        List of test cases to execute.
 
-    tests        : dict
-       A dictionary of a sequence of the test paths with a key access of the test names.
+    Returns
+    -------
+    Dict[str, Result]
+        Dictionary mapping test_id to Result objects.
     """
 
-    results: dict[str, dict] = {}
+    results: Dict[str, Result] = {}
     tool_builder = CompareToolBuilder(rtvars)
     comparator = TestComparator(rtvars, tool_builder)
 
@@ -80,39 +87,39 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]):
             set_log_context(phase='compile')
             os.chdir(os.path.join(rtvars.gamer_path, 'src'))
             if runner.compile_gamer() != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             set_log_context(phase='prepare')
             if runner.copy_case() != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             set_log_context(phase='set_input')
             os.chdir(runner.case_dir)
             if runner.set_input() != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             set_log_context(phase='pre_script')
             if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             set_log_context(phase='run')
             if runner.run_gamer() != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             set_log_context(phase='post_script')
             if runner.execute_scripts('post_script') != STATUS.SUCCESS:
-                results[tc.test_id] = {"status": runner.status, "reason": runner.reason}
+                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
                 continue
 
             # Compare
             set_log_context(phase='compare')
             status, reason = comparator.compare(tc)
-            results[tc.test_id] = {"status": status, "reason": reason}
+            results[tc.test_id] = Result(status=status, reason=reason)
             logger.info('Case done')
         finally:
             clear_log_context()
@@ -137,34 +144,6 @@ def write_args_to_log(rtvars: RuntimeVariables):
         else:
             logger.info("%-20s : %s" % (field, value))
     return
-
-
-def output_summary(result, log_file):
-    TEXT_RED = "\033[91m"
-    TEXT_GREEN = "\033[92m"
-    TEXT_RESET = "\033[0m"
-    SEP_LEN = 50
-    OUT_FORMAT = "%-20s: %-15s %s"
-    print("="*SEP_LEN)
-    print("Short summary: (Fail will be colored as red, passed will be colored as green.)")
-    print("="*SEP_LEN)
-    print(OUT_FORMAT % ("Test name", "Error code", "Reason"))
-
-    fail_tests = {}
-    summary = ""
-    for key, val in result.items():
-        if val["status"] != STATUS.SUCCESS:
-            fail_tests[key] = val["status"]
-        summary += TEXT_GREEN if val["status"] == STATUS.SUCCESS else TEXT_RED
-        summary += OUT_FORMAT % (key, STATUS.CODE_TABLE[val["status"]], val["reason"])
-        summary += TEXT_RESET
-        summary += "\n"
-
-    print(summary, end="")
-    print("="*SEP_LEN)
-    print("Please check <%s> for the detailed message." % log_file)
-
-    return fail_tests
 
 
 ####################################################################################################
@@ -207,5 +186,4 @@ if __name__ == '__main__':
         logger.exception('Unexpected Error')
         raise
 
-    # Print out short summary
-    fail_tests = output_summary(result, rtvars.output)
+    generate_summaries(rtvars, result)

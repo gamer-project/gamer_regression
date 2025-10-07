@@ -50,6 +50,11 @@ def get_runtime_settings() -> RuntimeVariables:
                         dest="reference_loc",
                         type=str,
                         default="local")
+    parser.add_argument("--reports",
+                        nargs="+",
+                        help="list of summary report generators to use",
+                        default=["WSXCYC"]
+                        )
 
     # MPI arguments
     parser.add_argument("--mpi-rank", metavar="N_RANK",

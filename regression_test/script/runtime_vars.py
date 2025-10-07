@@ -20,6 +20,7 @@ class RuntimeVariables:
     mpi_core_per_rank: int
     tags: Optional[List[str]]
     reference_loc: str
+    reports: List[str]
 
     def __post_init__(self):
         object.__setattr__(self, "num_threads", os.cpu_count())
