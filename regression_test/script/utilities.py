@@ -3,8 +3,10 @@ Please arrange the functions and classes alphabetically.
 """
 import os
 import subprocess
+import time
 import yaml
 import six
+from contextlib import contextmanager
 
 
 ####################################################################################################
@@ -148,3 +150,39 @@ def priority2int(priority: int | str) -> int:
                 f"Invalid string priority: '{priority}'. Must be 'high', 'medium', 'low', or a non-negative integer.")
     else:
         raise ValueError(f"Priority must be an integer or string, got {type(priority)}.")
+
+
+@contextmanager
+def time_step(step_name: str, timing_dict: dict, logger=None):
+    """Context manager for timing test steps with automatic logging.
+
+    Parameters
+    ----------
+    step_name : str
+        Name of the step being timed (will be used as key in timing_dict)
+    timing_dict : dict
+        Dictionary to store the timing result
+    logger : logging.Logger, optional
+        Logger to output timing information
+
+    Yields
+    ------
+    None
+        Context for the timed operation
+
+    Examples
+    --------
+    >>> timing = {}
+    >>> with time_step('compile', timing, logger):
+    ...     # do something
+    ...     pass
+    >>> print(timing['compile'])  # prints elapsed time in seconds
+    """
+    start_time = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - start_time
+        timing_dict[step_name] = elapsed
+        if logger:
+            logger.info(f"Step '{step_name}' took {elapsed:.3f} seconds")

@@ -10,7 +10,7 @@ from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
 from script.summary import generate_summaries
 from script.test_explorer import TestExplorer
-from script.utilities import STATUS
+from script.utilities import STATUS, time_step
 
 
 """
@@ -80,46 +80,59 @@ def main(rtvars: RuntimeVariables, test_cases: List[TestCase]) -> Dict[str, Resu
 
         # Run case
         runner = TestRunner(rtvars, tc, rtvars.gamer_path)
+        timing = {}  # Collect timing for all steps
+
         try:
             set_log_context(test_id=tc.test_id, phase='start')
             logger.info('Start running case')
 
             set_log_context(phase='compile')
             os.chdir(os.path.join(rtvars.gamer_path, 'src'))
-            if runner.compile_gamer() != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('compile_gamer', timing, logger):
+                if runner.compile_gamer() != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             set_log_context(phase='prepare')
-            if runner.copy_case() != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('copy_case', timing, logger):
+                if runner.copy_case() != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             set_log_context(phase='set_input')
             os.chdir(runner.case_dir)
-            if runner.set_input() != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('set_input', timing, logger):
+                if runner.set_input() != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             set_log_context(phase='pre_script')
-            if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('pre_script', timing, logger):
+                if runner.execute_scripts('pre_script') != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             set_log_context(phase='run')
-            if runner.run_gamer() != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('run_gamer', timing, logger):
+                if runner.run_gamer() != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             set_log_context(phase='post_script')
-            if runner.execute_scripts('post_script') != STATUS.SUCCESS:
-                results[tc.test_id] = Result(status=runner.status, reason=runner.reason)
-                continue
+            with time_step('post_script', timing, logger):
+                if runner.execute_scripts('post_script') != STATUS.SUCCESS:
+                    results[tc.test_id] = Result(status=runner.status, reason=runner.reason, timing=timing)
+                    continue
 
             # Compare
             set_log_context(phase='compare')
             status, reason = comparator.compare(tc)
-            results[tc.test_id] = Result(status=status, reason=reason)
+
+            # Merge comparator's detailed timing into main timing dict
+            for key, value in comparator.timing.items():
+                timing[f'compare_{key}'] = value
+
+            results[tc.test_id] = Result(status=status, reason=reason, timing=timing)
             logger.info('Case done')
         finally:
             clear_log_context()

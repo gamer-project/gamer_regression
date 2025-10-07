@@ -27,6 +27,7 @@ class TestRunner:
         self.reason = ""
         self.logger = logging.getLogger('runner')
         self.rtvar = rtvars
+        self.timing = {}  # Store timing for each step
         return
 
     def compile_gamer(self):

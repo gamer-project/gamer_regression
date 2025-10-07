@@ -12,6 +12,7 @@ class Result:
     """Result of a test case."""
     status: STATUS
     reason: str
+    timing: Dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

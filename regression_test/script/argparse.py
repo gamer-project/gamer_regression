@@ -53,7 +53,7 @@ def get_runtime_settings() -> RuntimeVariables:
     parser.add_argument("--reports",
                         nargs="+",
                         help="list of summary report generators to use",
-                        default=["WSXCYC"]
+                        default=["WSXCYC", "TIMING"]
                         )
 
     # MPI arguments

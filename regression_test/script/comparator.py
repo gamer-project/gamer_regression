@@ -5,13 +5,14 @@ import logging
 import numpy as np
 import os
 import re
+import time
 from os.path import isfile
 from typing import Dict, Tuple
 from .hdf5_file_config import hdf_info_read
 from .models import TestCase
 from .reference import MissingReferenceError, ReferenceError, get_provider
 from .runtime_vars import RuntimeVariables
-from .utilities import STATUS
+from .utilities import STATUS, time_step
 from .process_runner import run_process
 
 
@@ -108,50 +109,58 @@ class TestComparator:
         self.rtvars = rtvars
         self.gamer_abs_path = rtvars.gamer_path
         self.tool_builder = tool_builder
+        self.timing = {}  # Store timing for each comparison step
 
     def compare(self, case: TestCase) -> Tuple[int, str]:
         logger = logging.getLogger('compare')
         case_dir = case.run_dir(self.rtvars)
 
+        # Clear timing from previous run
+        self.timing.clear()
+
         # 1) Get references
         ref_missing = False
-        try:
-            ref_root = self._fetch_references(case)
-        except MissingReferenceError as exc:
-            if self.rtvars.update_ref:
-                logger.info(f"No reference found for {case.test_id}. Will create new reference.")
-                ref_missing = True
-                ref_root = None
-            else:
+        with time_step('fetch_references', self.timing, logger):
+            try:
+                ref_root = self._fetch_references(case)
+            except MissingReferenceError as exc:
+                if self.rtvars.update_ref:
+                    logger.info(f"No reference found for {case.test_id}. Will create new reference.")
+                    ref_missing = True
+                    ref_root = None
+                else:
+                    return exc.status, str(exc)
+            except ReferenceError as exc:
                 return exc.status, str(exc)
-        except ReferenceError as exc:
-            return exc.status, str(exc)
-        except Exception as exc:
-            return STATUS.FAIL, f"Unexpected reference error: {exc}"
+            except Exception as exc:
+                return STATUS.FAIL, f"Unexpected reference error: {exc}"
 
         # 2) Build/ensure compare tool
-        tool_status, tool_reason, tool_path = self._build_compare_tool(case)
+        with time_step('build_compare_tool', self.timing, logger):
+            tool_status, tool_reason, tool_path = self._build_compare_tool(case)
 
         # 3) Run comparisons (skip if reference is missing and update_ref is set)
-        if ref_missing:
-            # TODO: should report by another status to reduce confusion?
-            logger.info(f"Skipping comparison for {case.test_id} (no reference, update mode)")
-            status, reason = STATUS.SUCCESS, ""
-        else:
-            status, reason = self._run_comparisons(case, ref_root, tool_status, tool_reason, tool_path)
-            if status != STATUS.SUCCESS and not self.rtvars.update_ref:
-                return status, reason
+        with time_step('run_comparisons', self.timing, logger):
+            if ref_missing:
+                # TODO: should report by another status to reduce confusion?
+                logger.info(f"Skipping comparison for {case.test_id} (no reference, update mode)")
+                status, reason = STATUS.SUCCESS, ""
+            else:
+                status, reason = self._run_comparisons(case, ref_root, tool_status, tool_reason, tool_path)
+                if status != STATUS.SUCCESS and not self.rtvars.update_ref:
+                    return status, reason
 
         # 4) Push references if update_ref is enabled
         if self.rtvars.update_ref:
-            try:
-                from .reference import get_provider
-                provider = get_provider(self.rtvars)
-                provider.push(case, case_dir)
-                logger.info(f"Reference updated for {case.test_id}")
-            except Exception as exc:
-                logger.error(f"Failed to push reference: {exc}")
-                return STATUS.FAIL, f"Reference update failed: {exc}"
+            with time_step('push_references', self.timing, logger):
+                try:
+                    from .reference import get_provider
+                    provider = get_provider(self.rtvars)
+                    provider.push(case, case_dir)
+                    logger.info(f"Reference updated for {case.test_id}")
+                except Exception as exc:
+                    logger.error(f"Failed to push reference: {exc}")
+                    return STATUS.FAIL, f"Reference update failed: {exc}"
 
         return STATUS.SUCCESS, ""
 
