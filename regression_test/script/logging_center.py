@@ -1,3 +1,4 @@
+import atexit
 import contextvars
 import os
 import logging
@@ -61,11 +62,22 @@ class LoggingManager:
         cls._listener = logging.handlers.QueueListener(cls._queue, *list(handlers), respect_handler_level=True)
         cls._listener.daemon = True
         cls._listener.start()
+        # Register shutdown handler to ensure logs are flushed on exit (safety net)
+        atexit.register(cls.shutdown)
 
     @classmethod
     def shutdown(cls) -> None:
+        """Gracefully shutdown the logging system, ensuring all queued logs are written."""
         if cls._listener is not None:
+            # Stop the listener - this blocks until all queued records are processed
             cls._listener.stop()
+            # Close all handlers to flush buffers and release file descriptors
+            for handler in cls._listener.handlers:
+                try:
+                    handler.flush()
+                    handler.close()
+                except Exception:
+                    pass  # Ignore errors during shutdown
             cls._listener = None
         # Restore previous record factory
         if cls._prev_record_factory is not None:

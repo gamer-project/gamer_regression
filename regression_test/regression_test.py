@@ -4,7 +4,7 @@ import subprocess
 from typing import Dict, List
 from script.argparse import get_runtime_settings
 from script.comparator import TestComparator, CompareToolBuilder
-from script.logging_center import log_init, set_log_context, clear_log_context
+from script.logging_center import log_init, set_log_context, clear_log_context, LoggingManager
 from script.models import Result, TestCase
 from script.run_gamer import TestRunner
 from script.runtime_vars import RuntimeVariables
@@ -200,3 +200,6 @@ if __name__ == '__main__':
         raise
 
     generate_summaries(rtvars, result)
+
+    # Ensure all queued logs are written before program exit
+    LoggingManager.shutdown()
